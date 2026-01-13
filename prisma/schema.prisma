@@ -1,0 +1,582 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER MANAGEMENT
+// ============================================
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  name            String
+  password        String
+  avatar          String?
+  isAdministrator Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  projectMemberships     ProjectMember[]
+  createdProjects        Project[]         @relation("ProjectCreator")
+  assignedTasks          Task[]            @relation("AssignedTasks")
+  createdTasks           Task[]            @relation("CreatedTasks")
+  watchedTasks           Watcher[]
+  comments               Comment[]
+  notifications          Notification[]
+  auditLogs              AuditLog[]
+  attachments            Attachment[]
+  defaultCategoryAssigns IssueCategory[]   @relation("DefaultCategoryAssignee")
+  queries                Query[]           @relation("QueryOwner")
+  timeLogs               TimeLog[]
+
+  @@index([email])
+  @@index([isAdministrator])
+  @@map("users")
+}
+
+// ============================================
+// RBAC (Role-Based Access Control)
+// ============================================
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  
+  // Target Permission: Can receive tasks?
+  assignable  Boolean  @default(true) 
+
+  // Source Permission: Can assign to OTHERS?
+  // true = Everyone, false = Self only
+  canAssignToOther Boolean @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  permissions            RolePermission[]
+  projectMembers         ProjectMember[]
+  workflowTransitions    WorkflowTransition[]
+  trackers               RoleTracker[]
+
+  @@index([name])
+  @@map("roles")
+}
+
+// Role-Tracker: Which roles can use which trackers
+model RoleTracker {
+  id        String   @id @default(cuid())
+  roleId    String
+  trackerId String
+  createdAt DateTime @default(now())
+
+  // Relations
+  role    Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  tracker Tracker @relation(fields: [trackerId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, trackerId])
+  @@index([roleId])
+  @@index([trackerId])
+  @@map("role_trackers")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?  @db.Text
+  module      String
+  createdAt   DateTime @default(now())
+
+  // Relations
+  roles RolePermission[]
+
+  @@index([module])
+  @@index([key])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+// ============================================
+// TASK CONFIGURATION
+// ============================================
+
+model Tracker {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?  @db.Text
+  position    Int      @default(0)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tasks                    Task[]
+  workflowTransitions      WorkflowTransition[]
+  roles                    RoleTracker[]
+  projects                 ProjectTracker[]
+
+  @@index([position])
+  @@map("trackers")
+}
+
+// Project-Tracker: Which trackers are enabled per project
+model ProjectTracker {
+  id        String   @id @default(cuid())
+  projectId String
+  trackerId String
+  createdAt DateTime @default(now())
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tracker Tracker @relation(fields: [trackerId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, trackerId])
+  @@index([projectId])
+  @@index([trackerId])
+  @@map("project_trackers")
+}
+
+model Status {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  description      String?  @db.Text
+  position         Int      @default(0)
+  isClosed         Boolean  @default(false)
+  isDefault        Boolean  @default(false)
+  defaultDoneRatio Int?     // Auto-set done ratio when transitioning to this status
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  tasks                    Task[]
+  workflowsFrom            WorkflowTransition[] @relation("FromStatus")
+  workflowsTo              WorkflowTransition[] @relation("ToStatus")
+
+  @@index([position])
+  @@index([isClosed])
+  @@map("statuses")
+}
+
+model Priority {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  position  Int      @default(0)
+  color     String?
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tasks Task[]
+
+  @@index([position])
+  @@map("priorities")
+}
+
+model WorkflowTransition {
+  id           String   @id @default(cuid())
+  trackerId    String
+  roleId       String?
+  fromStatusId String
+  toStatusId   String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  tracker    Tracker @relation(fields: [trackerId], references: [id], onDelete: Cascade)
+  role       Role?   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  fromStatus Status  @relation("FromStatus", fields: [fromStatusId], references: [id], onDelete: Cascade)
+  toStatus   Status  @relation("ToStatus", fields: [toStatusId], references: [id], onDelete: Cascade)
+
+  @@unique([trackerId, roleId, fromStatusId, toStatusId])
+  @@index([trackerId])
+  @@index([roleId])
+  @@index([fromStatusId])
+  @@index([toStatusId])
+  @@map("workflow_transitions")
+}
+
+// ============================================
+// PROJECT MANAGEMENT
+// ============================================
+
+model Project {
+  id          String    @id @default(cuid())
+  name        String
+  description String?   @db.Text
+  identifier  String    @unique
+  startDate   DateTime?
+  endDate     DateTime?
+  isArchived  Boolean   @default(false)
+  isPublic    Boolean   @default(false)
+  creatorId   String
+  parentId    String?   // Project hierarchy
+
+  // Issue Tracking Settings
+  parentIssueDates          String   @default("calculated")
+  parentIssuePriority       String   @default("calculated")
+  parentIssueDoneRatio      String   @default("calculated")
+  parentIssueEstimatedHours String   @default("calculated")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  creator      User              @relation("ProjectCreator", fields: [creatorId], references: [id])
+  parent       Project?          @relation("ProjectHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children     Project[]         @relation("ProjectHierarchy")
+  members      ProjectMember[]
+  tasks        Task[]
+  versions     Version[]
+  trackers     ProjectTracker[]
+  categories   IssueCategory[]
+  queries      Query[]
+
+  @@index([identifier])
+  @@index([creatorId])
+  @@index([parentId])
+  @@index([isArchived])
+  @@index([isPublic])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  project              Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user                 User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role                 Role                         @relation(fields: [roleId], references: [id])
+  notificationSettings MemberNotificationSetting?
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("project_members")
+}
+
+// Member notification preferences per project
+model MemberNotificationSetting {
+  id              String   @id @default(cuid())
+  projectMemberId String   @unique
+  notifyOnNew     Boolean  @default(true)
+  notifyOnUpdate  Boolean  @default(true)
+  notifyOnClose   Boolean  @default(true)
+  notifyOnNote    Boolean  @default(true)
+  notifyOnAssign  Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  projectMember ProjectMember @relation(fields: [projectMemberId], references: [id], onDelete: Cascade)
+
+  @@map("member_notification_settings")
+}
+
+// ============================================
+// VERSION / MILESTONE
+// ============================================
+
+model Version {
+  id          String    @id @default(cuid())
+  name        String
+  description String?   @db.Text
+  status      String    @default("open") // open, locked, closed
+  dueDate     DateTime?
+  projectId   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@index([status])
+  @@map("versions")
+}
+
+// ============================================
+// TASK MANAGEMENT
+// ============================================
+
+model Task {
+  id             String    @id @default(cuid())
+  number         Int       @unique @default(autoincrement())
+  title          String
+  description    String?   @db.Text
+  trackerId      String
+  statusId       String
+  priorityId     String
+  projectId      String
+  assigneeId     String?
+  creatorId      String
+  parentId       String?
+  versionId      String?
+  categoryId     String?
+  path           String?
+  level          Int       @default(0)
+  estimatedHours Float?
+  doneRatio      Int       @default(0) // 0-100%
+  startDate      DateTime?
+  dueDate        DateTime?
+  isPrivate      Boolean   @default(false)
+  lockVersion    Int       @default(0) // Optimistic locking
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relations
+  tracker       Tracker        @relation(fields: [trackerId], references: [id])
+  status        Status         @relation(fields: [statusId], references: [id])
+  priority      Priority       @relation(fields: [priorityId], references: [id])
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee      User?          @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  creator       User           @relation("CreatedTasks", fields: [creatorId], references: [id])
+  parent        Task?          @relation("Subtasks", fields: [parentId], references: [id], onDelete: Restrict)
+  version       Version?       @relation(fields: [versionId], references: [id], onDelete: SetNull)
+  category      IssueCategory? @relation("TaskCategory", fields: [categoryId], references: [id], onDelete: SetNull)
+  subtasks      Task[]         @relation("Subtasks")
+  watchers      Watcher[]
+  comments      Comment[]
+  attachments   Attachment[]
+  relationsFrom IssueRelation[] @relation("RelationFrom")
+  relationsTo   IssueRelation[] @relation("RelationTo")
+  timeLogs      TimeLog[]
+
+  @@index([projectId])
+  @@index([assigneeId])
+  @@index([creatorId])
+  @@index([statusId])
+  @@index([priorityId])
+  @@index([trackerId])
+  @@index([parentId])
+  @@index([versionId])
+  @@index([categoryId])
+  @@index([dueDate])
+  @@index([isPrivate])
+  @@map("tasks")
+}
+
+// ============================================
+// ISSUE RELATIONS
+// ============================================
+
+model IssueRelation {
+  id           String   @id @default(cuid())
+  issueFromId  String
+  issueToId    String
+  relationType String   // relates, duplicates, duplicated, blocks, blocked, precedes, follows, copied_to, copied_from
+  delay        Int?     // For precedes/follows: delay in days
+  createdAt    DateTime @default(now())
+
+  // Relations
+  issueFrom Task @relation("RelationFrom", fields: [issueFromId], references: [id], onDelete: Cascade)
+  issueTo   Task @relation("RelationTo", fields: [issueToId], references: [id], onDelete: Cascade)
+
+  @@unique([issueFromId, issueToId, relationType])
+  @@index([issueFromId])
+  @@index([issueToId])
+  @@index([relationType])
+  @@map("issue_relations")
+}
+
+model Watcher {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  // Relations
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([taskId])
+  @@index([userId])
+  @@map("watchers")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  taskId    String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
+  @@map("comments")
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  filename  String
+  path      String
+  size      Int
+  mimeType  String
+  taskId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  // Relations
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
+  @@map("attachments")
+}
+
+// ============================================
+// TIME TRACKING
+// ============================================
+
+model TimeLog {
+  id          String   @id @default(cuid())
+  hours       Float
+  description String?  @db.Text
+  date        DateTime
+  activity    String?
+  taskId      String
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([date])
+  @@map("time_logs")
+}
+
+// ============================================
+// NOTIFICATIONS & AUDIT
+// ============================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  userId    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  entityType String
+  entityId   String
+  changes    Json?
+  userId     String
+  createdAt  DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================
+// ISSUE CATEGORIES
+// ============================================
+
+model IssueCategory {
+  id           String   @id @default(cuid())
+  name         String
+  projectId    String
+  assignedToId String?  // Default assignee for this category
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignedTo User?   @relation("DefaultCategoryAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  tasks      Task[]  @relation("TaskCategory")
+
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@index([assignedToId])
+  @@map("issue_categories")
+}
+
+// ============================================
+// SAVED QUERIES
+// ============================================
+
+model Query {
+  id         String   @id @default(cuid())
+  name       String
+  projectId  String?  // null = global query
+  userId     String
+  isPublic   Boolean  @default(false)
+  filters    String   @db.Text  // JSON: Array of filter conditions
+  columns    String?  @db.Text  // JSON: Array of column names to display
+  sortBy     String?
+  sortOrder  String?  @default("asc") // asc, desc
+  groupBy    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User     @relation("QueryOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([isPublic])
+  @@map("queries")
+}
