@@ -113,7 +113,14 @@ export function TaskList({
         creatorId: '',
         showClosed: false,
         myTasks: false,
+        startDateFrom: '',
+        startDateTo: '',
+        dueDateFrom: '',
+        dueDateTo: '',
     });
+
+    // Aggregations
+    const [aggregations, setAggregations] = useState({ totalHours: 0 });
 
     // Fetch tasks with filters - wrapped with useCallback for proper dependency tracking
     const fetchTasks = useCallback(async (filterOverrides?: typeof filters) => {
@@ -132,6 +139,10 @@ export function TaskList({
             if (activeFilters.creatorId) params.set('creatorId', activeFilters.creatorId);
             if (!activeFilters.showClosed) params.set('isClosed', 'false');
             if (activeFilters.myTasks) params.set('my', 'true');
+            if (activeFilters.startDateFrom) params.set('startDateFrom', activeFilters.startDateFrom);
+            if (activeFilters.startDateTo) params.set('startDateTo', activeFilters.startDateTo);
+            if (activeFilters.dueDateFrom) params.set('dueDateFrom', activeFilters.dueDateFrom);
+            if (activeFilters.dueDateTo) params.set('dueDateTo', activeFilters.dueDateTo);
 
             // Jira-style: Board only shows root tasks
             if (viewMode === 'kanban') {
@@ -141,6 +152,9 @@ export function TaskList({
             const res = await fetch(`/api/tasks?${params.toString()}`);
             const data = await res.json();
             setTasks(data.data.tasks);
+            if (data.data.aggregations) {
+                setAggregations(data.data.aggregations);
+            }
         } finally {
             setLoading(false);
         }
@@ -163,6 +177,10 @@ export function TaskList({
                 creatorId: parsedFilters.creatorId || '',
                 showClosed: parsedFilters.showClosed || false,
                 myTasks: parsedFilters.myTasks || false,
+                startDateFrom: parsedFilters.startDateFrom || '',
+                startDateTo: parsedFilters.startDateTo || '',
+                dueDateFrom: parsedFilters.dueDateFrom || '',
+                dueDateTo: parsedFilters.dueDateTo || '',
             };
             setFilters(newFilters);
             fetchTasks(newFilters);
@@ -211,6 +229,10 @@ export function TaskList({
             creatorId: '',
             showClosed: false,
             myTasks: false,
+            startDateFrom: '',
+            startDateTo: '',
+            dueDateFrom: '',
+            dueDateTo: '',
         });
         setSearch('');
     };
@@ -227,6 +249,10 @@ export function TaskList({
         filters.creatorId ||
         filters.showClosed ||
         filters.myTasks ||
+        filters.startDateFrom ||
+        filters.startDateTo ||
+        filters.dueDateFrom ||
+        filters.dueDateTo ||
         search;
 
     return (
@@ -452,6 +478,47 @@ export function TaskList({
                                 ))}
                             </select>
                         </div>
+
+                        <div className="col-span-2 grid grid-cols-2 gap-4 bg-gray-50/50 p-2 rounded-lg border border-gray-100">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Ngày bắt đầu</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="date"
+                                        value={filters.startDateFrom}
+                                        onChange={(e) => setFilters({ ...filters, startDateFrom: e.target.value })}
+                                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                        placeholder="Từ"
+                                    />
+                                    <input
+                                        type="date"
+                                        value={filters.startDateTo}
+                                        onChange={(e) => setFilters({ ...filters, startDateTo: e.target.value })}
+                                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                        placeholder="Đến"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Ngày hết hạn</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="date"
+                                        value={filters.dueDateFrom}
+                                        onChange={(e) => setFilters({ ...filters, dueDateFrom: e.target.value })}
+                                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                        placeholder="Từ"
+                                    />
+                                    <input
+                                        type="date"
+                                        value={filters.dueDateTo}
+                                        onChange={(e) => setFilters({ ...filters, dueDateTo: e.target.value })}
+                                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                                        placeholder="Đến"
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex justify-end gap-2">
@@ -471,149 +538,157 @@ export function TaskList({
                 </div>
             )}
 
+            {/* Aggregation Info */}
+            <div className="flex items-center gap-2 mb-4 text-sm text-gray-600">
+                <span className="font-medium">Tổng thời gian:</span>
+                <span className="font-bold text-gray-900">{aggregations.totalHours ? aggregations.totalHours.toFixed(1) : '0'}h</span>
+            </div>
+
             {/* Task Content: List or Kanban */}
-            {viewMode === 'list' ? (
-                <div className="bg-white rounded-lg overflow-visible border border-gray-300 shadow-sm">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-gray-100 border-b border-gray-300">
-                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-14">#</th>
-                                {!propProjectId && (
-                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Dự án</th>
-                                )}
-                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Loại</th>
-                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-28">Trạng thái</th>
-                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tiêu đề</th>
-                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-24">Ưu tiên</th>
-                                <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider w-24">Thời gian</th>
-                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-48">Lịch trình</th>
-                                <th className="px-4 py-3 w-10"></th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
-                                        Đang tải...
-                                    </td>
+            {
+                viewMode === 'list' ? (
+                    <div className="bg-white rounded-lg overflow-visible border border-gray-300 shadow-sm">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="bg-gray-100 border-b border-gray-300">
+                                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-14">#</th>
+                                    {!propProjectId && (
+                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Dự án</th>
+                                    )}
+                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Loại</th>
+                                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-28">Trạng thái</th>
+                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tiêu đề</th>
+                                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-24">Ưu tiên</th>
+                                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider w-24">Thời gian</th>
+                                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-48">Lịch trình</th>
+                                    <th className="px-4 py-3 w-10"></th>
                                 </tr>
-                            ) : tasks.length > 0 ? (
-                                tasks.map((task, index) => (
-                                    <tr key={task.id} className={`hover:bg-blue-50/50 transition-colors group ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                                        <td className="px-4 py-3 font-semibold text-gray-500 text-center text-xs">
-                                            <Link href={`/tasks/${task.id}`} className="hover:text-blue-600">#{task.number}</Link>
-                                        </td>
-                                        {!propProjectId && (
-                                            <td className="px-4 py-3">
-                                                <Link
-                                                    href={`/projects/${task.project.id}`}
-                                                    className="text-sm font-medium text-gray-700 hover:text-blue-600 truncate block max-w-[150px]"
-                                                    title={task.project.name}
-                                                >
-                                                    {task.project.name}
-                                                </Link>
-                                            </td>
-                                        )}
-                                        <td className="px-4 py-3">
-                                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                                                {task.tracker.name}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <span
-                                                className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-bold ${task.status.isClosed
-                                                    ? 'bg-green-100 text-green-700 border border-green-200'
-                                                    : 'bg-blue-100 text-blue-700 border border-blue-200'}`}
-                                            >
-                                                {task.status.name}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex flex-col gap-1">
-                                                <Link
-                                                    href={`/tasks/${task.id}`}
-                                                    className={`text-sm font-semibold hover:text-blue-600 line-clamp-1 ${task.status.isClosed ? 'text-gray-500 line-through' : 'text-gray-900'}`}
-                                                >
-                                                    {task.title}
-                                                </Link>
-                                                <div className="flex items-center gap-3">
-                                                    {task.assignee && (
-                                                        <div className="flex items-center gap-1.5" title={`Được giao cho: ${task.assignee.name}`}>
-                                                            <div className="w-5 h-5 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center text-[9px] font-bold text-gray-500 ring-1 ring-white">
-                                                                {task.assignee.avatar ? <Image src={task.assignee.avatar} alt={task.assignee.name} width={20} height={20} className="w-full h-full object-cover" /> : task.assignee.name.charAt(0)}
-                                                            </div>
-                                                            <span className="text-xs text-gray-600">{task.assignee.name}</span>
-                                                        </div>
-                                                    )}
-                                                    {task._count.comments > 0 && (
-                                                        <div className="flex items-center gap-1 text-xs text-gray-400">
-                                                            <MessageSquare className="w-3.5 h-3.5" />
-                                                            {task._count.comments}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <span
-                                                className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold text-white shadow-sm"
-                                                style={{ backgroundColor: task.priority.color || '#6b7280' }}
-                                            >
-                                                {task.priority.name}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <span className={`text-sm font-bold ${task.estimatedHours ? 'text-gray-800' : 'text-gray-300'}`}>
-                                                {task.estimatedHours ? `${task.estimatedHours}h` : '-'}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <div className="inline-flex items-center gap-1.5 text-xs text-gray-600 font-medium bg-gray-50 px-2 py-1 rounded border border-gray-100">
-                                                <span>{task.startDate ? new Date(task.startDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '--'}</span>
-                                                <span className="text-gray-300">→</span>
-                                                <span className={task.dueDate && new Date(task.dueDate) < new Date() && !task.status.isClosed ? 'text-red-600 font-bold' : ''}>
-                                                    {task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '--'}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <TaskContextMenu
-                                                taskId={task.id}
-                                                projectId={task.project.id}
-                                                currentStatusId={task.status.id}
-                                                currentTrackerId={task.tracker.id}
-                                                currentPriorityId={task.priority.id}
-                                                currentAssigneeId={task.assignee?.id || null}
-                                                currentDoneRatio={0}
-                                                statuses={statuses}
-                                                trackers={trackers}
-                                                priorities={priorities}
-                                                onRefresh={() => fetchTasks()}
-                                            />
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                                            Đang tải...
                                         </td>
                                     </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan={9} className="px-4 py-12 text-center">
-                                        <ListTodo className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                        <p className="text-gray-500 font-medium">Chưa có công việc nào</p>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            ) : (
-                <KanbanBoard
-                    tasks={tasks}
-                    statuses={statuses.map(s => ({ ...s, isClosed: s.isClosed ?? false }))}
-                    trackers={trackers}
-                    priorities={priorities.map(p => ({ ...p, color: p.color ?? null }))}
-                    onRefresh={() => fetchTasks()}
-                    onStatusChange={handleStatusChange}
-                />
-            )}
+                                ) : tasks.length > 0 ? (
+                                    tasks.map((task, index) => (
+                                        <tr key={task.id} className={`hover:bg-blue-50/50 transition-colors group ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
+                                            <td className="px-4 py-3 font-semibold text-gray-500 text-center text-xs">
+                                                <Link href={`/tasks/${task.id}`} className="hover:text-blue-600">#{task.number}</Link>
+                                            </td>
+                                            {!propProjectId && (
+                                                <td className="px-4 py-3">
+                                                    <Link
+                                                        href={`/projects/${task.project.id}`}
+                                                        className="text-sm font-medium text-gray-700 hover:text-blue-600 truncate block max-w-[150px]"
+                                                        title={task.project.name}
+                                                    >
+                                                        {task.project.name}
+                                                    </Link>
+                                                </td>
+                                            )}
+                                            <td className="px-4 py-3">
+                                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                                                    {task.tracker.name}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <span
+                                                    className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-bold ${task.status.isClosed
+                                                        ? 'bg-green-100 text-green-700 border border-green-200'
+                                                        : 'bg-blue-100 text-blue-700 border border-blue-200'}`}
+                                                >
+                                                    {task.status.name}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex flex-col gap-1">
+                                                    <Link
+                                                        href={`/tasks/${task.id}`}
+                                                        className={`text-sm font-semibold hover:text-blue-600 line-clamp-1 ${task.status.isClosed ? 'text-gray-500 line-through' : 'text-gray-900'}`}
+                                                    >
+                                                        {task.title}
+                                                    </Link>
+                                                    <div className="flex items-center gap-3">
+                                                        {task.assignee && (
+                                                            <div className="flex items-center gap-1.5" title={`Được giao cho: ${task.assignee.name}`}>
+                                                                <div className="w-5 h-5 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center text-[9px] font-bold text-gray-500 ring-1 ring-white">
+                                                                    {task.assignee.avatar ? <Image src={task.assignee.avatar} alt={task.assignee.name} width={20} height={20} className="w-full h-full object-cover" /> : task.assignee.name.charAt(0)}
+                                                                </div>
+                                                                <span className="text-xs text-gray-600">{task.assignee.name}</span>
+                                                            </div>
+                                                        )}
+                                                        {task._count.comments > 0 && (
+                                                            <div className="flex items-center gap-1 text-xs text-gray-400">
+                                                                <MessageSquare className="w-3.5 h-3.5" />
+                                                                {task._count.comments}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <span
+                                                    className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold text-white shadow-sm"
+                                                    style={{ backgroundColor: task.priority.color || '#6b7280' }}
+                                                >
+                                                    {task.priority.name}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <span className={`text-sm font-bold ${task.estimatedHours ? 'text-gray-800' : 'text-gray-300'}`}>
+                                                    {task.estimatedHours ? `${task.estimatedHours}h` : '-'}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <div className="inline-flex items-center gap-1.5 text-xs text-gray-600 font-medium bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                                    <span>{task.startDate ? new Date(task.startDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '--'}</span>
+                                                    <span className="text-gray-300">→</span>
+                                                    <span className={task.dueDate && new Date(task.dueDate) < new Date() && !task.status.isClosed ? 'text-red-600 font-bold' : ''}>
+                                                        {task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '--'}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <TaskContextMenu
+                                                    taskId={task.id}
+                                                    projectId={task.project.id}
+                                                    currentStatusId={task.status.id}
+                                                    currentTrackerId={task.tracker.id}
+                                                    currentPriorityId={task.priority.id}
+                                                    currentAssigneeId={task.assignee?.id || null}
+                                                    currentDoneRatio={0}
+                                                    statuses={statuses}
+                                                    trackers={trackers}
+                                                    priorities={priorities}
+                                                    onRefresh={() => fetchTasks()}
+                                                />
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={9} className="px-4 py-12 text-center">
+                                            <ListTodo className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                                            <p className="text-gray-500 font-medium">Chưa có công việc nào</p>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <KanbanBoard
+                        tasks={tasks}
+                        statuses={statuses.map(s => ({ ...s, isClosed: s.isClosed ?? false }))}
+                        trackers={trackers}
+                        priorities={priorities.map(p => ({ ...p, color: p.color ?? null }))}
+                        onRefresh={() => fetchTasks()}
+                        onStatusChange={handleStatusChange}
+                    />
+                )
+            }
 
 
             <CreateTaskModal

@@ -110,8 +110,25 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        // 4. Execute Query
-        const [tasks, total] = await Promise.all([
+        // Date Range Filters
+        const startDateFrom = searchParams.get('startDateFrom');
+        const startDateTo = searchParams.get('startDateTo');
+        if (startDateFrom || startDateTo) {
+            where.startDate = {};
+            if (startDateFrom) where.startDate.gte = new Date(startDateFrom);
+            if (startDateTo) where.startDate.lte = new Date(startDateTo);
+        }
+
+        const dueDateFrom = searchParams.get('dueDateFrom');
+        const dueDateTo = searchParams.get('dueDateTo');
+        if (dueDateFrom || dueDateTo) {
+            where.dueDate = {};
+            if (dueDateFrom) where.dueDate.gte = new Date(dueDateFrom);
+            if (dueDateTo) where.dueDate.lte = new Date(dueDateTo);
+        }
+
+        // 4. Execute Query & Aggregations
+        const [tasks, total, taskAgg] = await Promise.all([
             prisma.task.findMany({
                 where,
                 orderBy: { [sortBy]: sortOrder },
@@ -142,6 +159,10 @@ export async function GET(req: NextRequest) {
                 },
             }),
             prisma.task.count({ where }),
+            prisma.task.aggregate({
+                _sum: { estimatedHours: true },
+                where
+            })
         ]);
 
         return successResponse({
@@ -152,6 +173,9 @@ export async function GET(req: NextRequest) {
                 total,
                 totalPages: Math.ceil(total / pageSize),
             },
+            aggregations: {
+                totalHours: taskAgg._sum.estimatedHours || 0
+            }
         });
 
     } catch (error) {

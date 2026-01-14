@@ -121,20 +121,13 @@ export async function POST(req: NextRequest, { params }: Params) {
         }
 
         const body = await req.json();
-        const { userId, roleId } = body;
+        const { userId, userIds, roleId } = body;
 
-        if (!userId || !roleId) {
-            return errorResponse('userId và roleId là bắt buộc', 400);
+        if ((!userId && (!userIds || userIds.length === 0)) || !roleId) {
+            return errorResponse('Cần chọn người dùng và vai trò', 400);
         }
 
-        // Check if user already a member
-        const existingMember = await prisma.projectMember.findFirst({
-            where: { projectId: id, userId },
-        });
-
-        if (existingMember) {
-            return errorResponse('Người dùng đã là thành viên của dự án', 400);
-        }
+        const idsToAdd: string[] = userIds || [userId];
 
         // Check if role exists
         const role = await prisma.role.findUnique({ where: { id: roleId } });
@@ -142,24 +135,35 @@ export async function POST(req: NextRequest, { params }: Params) {
             return errorResponse('Vai trò không tồn tại', 400);
         }
 
-        // Add member
-        const member = await prisma.projectMember.create({
-            data: {
+        // Find existing members to exclude
+        const existingMembers = await prisma.projectMember.findMany({
+            where: {
                 projectId: id,
-                userId,
-                roleId,
+                userId: { in: idsToAdd }
             },
-            include: {
-                user: {
-                    select: { id: true, name: true, email: true, avatar: true },
-                },
-                role: {
-                    select: { id: true, name: true },
-                },
-            },
+            select: { userId: true }
         });
 
-        return successResponse(member, 201);
+        const existingUserIds = existingMembers.map(m => m.userId);
+        const finalIdsToAdd = idsToAdd.filter(uid => !existingUserIds.includes(uid));
+
+        if (finalIdsToAdd.length === 0) {
+            return errorResponse('Tất cả người dùng được chọn đã là thành viên', 400);
+        }
+
+        // Add members
+        // createMany does not support 'include' so we might create them and then return success or just count
+        const result = await prisma.projectMember.createMany({
+            data: finalIdsToAdd.map(uid => ({
+                projectId: id,
+                userId: uid,
+                roleId: roleId
+            }))
+        });
+
+        return successResponse({ count: result.count, message: `Đã thêm ${result.count} thành viên` }, 201);
+
+
     } catch (error) {
         return handleApiError(error);
     }

@@ -158,8 +158,8 @@ export function TimeLogsContent({
                 </div>
 
                 {!hideProjectFilter && (
-                    <div className="flex items-center gap-2">
-                        <label htmlFor="project-filter" className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                    <div className="flex items-center gap-3 bg-blue-50/50 p-2 rounded-lg border border-blue-100">
+                        <label htmlFor="project-filter" className="text-sm font-bold text-blue-800 whitespace-nowrap pl-1">
                             Dự án:
                         </label>
                         <select
@@ -169,7 +169,7 @@ export function TimeLogsContent({
                                 setSelectedProjectId(e.target.value);
                                 setPage(1);
                             }}
-                            className="block w-full md:w-64 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-lg"
+                            className="block w-full md:w-64 pl-3 pr-10 py-1.5 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 rounded-md shadow-sm bg-white"
                         >
                             <option value="">Tất cả dự án</option>
                             {projects.map((p) => (
@@ -225,7 +225,7 @@ export function TimeLogsContent({
                                             <th className="px-6 py-4">Thành viên</th>
                                             <th className="px-6 py-4">Số công việc</th>
                                             <th className="px-6 py-4">Tỷ lệ</th>
-                                            <th className="px-6 py-4 text-right">Giờ dự kiến</th>
+                                            <th className="px-6 py-4 text-right">Giờ làm</th>
                                             <th className="px-6 py-4 w-20"></th>
                                         </tr>
                                     </thead>
@@ -288,7 +288,7 @@ export function TimeLogsContent({
                                                 <th className="px-6 py-4">Tracker</th>
                                                 <th className="px-6 py-4">Trạng thái</th>
                                                 <th className="px-6 py-4">% Xong</th>
-                                                <th className="px-6 py-4 text-right">Giờ dự kiến</th>
+                                                <th className="px-6 py-4 text-right">Giờ làm</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">

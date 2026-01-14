@@ -52,7 +52,7 @@ export function ProjectMembers({
 }: ProjectMembersProps) {
     const router = useRouter();
     const [showAddModal, setShowAddModal] = useState(false);
-    const [selectedUserId, setSelectedUserId] = useState('');
+    const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
     const [selectedRoleId, setSelectedRoleId] = useState(roles[0]?.id || '');
     const [searchUser, setSearchUser] = useState('');
     const [loading, setLoading] = useState(false);
@@ -67,7 +67,7 @@ export function ProjectMembers({
 
     // Add member
     const handleAddMember = async () => {
-        if (!selectedUserId || !selectedRoleId) return;
+        if (selectedUserIds.length === 0 || !selectedRoleId) return;
         setLoading(true);
         setError('');
 
@@ -76,15 +76,16 @@ export function ProjectMembers({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    userId: selectedUserId,
+                    userIds: selectedUserIds,
                     roleId: selectedRoleId,
                 }),
             });
 
             if (res.ok) {
                 setShowAddModal(false);
-                setSelectedUserId('');
+                setSelectedUserIds([]);
                 setSearchUser('');
+                toast.success('Đã thêm thành viên thành công');
                 router.refresh();
             } else {
                 const data = await res.json();
@@ -137,6 +138,14 @@ export function ProjectMembers({
             }
         } catch {
             toast.error('Lỗi kết nối máy chủ');
+        }
+    };
+
+    const toggleUser = (userId: string) => {
+        if (selectedUserIds.includes(userId)) {
+            setSelectedUserIds(selectedUserIds.filter(id => id !== userId));
+        } else {
+            setSelectedUserIds([...selectedUserIds, userId]);
         }
     };
 
@@ -243,7 +252,12 @@ export function ProjectMembers({
             {showAddModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg w-full max-w-md p-6">
-                        <h2 className="text-xl font-semibold text-gray-900 mb-4">Thêm thành viên</h2>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-semibold text-gray-900">Thêm thành viên</h2>
+                            <span className="text-sm text-gray-500">
+                                Đã chọn: {selectedUserIds.length}
+                            </span>
+                        </div>
 
                         {error && (
                             <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
@@ -252,6 +266,23 @@ export function ProjectMembers({
                         )}
 
                         <div className="space-y-4">
+                            {/* Select Role */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Vai trò</label>
+                                <select
+                                    value={selectedRoleId}
+                                    onChange={(e) => setSelectedRoleId(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                >
+                                    {roles.map((role) => (
+                                        <option key={role.id} value={role.id}>
+                                            {role.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-[11px] text-gray-500 mt-1">Vai trò này sẽ được áp dụng cho tất cả thành viên được chọn.</p>
+                            </div>
+
                             {/* Search User */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -271,19 +302,21 @@ export function ProjectMembers({
                                 <div className="border border-gray-200 rounded-md max-h-48 overflow-y-auto">
                                     {filteredUsers.length > 0 ? (
                                         filteredUsers.map((user) => (
-                                            <label
+                                            <div
                                                 key={user.id}
-                                                className={`flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-gray-50 ${selectedUserId === user.id ? 'bg-blue-50' : ''
+                                                className={`flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-gray-50 ${selectedUserIds.includes(user.id) ? 'bg-blue-50' : ''
                                                     }`}
+                                                onClick={() => toggleUser(user.id)}
                                             >
-                                                <input
-                                                    type="radio"
-                                                    name="userId"
-                                                    value={user.id}
-                                                    checked={selectedUserId === user.id}
-                                                    onChange={() => setSelectedUserId(user.id)}
-                                                    className="w-4 h-4"
-                                                />
+                                                <div
+                                                    className={`w-4 h-4 border rounded flex items-center justify-center ${selectedUserIds.includes(user.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}
+                                                >
+                                                    {selectedUserIds.includes(user.id) && (
+                                                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    )}
+                                                </div>
                                                 <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
                                                     {user.avatar ? (
                                                         <Image
@@ -303,7 +336,7 @@ export function ProjectMembers({
                                                     <p className="text-sm font-medium text-gray-900">{user.name}</p>
                                                     <p className="text-xs text-gray-500">{user.email}</p>
                                                 </div>
-                                            </label>
+                                            </div>
                                         ))
                                     ) : (
                                         <p className="px-4 py-3 text-sm text-gray-500 text-center">
@@ -315,28 +348,14 @@ export function ProjectMembers({
                                 </div>
                             </div>
 
-                            {/* Select Role */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Vai trò</label>
-                                <select
-                                    value={selectedRoleId}
-                                    onChange={(e) => setSelectedRoleId(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                                >
-                                    {roles.map((role) => (
-                                        <option key={role.id} value={role.id}>
-                                            {role.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+
                         </div>
 
                         <div className="flex justify-end gap-3 mt-6">
                             <button
                                 onClick={() => {
                                     setShowAddModal(false);
-                                    setSelectedUserId('');
+                                    setSelectedUserIds([]);
                                     setSearchUser('');
                                     setError('');
                                 }}
@@ -346,10 +365,10 @@ export function ProjectMembers({
                             </button>
                             <button
                                 onClick={handleAddMember}
-                                disabled={loading || !selectedUserId}
+                                disabled={loading || selectedUserIds.length === 0}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
                             >
-                                {loading ? 'Đang thêm...' : 'Thêm thành viên'}
+                                {loading ? 'Đang thêm...' : `Thêm ${selectedUserIds.length > 0 ? selectedUserIds.length : ''} thành viên`}
                             </button>
                         </div>
                     </div>
