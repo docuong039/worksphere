@@ -113,9 +113,9 @@ export function TaskCard({ task, statuses, trackers, priorities, onRefresh }: Ta
             ref={setNodeRef}
             style={style}
             {...(isMounted ? attributes : {})}
-            className={`group bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-50 ring-2 ring-blue-500 shadow-xl scale-[1.02]' : ''}`}
+            className={`group bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-50 ring-2 ring-blue-500 shadow-xl' : ''}`}
         >
-            <div className="p-4 space-y-4">
+            <div className="p-3 space-y-3">
                 {/* Header: Tracker & Project */}
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex flex-col gap-1.5 flex-1 min-w-0" {...(isMounted ? listeners : {})}>
@@ -154,7 +154,7 @@ export function TaskCard({ task, statuses, trackers, priorities, onRefresh }: Ta
                 <div {...(isMounted ? listeners : {})}>
                     <Link
                         href={`/tasks/${task.id}`}
-                        className={`text-[14px] font-bold leading-snug hover:text-blue-600 transition-colors block ${task.status.isClosed ? 'text-gray-400 line-through' : 'text-gray-900'}`}
+                        className={`text-sm font-semibold leading-snug hover:text-blue-600 block ${task.status.isClosed ? 'text-gray-500 line-through' : 'text-gray-800'}`}
                     >
                         <span className="text-gray-300 font-mono text-[11px] mr-2 italic">#{task.number}</span>
                         {task.title}

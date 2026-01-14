@@ -135,7 +135,7 @@ function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses
     return (
         <div
             ref={setNodeRef}
-            className={`flex flex-col w-[300px] min-w-[300px] h-full rounded-2xl border transition-all duration-200 ${columnStyle.bg} ${isOver ? 'border-blue-400 ring-2 ring-blue-200' : columnStyle.border}`}
+            className={`flex flex-col w-[300px] min-w-[300px] h-full rounded-2xl border ${columnStyle.bg} ${isOver ? 'border-blue-400 ring-2 ring-blue-200' : columnStyle.border}`}
         >
             {/* Column Header */}
             <div className={`px-4 py-3 rounded-t-2xl ${columnStyle.headerBg}`}>
@@ -148,7 +148,7 @@ function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses
             </div>
 
             {/* Column Content */}
-            <div className="flex-1 px-2 py-3 space-y-3 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+            <div className="flex-1 px-2 py-3 space-y-3 overflow-y-auto scrollbar-none">
                 {tasks.map(task => (
                     <TaskCard
                         key={task.id}
@@ -159,11 +159,6 @@ function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses
                         onRefresh={onRefresh}
                     />
                 ))}
-                {tasks.length === 0 && (
-                    <div className="h-28 rounded-xl border-2 border-dashed border-gray-200/50 bg-white/30 flex items-center justify-center">
-                        <span className="text-gray-400 text-xs font-medium">Kéo thả vào đây</span>
-                    </div>
-                )}
             </div>
         </div>
     );
@@ -250,15 +245,7 @@ export function KanbanBoard({ tasks, statuses, trackers, priorities, onRefresh, 
                 ))}
             </div>
 
-            <DragOverlay dropAnimation={{
-                sideEffects: defaultDropAnimationSideEffects({
-                    styles: {
-                        active: {
-                            opacity: '0.4',
-                        },
-                    },
-                }),
-            }}>
+            <DragOverlay>
                 {activeTask ? (
                     <TaskCard
                         task={activeTask}

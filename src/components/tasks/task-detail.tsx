@@ -89,7 +89,7 @@ interface Task {
     assignee: { id: string; name: string; avatar: string | null } | null;
     creator: { id: string; name: string; avatar: string | null };
     parent: { id: string; number: number; title: string } | null;
-    category: { id: string; name: string } | null;
+
     version: { id: string; name: string; status: string } | null;
     subtasks: Child[];
     comments: Comment[];
@@ -152,7 +152,7 @@ export function TaskDetail({
         priorityId: task.priority.id,
         assigneeId: task.assignee?.id || '',
         versionId: task.version?.id || '',
-        categoryId: task.category?.id || '',
+
         estimatedHours: task.estimatedHours?.toString() || '',
         doneRatio: task.doneRatio || 0,
         startDate: task.startDate
@@ -198,7 +198,7 @@ export function TaskDetail({
                     priorityId: editData.priorityId,
                     assigneeId: editData.assigneeId || null,
                     versionId: editData.versionId || null,
-                    categoryId: editData.categoryId || null,
+
                     estimatedHours: editData.estimatedHours ? parseFloat(editData.estimatedHours) : null,
                     doneRatio: editData.doneRatio,
                     startDate: editData.startDate || null,
@@ -449,11 +449,7 @@ export function TaskDetail({
                                 <span className="text-sm text-gray-700 font-medium">{formatDate(task.startDate)}</span>
                             </PropertyRow>
 
-                            {task.category && (
-                                <PropertyRow label="Phân loại">
-                                    <span className="text-sm text-gray-900 font-medium">{task.category.name}</span>
-                                </PropertyRow>
-                            )}
+
 
                             <PropertyRow label="Hạn chót">
                                 <span className="text-sm text-gray-700 font-medium">{formatDate(task.dueDate)}</span>

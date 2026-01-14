@@ -58,14 +58,7 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
 
     const enabledTrackerIds = project.trackers.map(t => t.trackerId);
 
-    const categories = await prisma.issueCategory.findMany({
-        where: { projectId: id },
-        include: {
-            assignedTo: { select: { id: true, name: true, avatar: true } },
-            _count: { select: { tasks: true } },
-        },
-        orderBy: { name: 'asc' },
-    });
+
 
     const members = await prisma.projectMember.findMany({
         where: { projectId: id },
@@ -83,7 +76,8 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
             projectId={id}
             allTrackers={allTrackers}
             enabledTrackerIds={enabledTrackerIds}
-            categories={categories}
+            project={p}
+
             members={members.map(m => ({
                 userId: m.userId,
                 user: m.user

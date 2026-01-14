@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import {
     Plus,
     FolderKanban,
-    ListTodo,
     MoreVertical,
     Archive,
     Trash2,
@@ -39,6 +38,7 @@ interface Project {
             avatar: string | null;
         };
     }>;
+    tasks: { id: string }[];
     _count: {
         tasks: number;
         members: number;
@@ -200,149 +200,164 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
                 </button>
             </div>
 
-            {/* Project Grid - STATIC STYLE */}
+            {/* Project Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredProjects.map((project) => (
-                    <div
-                        key={project.id}
-                        className={`bg-white rounded-2xl border border-gray-200 p-6 ${project.isArchived ? 'opacity-70' : ''
-                            }`}
-                    >
-                        <div>
-                            {/* Header */}
-                            <div className="flex items-start justify-between mb-5">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center border border-blue-100">
-                                        <FolderKanban className="w-7 h-7 text-blue-600" />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <Link
-                                            href={`/projects/${project.id}`}
-                                            className="text-xl font-bold text-gray-900 hover:text-blue-600 truncate block leading-tight"
-                                        >
-                                            {project.name}
-                                        </Link>
-                                        <p className="text-sm text-gray-400 font-mono mt-0.5">#{project.identifier}</p>
-                                    </div>
-                                </div>
+                {filteredProjects.map((project) => {
+                    const completedTasks = project.tasks?.length || 0;
+                    const totalTasks = project._count.tasks || 0;
+                    const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-                                {/* Menu */}
-                                <div className="relative">
-                                    <button
-                                        onClick={() => setMenuOpenId(menuOpenId === project.id ? null : project.id)}
-                                        className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-                                    >
-                                        <MoreVertical className="w-5 h-5" />
-                                    </button>
 
-                                    {menuOpenId === project.id && (
-                                        <div className="absolute right-0 top-10 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-20 py-2">
+                    return (
+                        <div
+                            key={project.id}
+                            className={`bg-white rounded-[24px] border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all relative group flex flex-col ${project.isArchived ? 'opacity-70' : ''
+                                }`}
+                        >
+                            <div>
+                                {/* Header */}
+                                <div className="flex items-start justify-between mb-8">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-14 h-14 bg-blue-50/50 rounded-2xl flex items-center justify-center border border-blue-100/50">
+                                            <FolderKanban className="w-7 h-7 text-blue-500" />
+                                        </div>
+                                        <div className="min-w-0">
                                             <Link
-                                                href={`/projects/${project.id}/settings`}
-                                                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                                href={`/projects/${project.id}`}
+                                                className="text-[17px] font-bold text-gray-900 hover:text-blue-600 truncate block transition-colors leading-tight"
                                             >
-                                                <Settings className="w-4 h-4 text-gray-400" />
-                                                Cài đặt
+                                                {project.name}
                                             </Link>
-                                            <button
-                                                onClick={() => {
-                                                    handleArchive(project.id);
-                                                    setMenuOpenId(null);
-                                                }}
-                                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                            >
-                                                <Archive className="w-4 h-4 text-gray-400" />
-                                                {project.isArchived ? 'Khôi phục' : 'Lưu trữ'}
-                                            </button>
-                                            <div className="h-px bg-gray-100 my-1 mx-2" />
-                                            <button
-                                                onClick={() => {
-                                                    handleDelete(project);
-                                                    setMenuOpenId(null);
-                                                }}
-                                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                                Xóa dự án
-                                            </button>
+                                            <p className="text-[13px] text-gray-400 font-medium mt-1">#{project.identifier}</p>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Description */}
-                            {project.description && (
-                                <p className="text-gray-600 mb-6 line-clamp-2 min-h-[2.5rem] text-[15px] leading-relaxed">
-                                    {project.description}
-                                </p>
-                            )}
-                        </div>
-
-                        <div>
-                            {/* Stats & Team */}
-                            <div className="flex items-center justify-between pt-5 border-t border-gray-50">
-                                <div className="flex items-center gap-4">
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Tasks</span>
-                                        <span className="flex items-center gap-1.5 text-base font-bold text-gray-900">
-                                            <ListTodo className="w-4 h-4 text-blue-500 opacity-70" />
-                                            {project._count.tasks}
-                                        </span>
                                     </div>
-                                    <div className="w-px h-6 bg-gray-100" />
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Team</span>
-                                        <div className="flex items-center -space-x-2 mt-0.5">
-                                            {project.members.slice(0, 3).map((member) => (
-                                                <div
-                                                    key={member.user.id}
-                                                    className="w-7 h-7 rounded-full border-2 border-white flex items-center justify-center shadow-sm overflow-hidden bg-gray-100"
-                                                    title={member.user.name}
+
+                                    {/* Menu */}
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setMenuOpenId(menuOpenId === project.id ? null : project.id)}
+                                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                                        >
+                                            <MoreVertical className="w-5 h-5" />
+                                        </button>
+
+                                        {menuOpenId === project.id && (
+                                            <div className="absolute right-0 top-10 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-20 py-2">
+                                                <Link
+                                                    href={`/projects/${project.id}/settings`}
+                                                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                                                 >
-                                                    {member.user.avatar ? (
-                                                        <Image
-                                                            src={member.user.avatar}
-                                                            alt={member.user.name}
-                                                            width={28}
-                                                            height={28}
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <span className="text-[10px] font-bold text-gray-500">
-                                                            {member.user.name.charAt(0).toUpperCase()}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            ))}
-                                            {project._count.members > 3 && (
-                                                <div className="w-7 h-7 bg-gray-50 rounded-full border-2 border-white flex items-center justify-center shadow-sm">
-                                                    <span className="text-[9px] font-bold text-gray-500">+{project._count.members - 3}</span>
-                                                </div>
-                                            )}
-                                        </div>
+                                                    <Settings className="w-4 h-4 text-gray-400" />
+                                                    Cài đặt
+                                                </Link>
+                                                <button
+                                                    onClick={() => {
+                                                        handleArchive(project.id);
+                                                        setMenuOpenId(null);
+                                                    }}
+                                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                                >
+                                                    <Archive className="w-4 h-4 text-gray-400" />
+                                                    {project.isArchived ? 'Khôi phục' : 'Lưu trữ'}
+                                                </button>
+                                                <div className="h-px bg-gray-100 my-1 mx-2" />
+                                                <button
+                                                    onClick={() => {
+                                                        handleDelete(project);
+                                                        setMenuOpenId(null);
+                                                    }}
+                                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                    Xóa dự án
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
-                                <Link
-                                    href={`/projects/${project.id}`}
-                                    className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white"
-                                >
-                                    Vào dự án
-                                    <ArrowRight className="w-3 h-3" />
-                                </Link>
+                                {/* Progress Section */}
+                                <div className="mb-8">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[14px] font-bold text-gray-700">
+                                            {project._count.tasks} tasks
+                                        </span>
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="w-2 h-2 rounded-full bg-green-500" />
+                                            <span className="text-[14px] font-bold text-green-600">{progress}%</span>
+                                        </div>
+                                    </div>
+                                    <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-blue-600 rounded-full transition-all duration-500"
+                                            style={{ width: `${progress}%` }}
+                                        />
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* Archived Badge */}
-                            {project.isArchived && (
-                                <div className="mt-4 flex items-center justify-center gap-1.5 text-[10px] font-bold text-orange-600 bg-orange-50 py-1.5 rounded-lg w-full uppercase tracking-wider">
-                                    <Archive className="w-3 h-3" />
-                                    Dự án đã lưu trữ
+                            <div className="mt-auto">
+                                {/* Team & Action */}
+                                <div className="flex items-center justify-between">
+                                    <div className="flex flex-col gap-2">
+                                        <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none">TEAM</span>
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex items-center -space-x-2.5">
+                                                {project.members.slice(0, 3).map((member) => (
+                                                    <div
+                                                        key={member.user.id}
+                                                        className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center shadow-sm overflow-hidden bg-gray-100 ring-1 ring-gray-100"
+                                                        title={member.user.name}
+                                                    >
+                                                        {member.user.avatar ? (
+                                                            <Image
+                                                                src={member.user.avatar}
+                                                                alt={member.user.name}
+                                                                width={32}
+                                                                height={32}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        ) : (
+                                                            <span className="text-[11px] font-bold text-gray-500">
+                                                                {member.user.name.charAt(0).toUpperCase()}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                {project._count.members > 3 && (
+                                                    <div className="w-8 h-8 bg-gray-50 rounded-full border-2 border-white flex items-center justify-center shadow-sm ring-1 ring-gray-100">
+                                                        <span className="text-[10px] font-bold text-gray-500">+{project._count.members - 3}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <span className="text-[14px] font-semibold text-gray-700 truncate max-w-[120px]">
+                                                {project.name}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <Link
+                                        href={`/projects/${project.id}`}
+                                        className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-50 text-blue-600 text-[14px] font-bold rounded-xl hover:bg-blue-100 hover:text-blue-700 transition-all group/btn"
+                                    >
+                                        Vào dự án
+                                        <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-0.5" />
+                                    </Link>
                                 </div>
-                            )}
+
+                                {/* Archived Badge */}
+                                {project.isArchived && (
+                                    <div className="mt-4 flex items-center justify-center gap-1.5 text-[10px] font-bold text-orange-600 bg-orange-50 py-1.5 rounded-lg w-full uppercase tracking-wider">
+                                        <Archive className="w-3 h-3" />
+                                        Dự án đã lưu trữ
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
+
 
             {/* Empty State */}
             {filteredProjects.length === 0 && (

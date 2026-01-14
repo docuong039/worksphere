@@ -473,24 +473,24 @@ export function TaskList({
 
             {/* Task Content: List or Kanban */}
             {viewMode === 'list' ? (
-                <div className="bg-white rounded-lg overflow-visible">
+                <div className="bg-white rounded-lg overflow-visible border border-gray-300 shadow-sm">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="bg-gray-50/80">
-                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest w-12 text-center">#</th>
+                            <tr className="bg-gray-100 border-b border-gray-300">
+                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-14">#</th>
                                 {!propProjectId && (
-                                    <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">Dự án</th>
+                                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Dự án</th>
                                 )}
-                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">Loại</th>
-                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">Trạng thái</th>
-                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tiêu đề</th>
-                                <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ưu tiên</th>
-                                <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest">Thời gian</th>
-                                <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">Lịch trình</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Loại</th>
+                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-28">Trạng thái</th>
+                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tiêu đề</th>
+                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-24">Ưu tiên</th>
+                                <th className="px-4 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider w-24">Thời gian</th>
+                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-48">Lịch trình</th>
                                 <th className="px-4 py-3 w-10"></th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="divide-y divide-gray-200">
                             {loading ? (
                                 <tr>
                                     <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
@@ -500,14 +500,14 @@ export function TaskList({
                             ) : tasks.length > 0 ? (
                                 tasks.map((task, index) => (
                                     <tr key={task.id} className={`hover:bg-blue-50/50 transition-colors group ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                                        <td className="px-4 py-3 font-bold text-gray-400 text-center">
+                                        <td className="px-4 py-3 font-semibold text-gray-500 text-center text-xs">
                                             <Link href={`/tasks/${task.id}`} className="hover:text-blue-600">#{task.number}</Link>
                                         </td>
                                         {!propProjectId && (
                                             <td className="px-4 py-3">
                                                 <Link
                                                     href={`/projects/${task.project.id}`}
-                                                    className="text-sm font-medium text-gray-600 hover:text-blue-600 truncate block max-w-[150px]"
+                                                    className="text-sm font-medium text-gray-700 hover:text-blue-600 truncate block max-w-[150px]"
                                                     title={task.project.name}
                                                 >
                                                     {task.project.name}
@@ -515,13 +515,15 @@ export function TaskList({
                                             </td>
                                         )}
                                         <td className="px-4 py-3">
-                                            <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
                                                 {task.tracker.name}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-4 py-3 text-center">
                                             <span
-                                                className={`text-[11px] font-semibold px-2 py-0.5 rounded ${task.status.isClosed ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}
+                                                className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-bold ${task.status.isClosed
+                                                    ? 'bg-green-100 text-green-700 border border-green-200'
+                                                    : 'bg-blue-100 text-blue-700 border border-blue-200'}`}
                                             >
                                                 {task.status.name}
                                             </span>
@@ -530,22 +532,22 @@ export function TaskList({
                                             <div className="flex flex-col gap-1">
                                                 <Link
                                                     href={`/tasks/${task.id}`}
-                                                    className={`text-sm font-medium hover:text-blue-600 ${task.status.isClosed ? 'text-gray-400 line-through' : 'text-gray-900'}`}
+                                                    className={`text-sm font-semibold hover:text-blue-600 line-clamp-1 ${task.status.isClosed ? 'text-gray-500 line-through' : 'text-gray-900'}`}
                                                 >
                                                     {task.title}
                                                 </Link>
                                                 <div className="flex items-center gap-3">
                                                     {task.assignee && (
-                                                        <div className="flex items-center gap-1.5">
-                                                            <div className="w-4 h-4 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center text-[8px] font-bold text-gray-500">
-                                                                {task.assignee.avatar ? <Image src={task.assignee.avatar} alt={task.assignee.name} width={16} height={16} className="w-4 h-4 object-cover" /> : task.assignee.name.charAt(0)}
+                                                        <div className="flex items-center gap-1.5" title={`Được giao cho: ${task.assignee.name}`}>
+                                                            <div className="w-5 h-5 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center text-[9px] font-bold text-gray-500 ring-1 ring-white">
+                                                                {task.assignee.avatar ? <Image src={task.assignee.avatar} alt={task.assignee.name} width={20} height={20} className="w-full h-full object-cover" /> : task.assignee.name.charAt(0)}
                                                             </div>
-                                                            <span className="text-[10px] text-gray-500">{task.assignee.name}</span>
+                                                            <span className="text-xs text-gray-600">{task.assignee.name}</span>
                                                         </div>
                                                     )}
                                                     {task._count.comments > 0 && (
-                                                        <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                                                            <MessageSquare className="w-3 h-3" />
+                                                        <div className="flex items-center gap-1 text-xs text-gray-400">
+                                                            <MessageSquare className="w-3.5 h-3.5" />
                                                             {task._count.comments}
                                                         </div>
                                                     )}
@@ -554,28 +556,23 @@ export function TaskList({
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             <span
-                                                className="text-[10px] font-bold px-2 py-0.5 rounded text-white"
+                                                className="inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold text-white shadow-sm"
                                                 style={{ backgroundColor: task.priority.color || '#6b7280' }}
                                             >
                                                 {task.priority.name}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            <div className="flex flex-col items-end">
-                                                <span className="text-sm font-bold text-gray-700">
-                                                    {task.totalSpentHours ? `${task.totalSpentHours.toFixed(1)}h` : '0h'}
-                                                </span>
-                                                {task.estimatedHours && (
-                                                    <span className="text-[10px] text-gray-400">/{task.estimatedHours}h</span>
-                                                )}
-                                            </div>
+                                            <span className={`text-sm font-bold ${task.estimatedHours ? 'text-gray-800' : 'text-gray-300'}`}>
+                                                {task.estimatedHours ? `${task.estimatedHours}h` : '-'}
+                                            </span>
                                         </td>
                                         <td className="px-4 py-3 text-center">
-                                            <div className="inline-flex items-center gap-1.5 text-[10px] text-gray-500">
-                                                <span>{task.startDate ? new Date(task.startDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--'}</span>
+                                            <div className="inline-flex items-center gap-1.5 text-xs text-gray-600 font-medium bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                                <span>{task.startDate ? new Date(task.startDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '--'}</span>
                                                 <span className="text-gray-300">→</span>
-                                                <span className={task.dueDate && new Date(task.dueDate) < new Date() && !task.status.isClosed ? 'text-red-600 font-semibold' : ''}>
-                                                    {task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--'}
+                                                <span className={task.dueDate && new Date(task.dueDate) < new Date() && !task.status.isClosed ? 'text-red-600 font-bold' : ''}>
+                                                    {task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '--'}
                                                 </span>
                                             </div>
                                         </td>
@@ -600,7 +597,7 @@ export function TaskList({
                                 <tr>
                                     <td colSpan={9} className="px-4 py-12 text-center">
                                         <ListTodo className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                        <p className="text-gray-500">Chưa có công việc nào</p>
+                                        <p className="text-gray-500 font-medium">Chưa có công việc nào</p>
                                     </td>
                                 </tr>
                             )}

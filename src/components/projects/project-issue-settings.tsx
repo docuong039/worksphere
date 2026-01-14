@@ -97,44 +97,68 @@ export function ProjectIssueSettings({
                     </div>
 
                     <div className="grid gap-6">
-                        {configItems.map((item) => (
-                            <div key={item.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                                <div>
-                                    <h4 className="font-semibold text-gray-900 text-sm">{item.label}</h4>
-                                    <p className="text-xs text-gray-500 mt-0.5">{item.desc}</p>
-                                </div>
-                                <div className="flex bg-gray-100 p-1 rounded-lg self-start">
-                                    <button
-                                        disabled={!canManage}
-                                        onClick={() => setSettings({ ...settings, [item.id]: 'calculated' })}
-                                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${settings[item.id as keyof typeof settings] === 'calculated'
-                                            ? 'bg-white text-blue-600 shadow-sm'
-                                            : 'text-gray-500 hover:text-gray-700'
-                                            } disabled:opacity-50`}
-                                    >
-                                        Tự động
-                                    </button>
-                                    <button
-                                        disabled={!canManage}
-                                        onClick={() => setSettings({ ...settings, [item.id]: 'independent' })}
-                                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${settings[item.id as keyof typeof settings] === 'independent'
-                                            ? 'bg-white text-blue-600 shadow-sm'
-                                            : 'text-gray-500 hover:text-gray-700'
-                                            } disabled:opacity-50`}
-                                    >
-                                        Độc lập
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                        <div className="border border-gray-200 rounded-xl overflow-hidden">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-50 text-gray-700 font-semibold border-b border-gray-200">
+                                    <tr>
+                                        <th className="px-6 py-3 w-1/2">Thuộc tính</th>
+                                        <th className="px-6 py-3 text-center">Tự động (Calculated)</th>
+                                        <th className="px-6 py-3 text-center">Độc lập (Independent)</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {configItems.map((item) => (
+                                        <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <span className="font-medium text-gray-900 block">{item.label}</span>
+                                                <span className="text-xs text-gray-500 mt-1 block max-w-sm">{item.desc}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <div className="flex justify-center">
+                                                    <button
+                                                        disabled={!canManage}
+                                                        onClick={() => setSettings({ ...settings, [item.id]: 'calculated' })}
+                                                        className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${settings[item.id as keyof typeof settings] === 'calculated'
+                                                            ? 'bg-blue-600 border-blue-600 text-white'
+                                                            : 'border-gray-300 text-transparent hover:border-blue-400'
+                                                            } disabled:opacity-50`}
+                                                    >
+                                                        <div className="w-2.5 h-2.5 bg-current rounded-full" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <div className="flex justify-center">
+                                                    <button
+                                                        disabled={!canManage}
+                                                        onClick={() => setSettings({ ...settings, [item.id]: 'independent' })}
+                                                        className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${settings[item.id as keyof typeof settings] === 'independent'
+                                                            ? 'bg-white border-blue-600 text-blue-600'
+                                                            : 'border-gray-300 text-transparent hover:border-blue-400'
+                                                            } disabled:opacity-50`}
+                                                    >
+                                                        {settings[item.id as keyof typeof settings] === 'independent' && (
+                                                            <div className="w-2.5 h-2.5 bg-current rounded-full" />
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
 
-                    <div className="p-4 border border-orange-200 bg-orange-50 rounded-lg flex gap-3 text-orange-800 italic">
-                        <AlertCircle className="w-5 h-5 shrink-0" />
-                        <div className="text-xs">
-                            <strong>Lưu ý:</strong> Chế độ &quot;Tự động&quot; sẽ vô hiệu hóa việc nhập liệu thủ công tại công việc cha nếu nó có ít nhất một công việc con.
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-800">
+                                <strong>Tự động (Calculated):</strong> Giá trị của công việc cha sẽ được tính toán tự động dựa trên các công việc con (ví dụ: ngày bắt đầu sớm nhất, ngày kết thúc muộn nhất, tổng giờ làm...).
+                            </div>
+                            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
+                                <strong>Độc lập (Independent):</strong> Bạn có thể tự nhập liệu cho công việc cha mà không bị ảnh hưởng bởi các công việc con.
+                            </div>
                         </div>
                     </div>
+
                 </div>
 
                 {canManage && (

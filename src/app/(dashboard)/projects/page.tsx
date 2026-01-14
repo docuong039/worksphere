@@ -28,6 +28,10 @@ export default async function ProjectsPage() {
             _count: {
                 select: { tasks: true, members: true },
             },
+            tasks: {
+                where: { status: { isClosed: true } },
+                select: { id: true },
+            },
         },
     });
 
