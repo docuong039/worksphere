@@ -89,8 +89,34 @@ export function TaskCard({ task, statuses, trackers, priorities, onRefresh }: Ta
     const handleSubtaskStatusToggle = async (subtask: Subtask) => {
         setUpdatingSubtask(subtask.id);
         try {
-            // Find a status that is opposite of current (Closed vs Open)
-            const targetStatus = statuses.find(s => s.isClosed === !subtask.status.isClosed);
+            const isClosing = !subtask.status.isClosed;
+            let targetStatus: Status | undefined;
+
+            if (isClosing) {
+                // Priority 1: 'Done', 'Resolved', 'Hoàn thành'
+                targetStatus = statuses.find(s => s.isClosed && /done|resolved|finish|hoàn thành/i.test(s.name));
+                // Priority 2: 'Closed', 'Đóng'
+                if (!targetStatus) {
+                    targetStatus = statuses.find(s => s.isClosed && /close|đóng/i.test(s.name));
+                }
+                // Fallback: Any closed status
+                if (!targetStatus) {
+                    targetStatus = statuses.find(s => s.isClosed);
+                }
+            } else {
+                // Re-opening
+                // Priority 1: 'New', 'Mới'
+                targetStatus = statuses.find(s => !s.isClosed && /new|mới|tạo/i.test(s.name));
+                // Priority 2: 'Open', 'Todo'
+                if (!targetStatus) {
+                    targetStatus = statuses.find(s => !s.isClosed && /open|todo|waiting/i.test(s.name));
+                }
+                // Fallback: Any open status
+                if (!targetStatus) {
+                    targetStatus = statuses.find(s => !s.isClosed);
+                }
+            }
+
             if (!targetStatus) return;
 
             const res = await fetch(`/api/tasks/${subtask.id}`, {
