@@ -1,35 +1,35 @@
 import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
-import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
+import { errorResponse, successResponse, handleApiError } from '@/lib/api-error';
 import { hasPermission } from '@/lib/permissions';
+import { Prisma } from '@prisma/client';
 
-// GET /api/time-logs - Lấy tổng hợp thời gian làm việc dựa trên estimatedHours của Task
 export async function GET(req: NextRequest) {
     try {
         const session = await auth();
-        if (!session) {
+        if (!session || !session.user) {
             return errorResponse('Chưa đăng nhập', 401);
         }
 
         const { searchParams } = new URL(req.url);
         const projectId = searchParams.get('projectId');
-        const userId = searchParams.get('userId'); // Xem chi tiết của 1 user cụ thể
+        const userId = searchParams.get('userId');
         const page = parseInt(searchParams.get('page') || '1');
         const limit = parseInt(searchParams.get('limit') || '50');
 
         const isAdmin = session.user.isAdministrator;
 
         // Check permissions
-        const canViewAll = await hasPermission(session.user as any, 'timelogs.view_all');
-        const canViewOwn = await hasPermission(session.user as any, 'timelogs.view_own');
+        const canViewAll = await hasPermission(session.user, 'timelogs.view_all');
+        const canViewOwn = await hasPermission(session.user, 'timelogs.view_own');
 
         if (!isAdmin && !canViewAll && !canViewOwn) {
             return errorResponse('Không có quyền xem thống kê thời gian', 403);
         }
 
         // Build where clause
-        const where: any = {
+        const where: Prisma.TaskWhereInput = {
             assigneeId: { not: null },
             estimatedHours: { not: null, gt: 0 },
         };
@@ -38,14 +38,11 @@ export async function GET(req: NextRequest) {
             where.projectId = projectId;
         }
 
-        // Nếu không phải admin và không có quyền view_all, chỉ xem được task của mình
         if (!isAdmin && !canViewAll) {
             where.assigneeId = session.user.id;
         }
 
-        // ===== CHẾ ĐỘ CHI TIẾT: Xem danh sách task của 1 user =====
         if (userId) {
-            // Kiểm tra quyền: admin, có view_all, hoặc xem của chính mình
             if (!isAdmin && !canViewAll && userId !== session.user.id) {
                 return errorResponse('Không có quyền xem thời gian của người khác', 403);
             }
@@ -73,13 +70,11 @@ export async function GET(req: NextRequest) {
                 prisma.task.count({ where }),
             ]);
 
-            // Lấy tổng giờ
             const totalHoursResult = await prisma.task.aggregate({
                 where,
                 _sum: { estimatedHours: true },
             });
 
-            // Lấy thông tin user
             const user = await prisma.user.findUnique({
                 where: { id: userId },
                 select: { id: true, name: true, avatar: true },
@@ -98,8 +93,6 @@ export async function GET(req: NextRequest) {
             });
         }
 
-        // ===== CHẾ ĐỘ TỔNG HỢP: Xem tổng giờ theo từng user =====
-        // Lấy tất cả assignee có task với estimatedHours
         const tasksByUser = await prisma.task.groupBy({
             by: ['assigneeId'],
             where,
@@ -107,28 +100,23 @@ export async function GET(req: NextRequest) {
             _count: { id: true },
         });
 
-        // Lấy thông tin các user
-        const userIds = tasksByUser.map((t) => t.assigneeId).filter(Boolean) as string[];
+        const userIds = tasksByUser.map((t) => t.assigneeId).filter((id): id is string => id !== null);
         const users = await prisma.user.findMany({
             where: { id: { in: userIds } },
             select: { id: true, name: true, avatar: true },
         });
 
-        // Gộp lại thành summary
-        const summary = tasksByUser
-            .map((t) => {
-                const user = users.find((u) => u.id === t.assigneeId);
-                return {
-                    userId: t.assigneeId,
-                    userName: user?.name || 'Unknown',
-                    avatar: user?.avatar,
-                    totalHours: t._sum.estimatedHours || 0,
-                    taskCount: t._count.id,
-                };
-            })
-            .sort((a, b) => b.totalHours - a.totalHours);
+        const summary = users.map((u) => {
+            const taskStat = tasksByUser.find((t) => t.assigneeId === u.id);
+            return {
+                userId: u.id,
+                userName: u.name,
+                avatar: u.avatar,
+                totalHours: taskStat?._sum.estimatedHours || 0,
+                taskCount: taskStat?._count.id || 0,
+            };
+        }).sort((a, b) => b.totalHours - a.totalHours);
 
-        // Tính tổng toàn bộ
         const grandTotal = summary.reduce((sum, u) => sum + u.totalHours, 0);
 
         return successResponse({
@@ -140,4 +128,3 @@ export async function GET(req: NextRequest) {
         return handleApiError(error);
     }
 }
-

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import {
     MoreHorizontal,
     Pencil,
@@ -102,13 +103,14 @@ export function TaskContextMenu({
                 body: JSON.stringify({ [field]: value }),
             });
             if (res.ok) {
+                toast.success('Đã cập nhật công việc');
                 onRefresh();
             } else {
                 const data = await res.json();
-                alert(data.error || 'Có lỗi xảy ra');
+                toast.error(data.error || 'Có lỗi xảy ra');
             }
-        } catch (err) {
-            console.error(err);
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 
@@ -118,13 +120,14 @@ export function TaskContextMenu({
         try {
             const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
             if (res.ok) {
+                toast.success('Đã xóa công việc');
                 onRefresh();
             } else {
                 const data = await res.json();
-                alert(data.error || 'Không thể xóa');
+                toast.error(data.error || 'Không thể xóa');
             }
-        } catch (err) {
-            console.error(err);
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 

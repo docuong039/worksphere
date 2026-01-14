@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
     BarChart3,
@@ -52,7 +52,7 @@ export default function ReportsPage() {
         endDate: '',
     });
 
-    const fetchReport = async () => {
+    const fetchReport = useCallback(async () => {
         setLoading(true);
         try {
             const params = new URLSearchParams({ type: reportType });
@@ -84,11 +84,11 @@ export default function ReportsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [reportType, dateRange.startDate, dateRange.endDate]);
 
     useEffect(() => {
         fetchReport();
-    }, [reportType]);
+    }, [fetchReport]);
 
     return (
         <div className="space-y-6">
@@ -110,7 +110,7 @@ export default function ReportsPage() {
                 ].map(({ key, label, icon: Icon }) => (
                     <button
                         key={key}
-                        onClick={() => setReportType(key as any)}
+                        onClick={() => setReportType(key as 'summary' | 'by-project' | 'by-user' | 'by-activity')}
                         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${reportType === key
                             ? 'bg-blue-600 text-white'
                             : 'text-gray-600 hover:bg-gray-100'

@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { notFound, redirect } from 'next/navigation';
-import { ProjectOverview } from '@/components/projects/project-overview';
+import { ProjectOverview, Status, Project, Task } from '@/components/projects/project-overview';
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -11,7 +11,7 @@ export default async function ProjectDetailPage({ params }: Props) {
     const session = await auth();
     const { id } = await params;
 
-    if (!session) {
+    if (!session || !session.user) {
         redirect('/login');
     }
 
@@ -63,7 +63,7 @@ export default async function ProjectDetailPage({ params }: Props) {
     });
 
     const tasksByStatus = statuses.map((status) => ({
-        status,
+        status: status as Status,
         count: taskStats.find((ts) => ts.statusId === status.id)?._count.id || 0,
     }));
 
@@ -82,9 +82,9 @@ export default async function ProjectDetailPage({ params }: Props) {
 
     return (
         <ProjectOverview
-            project={project as any}
-            tasksByStatus={tasksByStatus as any}
-            recentTasks={recentTasks as any}
+            project={project as unknown as Project}
+            tasksByStatus={tasksByStatus}
+            recentTasks={recentTasks as unknown as Task[]}
         />
     );
 }

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Tag, Check, X } from 'lucide-react';
+import { toast } from 'sonner';
+import { Tag, Check } from 'lucide-react';
 
 interface Tracker {
     id: string;
@@ -61,12 +62,13 @@ export function RoleTrackerPermissions({
             });
 
             if (res.ok) {
+                toast.success('Đã lưu cấu hình trackers');
                 setSaved(true);
                 router.refresh();
                 setTimeout(() => setSaved(false), 2000);
             } else {
                 const data = await res.json();
-                alert(data.error || 'Có lỗi xảy ra');
+                toast.error(data.error || 'Có lỗi xảy ra');
             }
         } finally {
             setLoading(false);
@@ -114,8 +116,8 @@ export function RoleTrackerPermissions({
                             <label
                                 key={tracker.id}
                                 className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${isAssigned
-                                        ? 'bg-blue-50 border-blue-300'
-                                        : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                                    ? 'bg-blue-50 border-blue-300'
+                                    : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                     }`}
                             >
                                 <input

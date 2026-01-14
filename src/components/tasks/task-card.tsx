@@ -3,8 +3,34 @@
 import { useDraggable } from '@dnd-kit/core';
 import { MessageSquare, GitBranch, Clock, User, ChevronDown, ChevronRight, CheckCircle2, Circle } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 import { TaskContextMenu } from './task-context-menu';
+
+interface Status {
+    id: string;
+    name: string;
+    isClosed: boolean;
+}
+
+interface Tracker {
+    id: string;
+    name: string;
+}
+
+interface Priority {
+    id: string;
+    name: string;
+    color: string | null;
+}
+
+interface Subtask {
+    id: string;
+    number: number;
+    title: string;
+    status: { id: string; name: string; isClosed: boolean };
+    assignee: { id: string; name: string; avatar: string | null } | null;
+}
 
 interface Task {
     id: string;
@@ -17,22 +43,16 @@ interface Task {
     project: { id: string; name: string; identifier: string };
     assignee: { id: string; name: string; avatar: string | null } | null;
     parent: { id: string; number: number; title: string } | null;
-    subtasks?: Array<{
-        id: string;
-        number: number;
-        title: string;
-        status: { id: string; name: string; isClosed: boolean };
-        assignee: { id: string; name: string; avatar: string | null } | null;
-    }>;
+    subtasks?: Subtask[];
     _count: { subtasks: number; comments: number };
-    dueDate: any;
+    dueDate: string | Date | null;
 }
 
 interface TaskCardProps {
     task: Task;
-    statuses: any[];
-    trackers: any[];
-    priorities: any[];
+    statuses: Status[];
+    trackers: Tracker[];
+    priorities: Priority[];
     onRefresh: () => void;
 }
 
@@ -52,7 +72,7 @@ export function TaskCard({ task, statuses, trackers, priorities, onRefresh }: Ta
         zIndex: isDragging ? 50 : undefined,
     } : undefined;
 
-    const formatDate = (date: any) => {
+    const formatDate = (date: string | Date | null) => {
         if (!date) return null;
         return new Date(date).toLocaleDateString('vi-VN', { month: 'short', day: 'numeric' });
     };
@@ -61,7 +81,7 @@ export function TaskCard({ task, statuses, trackers, priorities, onRefresh }: Ta
     const doneSubtasks = task.subtasks?.filter(s => s.status.isClosed).length || 0;
     const totalSubtasks = task.subtasks?.length || 0;
 
-    const handleSubtaskStatusToggle = async (subtask: any) => {
+    const handleSubtaskStatusToggle = async (subtask: Subtask) => {
         setUpdatingSubtask(subtask.id);
         try {
             // Find a status that is opposite of current (Closed vs Open)
@@ -196,7 +216,7 @@ export function TaskCard({ task, statuses, trackers, priorities, onRefresh }: Ta
                                                     title={sub.assignee.name}
                                                 >
                                                     {sub.assignee.avatar ? (
-                                                        <img src={sub.assignee.avatar} className="w-full h-full object-cover" alt="" />
+                                                        <Image src={sub.assignee.avatar} alt={sub.assignee.name} width={20} height={20} className="w-full h-full object-cover" />
                                                     ) : (
                                                         <div className="w-full h-full bg-blue-50 flex items-center justify-center">
                                                             <User className="w-2.5 h-2.5 text-blue-400" />
@@ -215,7 +235,7 @@ export function TaskCard({ task, statuses, trackers, priorities, onRefresh }: Ta
                 {/* Footer Info */}
                 <div className="flex items-center justify-between pt-1 border-t border-gray-50" {...listeners}>
                     <div className="flex items-center gap-4 text-gray-400">
-                        {dueDate && (
+                        {dueDate && task.dueDate && (
                             <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold ${new Date(task.dueDate) < new Date() && !task.status.isClosed ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-500'}`}>
                                 <Clock className="w-3 h-3" />
                                 <span>{dueDate}</span>
@@ -238,7 +258,7 @@ export function TaskCard({ task, statuses, trackers, priorities, onRefresh }: Ta
                             title={task.assignee?.name || 'Chưa gán'}
                         >
                             {task.assignee?.avatar ? (
-                                <img src={task.assignee.avatar} className="w-full h-full object-cover" alt="" />
+                                <Image src={task.assignee.avatar} alt={task.assignee.name} width={28} height={28} className="w-full h-full object-cover" />
                             ) : (
                                 <User className="w-4 h-4 text-blue-400" />
                             )}

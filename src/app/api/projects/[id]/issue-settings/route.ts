@@ -2,7 +2,6 @@ import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
-import { checkProjectPermission } from '@/lib/permissions';
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {

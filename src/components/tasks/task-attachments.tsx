@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Paperclip, Upload, X, File as FileIcon, Download, Trash2 } from 'lucide-react';
+import { Paperclip, Upload, File as FileIcon, Download, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 interface Attachment {
     id: string;
@@ -47,13 +48,13 @@ export function TaskAttachments({
             if (res.ok) {
                 const data = await res.json();
                 setAttachments([...attachments, data.data]);
+                toast.success('Đã tải lên tài liệu');
                 router.refresh();
             } else {
-                alert('Upload failed');
+                toast.error('Không thể tải lên tài liệu');
             }
-        } catch (err) {
-            console.error(err);
-            alert('Upload error');
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         } finally {
             setUploading(false);
             // Reset input
@@ -67,10 +68,13 @@ export function TaskAttachments({
             const res = await fetch(`/api/attachments/${attachmentId}`, { method: 'DELETE' });
             if (res.ok) {
                 setAttachments(attachments.filter((a) => a.id !== attachmentId));
+                toast.success('Đã xóa tài liệu');
                 router.refresh();
+            } else {
+                toast.error('Không thể xóa tài liệu');
             }
-        } catch (err) {
-            console.error(err);
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 

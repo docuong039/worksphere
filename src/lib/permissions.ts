@@ -1,7 +1,12 @@
-import { User, Role, Permission } from '@prisma/client';
+import { Role, Permission } from '@prisma/client';
 import prisma from './prisma';
 
-export type UserWithRoles = User & {
+export interface PermissionUser {
+    id: string;
+    isAdministrator: boolean;
+}
+
+export type UserWithRoles = PermissionUser & {
     projectMemberships?: Array<{
         roleId: string;
         projectId: string;
@@ -20,7 +25,7 @@ export type UserWithRoles = User & {
  * @param projectId - Optional project ID for project-specific permissions
  */
 export async function hasPermission(
-    user: User,
+    user: PermissionUser,
     permissionKey: string,
     projectId?: string
 ): Promise<boolean> {
@@ -65,7 +70,7 @@ export async function hasPermission(
  * Check if user has ANY of the specified permissions
  */
 export async function hasAnyPermission(
-    user: User,
+    user: PermissionUser,
     permissionKeys: string[],
     projectId?: string
 ): Promise<boolean> {
@@ -86,7 +91,7 @@ export async function hasAnyPermission(
  * Check if user has ALL of the specified permissions
  */
 export async function hasAllPermissions(
-    user: User,
+    user: PermissionUser,
     permissionKeys: string[],
     projectId?: string
 ): Promise<boolean> {
@@ -181,7 +186,7 @@ export async function isProjectMember(
  * Check if user can view a task
  */
 export async function canViewTask(
-    user: User,
+    user: PermissionUser,
     taskId: string
 ): Promise<boolean> {
     if (user.isAdministrator) {
@@ -230,7 +235,7 @@ export async function canViewTask(
  * Check if user can edit a task
  */
 export async function canEditTask(
-    user: User,
+    user: PermissionUser,
     taskId: string
 ): Promise<boolean> {
     if (user.isAdministrator) {
@@ -272,7 +277,7 @@ export async function canEditTask(
  * Check if workflow transition is allowed
  */
 export async function canTransitionStatus(
-    user: User,
+    user: PermissionUser,
     taskId: string,
     toStatusId: string
 ): Promise<boolean> {
@@ -376,7 +381,7 @@ export async function getAccessibleProjectIds(
  * Wrapper for cleaner controller code
  */
 export async function checkProjectPermission(
-    user: User,
+    user: PermissionUser,
     permissionKey: string,
     projectId: string
 ): Promise<boolean> {

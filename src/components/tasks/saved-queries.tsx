@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Filter, Save, Trash2, Globe, Lock, Plus } from 'lucide-react';
+import { toast } from 'sonner';
+import { Filter, Save, Trash2, Globe, Lock } from 'lucide-react';
 
 interface Query {
     id: string;
@@ -20,14 +21,12 @@ interface Query {
 interface SavedQueriesListProps {
     queries: Query[];
     currentUserId: string;
-    projectId?: string;
     onSelectQuery: (query: Query) => void;
 }
 
 export function SavedQueriesList({
     queries: initialQueries,
     currentUserId,
-    projectId,
     onSelectQuery,
 }: SavedQueriesListProps) {
     const router = useRouter();
@@ -40,13 +39,14 @@ export function SavedQueriesList({
             const res = await fetch(`/api/queries/${id}`, { method: 'DELETE' });
             if (res.ok) {
                 setQueries((prev) => prev.filter((q) => q.id !== id));
+                toast.success('Đã xóa bộ lọc');
                 router.refresh();
             } else {
                 const data = await res.json();
-                alert(data.error || 'Có lỗi xảy ra');
+                toast.error(data.error || 'Có lỗi xảy ra');
             }
-        } catch (err) {
-            console.error(err);
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 
@@ -190,6 +190,7 @@ export function SaveQueryModal({
             });
 
             if (res.ok) {
+                toast.success('Đã lưu bộ lọc');
                 onClose();
                 router.refresh();
             } else {

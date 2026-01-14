@@ -8,7 +8,6 @@ import {
     FolderKanban,
     ListTodo,
     Clock,
-    Settings,
     Users,
     Shield,
     Tag,
@@ -48,13 +47,15 @@ const adminMenu = [
 export function Sidebar({ user }: SidebarProps) {
     const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = useState(false);
-    const [isMounted, setIsMounted] = useState(false);
+    const [isMounted] = useState(() => typeof window !== 'undefined');
 
     useEffect(() => {
-        setIsMounted(true);
         const saved = localStorage.getItem('sidebar-collapsed');
         if (saved !== null) {
-            setIsCollapsed(saved === 'true');
+            const collapsed = saved === 'true';
+            setTimeout(() => {
+                setIsCollapsed(collapsed);
+            }, 0);
         }
     }, []);
 

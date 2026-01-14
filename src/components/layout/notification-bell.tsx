@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { Bell, Check, CheckCheck, X, AlertCircle, MessageSquare, User, Calendar } from 'lucide-react';
+import { Bell, Check, CheckCheck, AlertCircle, MessageSquare, User, Calendar } from 'lucide-react';
 
 interface Notification {
     id: string;
@@ -18,11 +18,10 @@ export function NotificationBell() {
     const [isOpen, setIsOpen] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
-    const [loading, setLoading] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     // Fetch notifications
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
         try {
             const res = await fetch('/api/notifications?limit=10');
             const data = await res.json();
@@ -33,14 +32,29 @@ export function NotificationBell() {
         } catch (error) {
             console.error(error);
         }
-    };
+    }, []);
 
     // Initial fetch and polling
     useEffect(() => {
-        fetchNotifications();
-        const interval = setInterval(fetchNotifications, 60000); // Poll every minute
-        return () => clearInterval(interval);
-    }, []);
+        let isSubscribed = true;
+
+        const load = async () => {
+            if (isSubscribed) {
+                await fetchNotifications();
+            }
+        };
+
+        load();
+
+        const interval = setInterval(() => {
+            load();
+        }, 60000);
+
+        return () => {
+            isSubscribed = false;
+            clearInterval(interval);
+        };
+    }, [fetchNotifications]);
 
     // Close dropdown on click outside
     useEffect(() => {
@@ -104,7 +118,7 @@ export function NotificationBell() {
     const getNotificationLink = (notification: Notification) => {
         if (notification.link) return notification.link;
 
-        const metadata = notification.metadata as any;
+        const metadata = notification.metadata as { taskId?: string; commentId?: string; projectId?: string } | null;
         if (!metadata) return null;
 
         if (metadata.taskId) {

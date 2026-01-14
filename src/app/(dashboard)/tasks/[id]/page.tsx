@@ -2,7 +2,6 @@ import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
 import { BackButton } from '@/components/ui/back-button';
 import { TaskDetail } from '@/components/tasks/task-detail';
 import { getSystemSettings } from '@/lib/system-settings';
@@ -25,7 +24,7 @@ export default async function TaskDetailPage({ params }: Props) {
     // Get task with all relations
     const isNumericId = /^\d+$/.test(id);
     const task = await prisma.task.findFirst({
-        where: (isNumericId ? { number: parseInt(id) } : { id }) as any,
+        where: (isNumericId ? { number: parseInt(id) } : { id }),
         include: {
             tracker: { select: { id: true, name: true } },
             status: { select: { id: true, name: true, isClosed: true } },
@@ -59,7 +58,7 @@ export default async function TaskDetailPage({ params }: Props) {
                     title: true,
                     status: { select: { name: true, isClosed: true } },
                 },
-            } as any,
+            },
             subtasks: {
                 select: {
                     id: true,
@@ -74,7 +73,7 @@ export default async function TaskDetailPage({ params }: Props) {
                     assignee: { select: { id: true, name: true, avatar: true } },
                 },
                 orderBy: { createdAt: 'asc' },
-            } as any,
+            },
             watchers: {
                 include: {
                     user: { select: { id: true, name: true, avatar: true, email: true } },
@@ -92,45 +91,44 @@ export default async function TaskDetailPage({ params }: Props) {
                 orderBy: { createdAt: 'asc' },
             },
         },
-    }) as any;
+    });
 
     if (!task) {
         notFound();
     }
 
     // Check access
-    const isMember = task.project.members.some((m: any) => m.user.id === session.user.id);
+    const isMember = task.project.members.some(m => m.user.id === session.user.id);
     if (!session.user.isAdministrator && !isMember) {
         notFound();
     }
 
-    const member = task.project.members.find((m: any) => m.user.id === session.user.id);
+    const member = task.project.members.find(m => m.user.id === session.user.id);
     const allTrackers = await prisma.tracker.findMany({ orderBy: { position: 'asc' } });
     let allowedTrackers = allTrackers;
 
     if (!session.user.isAdministrator) {
-        const projectEnabledIds = task.project.trackers.map((t: any) => t.trackerId);
-        const projectAllowedIds = projectEnabledIds.length > 0 ? projectEnabledIds : allTrackers.map((t: any) => t.id);
-        let roleAllowedIds = allTrackers.map((t: any) => t.id);
+        const projectEnabledIds = task.project.trackers.map(t => t.trackerId);
+        const projectAllowedIds = projectEnabledIds.length > 0 ? projectEnabledIds : allTrackers.map(t => t.id);
+        let roleAllowedIds = allTrackers.map(t => t.id);
 
         if (member) {
-            roleAllowedIds = member.role.trackers.map((t: any) => t.trackerId);
+            roleAllowedIds = member.role.trackers.map(t => t.trackerId);
         }
 
         const validIds = projectAllowedIds.filter((id: string) => roleAllowedIds.includes(id));
-        allowedTrackers = allTrackers.filter((t: any) => validIds.includes(t.id));
+        allowedTrackers = allTrackers.filter(t => validIds.includes(t.id));
     } else {
-        const projectEnabledIds = task.project.trackers.map((t: any) => t.trackerId);
+        const projectEnabledIds = task.project.trackers.map(t => t.trackerId);
         if (projectEnabledIds.length > 0) {
-            allowedTrackers = allTrackers.filter((t: any) => projectEnabledIds.includes(t.id));
+            allowedTrackers = allTrackers.filter(t => projectEnabledIds.includes(t.id));
         }
     }
 
-    const [statuses, priorities, versions, categories] = await Promise.all([
+    const [statuses, priorities, versions] = await Promise.all([
         prisma.status.findMany({ orderBy: { position: 'asc' } }),
         prisma.priority.findMany({ orderBy: { position: 'asc' } }),
         prisma.version.findMany({ where: { projectId: task.projectId }, orderBy: { name: 'asc' } }),
-        prisma.issueCategory.findMany({ where: { projectId: task.projectId }, orderBy: { name: 'asc' } }),
     ]);
 
     const trackers = allowedTrackers;
@@ -142,7 +140,7 @@ export default async function TaskDetailPage({ params }: Props) {
     }));
 
     if (!session.user.isAdministrator) {
-        const membership = task.project.members.find((m: any) => m.user.id === session.user.id);
+        const membership = task.project.members.find(m => m.user.id === session.user.id);
         const transitions = await prisma.workflowTransition.findMany({
             where: {
                 trackerId: task.tracker.id,
@@ -194,12 +192,11 @@ export default async function TaskDetailPage({ params }: Props) {
             </div>
 
             <TaskDetail
-                task={task as any}
+                task={task}
                 trackers={trackers}
                 statuses={statuses}
                 priorities={priorities}
                 versions={versions}
-                categories={categories}
                 allowedStatuses={allowedStatuses}
                 canEdit={canEdit}
                 currentUserId={session.user.id}

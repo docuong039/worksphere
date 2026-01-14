@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Check, GripVertical, Lock } from 'lucide-react';
 
 interface Status {
@@ -90,7 +91,7 @@ export function StatusList({ statuses: initialStatuses }: StatusListProps) {
     // Delete status
     const handleDelete = async (id: string, name: string, taskCount: number) => {
         if (taskCount > 0) {
-            alert(`Không thể xóa status "${name}" đang được sử dụng bởi ${taskCount} công việc`);
+            toast.error(`Không thể xóa status "${name}" đang được sử dụng bởi ${taskCount} công việc`);
             return;
         }
 
@@ -99,13 +100,14 @@ export function StatusList({ statuses: initialStatuses }: StatusListProps) {
         try {
             const res = await fetch(`/api/statuses/${id}`, { method: 'DELETE' });
             if (res.ok) {
+                toast.success('Đã xóa status');
                 router.refresh();
             } else {
                 const data = await res.json();
-                alert(data.error || 'Có lỗi xảy ra');
+                toast.error(data.error || 'Có lỗi xảy ra');
             }
-        } catch (err) {
-            console.error(err);
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 
@@ -367,7 +369,7 @@ export function StatusList({ statuses: initialStatuses }: StatusListProps) {
                     {statuses.length === 0 && !isAdding && (
                         <tr>
                             <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
-                                Chưa có status nào. Nhấn "Thêm status" để tạo mới.
+                                Chưa có status nào. Nhấn &quot;Thêm status&quot; để tạo mới.
                             </td>
                         </tr>
                     )}

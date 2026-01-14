@@ -11,6 +11,61 @@ interface Props {
     params: Promise<{ id: string }>;
 }
 
+interface TaskActivity {
+    id: string;
+    number: number;
+    title: string;
+    description: string | null;
+    createdAt: Date;
+    creator: {
+        id: string;
+        name: string;
+        avatar: string | null;
+    };
+    tracker: {
+        name: string;
+    };
+    status: {
+        name: string;
+    };
+}
+
+interface CommentActivity {
+    id: string;
+    content: string;
+    createdAt: Date;
+    user: {
+        id: string;
+        name: string;
+        avatar: string | null;
+    };
+    task: {
+        id: string;
+        number: number;
+        title: string;
+        tracker: {
+            name: string;
+        };
+        status: {
+            name: string;
+        };
+    };
+}
+
+interface ActivityItem {
+    id: string;
+    type: 'task' | 'comment';
+    date: Date;
+    user: {
+        id: string;
+        name: string;
+        avatar: string | null;
+    };
+    title: string;
+    description: string | null;
+    link: string;
+}
+
 export default async function ProjectActivityPage({ params }: Props) {
     const session = await auth();
     const { id } = await params;
@@ -37,7 +92,7 @@ export default async function ProjectActivityPage({ params }: Props) {
                 creator: { select: { id: true, name: true, avatar: true } },
                 tracker: { select: { name: true } },
                 status: { select: { name: true } }
-            } as any,
+            },
             orderBy: { createdAt: 'desc' },
 
             take: 50
@@ -54,7 +109,7 @@ export default async function ProjectActivityPage({ params }: Props) {
                         title: true,
                         tracker: { select: { name: true } },
                         status: { select: { name: true } }
-                    } as any
+                    }
                 }
 
 
@@ -63,24 +118,23 @@ export default async function ProjectActivityPage({ params }: Props) {
             orderBy: { createdAt: 'desc' },
             take: 50
         })
-    ]) as [any[], any[]];
+    ]) as [TaskActivity[], CommentActivity[]];
 
 
-    const activities = [
-        ...newTasks.map((t: any) => ({
-
+    const activities: ActivityItem[] = [
+        ...newTasks.map(t => ({
             id: `task-${t.id}`,
-            type: 'task',
+            type: 'task' as const,
             date: t.createdAt,
             user: t.creator,
             title: `${t.tracker.name} #${t.number} (${t.status.name}): ${t.title}`,
             description: t.description,
             link: `/tasks/${t.id}`
         })),
-        ...comments.map((c: any) => ({
+        ...comments.map(c => ({
 
             id: `comment-${c.id}`,
-            type: 'comment',
+            type: 'comment' as const,
             date: c.createdAt,
             user: c.user,
             title: `${c.task.tracker.name} #${c.task.number}: ${c.task.title}`,
@@ -90,9 +144,8 @@ export default async function ProjectActivityPage({ params }: Props) {
     ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
     // Group by Date
-    const grouped: Record<string, typeof activities> = {};
-    activities.forEach((act: any) => {
-
+    const grouped: Record<string, ActivityItem[]> = {};
+    activities.forEach(act => {
         const key = format(act.date, 'yyyy-MM-dd');
         if (!grouped[key]) grouped[key] = [];
         grouped[key].push(act);
@@ -108,7 +161,7 @@ export default async function ProjectActivityPage({ params }: Props) {
                         {format(new Date(dateKey), 'EEEE, dd/MM/yyyy', { locale: vi })}
                     </h3>
                     <div className="space-y-3 pl-4 border-l-2 border-gray-100 ml-2">
-                        {grouped[dateKey].map((item: any) => (
+                        {grouped[dateKey].map(item => (
 
                             <div key={item.id} className="flex gap-3 relative">
                                 <div className="absolute -left-[25px] mt-1 w-3 h-3 rounded-full bg-gray-200 border-2 border-white"></div>

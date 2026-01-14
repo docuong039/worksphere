@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { X, Edit2, AlertTriangle } from 'lucide-react';
 
 interface BulkEditModalProps {
     isOpen: boolean;
     onClose: () => void;
     selectedTaskIds: string[];
-    projectId: string;
     trackers: { id: string; name: string }[];
     statuses: { id: string; name: string }[];
     priorities: { id: string; name: string }[];
@@ -21,7 +21,6 @@ export function BulkEditModal({
     isOpen,
     onClose,
     selectedTaskIds,
-    projectId,
     trackers,
     statuses,
     priorities,
@@ -39,7 +38,8 @@ export function BulkEditModal({
     const handleFieldChange = (field: string, value: string | number | boolean | null) => {
         setUpdates((prev) => {
             if (value === '' || value === undefined) {
-                const { [field]: _, ...rest } = prev;
+                const rest = { ...prev };
+                delete rest[field];
                 return rest;
             }
             return { ...prev, [field]: value };
@@ -67,7 +67,7 @@ export function BulkEditModal({
 
             if (res.ok) {
                 const data = await res.json();
-                alert(`Đã cập nhật ${data.updatedCount}/${data.requestedCount} công việc`);
+                toast.success(`Đã cập nhật ${data.updatedCount}/${data.requestedCount} công việc`);
                 onClose();
                 router.refresh();
             } else {

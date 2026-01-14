@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
-import { TaskList } from '@/components/tasks/task-list';
+import { TaskList, Task, Query } from '@/components/tasks/task-list';
 
 export default async function TasksPage() {
     const session = await auth();
@@ -17,9 +17,6 @@ export default async function TasksPage() {
             include: { trackers: true },
         });
         allProjects.forEach((p) => {
-            // If no trackers enabled in project settings, typically means ALL are enabled (default Redmine behavior)
-            // But here we might want to be strict. Let's assume empty = none, unless logic elsewhere says otherwise.
-            // Actually, in `project-tracker-settings`, empty = all enabled.
             if (p.trackers.length === 0) {
                 allowedTrackerIdsByProject[p.id] = trackers.map(t => t.id);
             } else {
@@ -40,14 +37,12 @@ export default async function TasksPage() {
 
         memberships.forEach((m) => {
             const projectEnabledIds = m.project.trackers.map((t) => t.trackerId);
-            // If project has 0 enabled, it implies ALL are enabled
             const finalProjectIds = projectEnabledIds.length === 0
                 ? trackers.map(t => t.id)
                 : projectEnabledIds;
 
             const roleAllowedIds = m.role.trackers.map((t) => t.trackerId);
 
-            // Intersection
             const allowed = finalProjectIds.filter((id) => roleAllowedIds.includes(id));
             allowedTrackerIdsByProject[m.project.id] = allowed;
         });
@@ -112,6 +107,7 @@ export default async function TasksPage() {
             priority: { select: { id: true, name: true, color: true } },
             project: { select: { id: true, name: true, identifier: true } },
             assignee: { select: { id: true, name: true, avatar: true } },
+            parent: { select: { id: true, number: true, title: true } },
             _count: { select: { subtasks: true, comments: true } },
         },
     });
@@ -124,12 +120,12 @@ export default async function TasksPage() {
             </div>
 
             <TaskList
-                initialTasks={tasks as any}
+                initialTasks={tasks as unknown as Task[]}
                 trackers={trackers}
                 statuses={statuses}
                 priorities={priorities}
                 projects={projects}
-                queries={queries}
+                queries={queries as unknown as Query[]}
                 users={users}
                 currentUserId={session?.user?.id}
                 allowedTrackerIdsByProject={allowedTrackerIdsByProject}

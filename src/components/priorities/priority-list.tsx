@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Check, GripVertical } from 'lucide-react';
 
 interface Priority {
@@ -98,7 +99,7 @@ export function PriorityList({ priorities: initialPriorities }: PriorityListProp
     // Delete priority
     const handleDelete = async (id: string, name: string, taskCount: number) => {
         if (taskCount > 0) {
-            alert(`Không thể xóa priority "${name}" đang được sử dụng bởi ${taskCount} công việc`);
+            toast.error(`Không thể xóa priority "${name}" đang được sử dụng bởi ${taskCount} công việc`);
             return;
         }
 
@@ -107,13 +108,14 @@ export function PriorityList({ priorities: initialPriorities }: PriorityListProp
         try {
             const res = await fetch(`/api/priorities/${id}`, { method: 'DELETE' });
             if (res.ok) {
+                toast.success('Đã xóa priority');
                 router.refresh();
             } else {
                 const data = await res.json();
-                alert(data.error || 'Có lỗi xảy ra');
+                toast.error(data.error || 'Có lỗi xảy ra');
             }
-        } catch (err) {
-            console.error(err);
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 
@@ -333,7 +335,7 @@ export function PriorityList({ priorities: initialPriorities }: PriorityListProp
                     {priorities.length === 0 && !isAdding && (
                         <tr>
                             <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                                Chưa có priority nào. Nhấn "Thêm priority" để tạo mới.
+                                Chưa có priority nào. Nhấn &quot;Thêm priority&quot; để tạo mới.
                             </td>
                         </tr>
                     )}

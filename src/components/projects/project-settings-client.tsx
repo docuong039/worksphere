@@ -1,11 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Tag, Layers, Info, Clock, Settings } from 'lucide-react';
+import { Tag, Layers, Info, Settings } from 'lucide-react';
 import { CategoriesManager } from '@/components/projects/categories-manager';
 import { ProjectTrackerSettings } from '@/components/projects/project-tracker-settings';
 import { ProjectIssueSettings } from '@/components/projects/project-issue-settings';
-import { ProjectTimeSummary } from '@/components/projects/project-time-summary';
 
 interface Tracker {
     id: string;
@@ -28,7 +27,6 @@ interface Member {
 
 interface ProjectSettingsClientProps {
     projectId: string;
-    projectName: string;
     allTrackers: Tracker[];
     enabledTrackerIds: string[];
     categories: Category[];
@@ -44,7 +42,6 @@ interface ProjectSettingsClientProps {
 
 export function ProjectSettingsClient({
     projectId,
-    projectName,
     allTrackers,
     enabledTrackerIds,
     categories,

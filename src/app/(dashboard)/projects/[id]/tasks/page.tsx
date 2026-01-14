@@ -2,10 +2,11 @@ import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { TaskList } from '@/components/tasks/task-list';
 import { notFound, redirect } from 'next/navigation';
+import { Prisma } from '@prisma/client';
 
 export default async function ProjectTasksPage({ params }: { params: Promise<{ id: string }> }) {
     const session = await auth();
-    if (!session) redirect('/login');
+    if (!session || !session.user) redirect('/login');
 
     const { id } = await params;
 
@@ -45,7 +46,7 @@ export default async function ProjectTasksPage({ params }: { params: Promise<{ i
 
     const projects = [{ id: project.id, name: project.name, identifier: project.identifier }];
 
-    const where: any = {
+    const where: Prisma.TaskWhereInput = {
         projectId: id,
         status: { isClosed: false },
     };

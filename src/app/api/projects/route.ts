@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
         const myProjects = searchParams.get('my') === 'true';
 
         // Base where clause
-        let where: Record<string, unknown> = {};
+        const where: Record<string, unknown> = {};
 
         // Search filter
         if (search) {
@@ -93,7 +93,6 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        console.log('Project Creation Request Body:', body);
         const validatedData = createProjectSchema.parse(body);
 
         // Kiểm tra identifier unique
@@ -102,7 +101,6 @@ export async function POST(req: NextRequest) {
         });
 
         if (existing) {
-            console.log('Project Creation Error: Identifier already exists:', validatedData.identifier);
             return errorResponse('Định danh dự án đã tồn tại', 400);
         }
 
@@ -164,7 +162,6 @@ export async function POST(req: NextRequest) {
 
         return successResponse(project, 201);
     } catch (error) {
-        console.error('Project Creation Error:', error);
         return handleApiError(error);
     }
 }

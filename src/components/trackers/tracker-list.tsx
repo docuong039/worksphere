@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Check, GripVertical } from 'lucide-react';
 
 interface Tracker {
@@ -21,7 +22,7 @@ interface TrackerListProps {
 
 export function TrackerList({ trackers: initialTrackers }: TrackerListProps) {
     const router = useRouter();
-    const [trackers, setTrackers] = useState(initialTrackers);
+    const [trackers] = useState(initialTrackers);
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formData, setFormData] = useState({ name: '', description: '' });
@@ -74,7 +75,7 @@ export function TrackerList({ trackers: initialTrackers }: TrackerListProps) {
     // Delete tracker
     const handleDelete = async (id: string, name: string, taskCount: number) => {
         if (taskCount > 0) {
-            alert(`Không thể xóa tracker "${name}" đang được sử dụng bởi ${taskCount} công việc`);
+            toast.error(`Không thể xóa tracker "${name}" đang được sử dụng bởi ${taskCount} công việc`);
             return;
         }
 
@@ -83,10 +84,11 @@ export function TrackerList({ trackers: initialTrackers }: TrackerListProps) {
         try {
             const res = await fetch(`/api/trackers/${id}`, { method: 'DELETE' });
             if (res.ok) {
+                toast.success('Đã xóa tracker');
                 router.refresh();
             }
-        } catch (error) {
-            console.error(error);
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 
@@ -270,7 +272,7 @@ export function TrackerList({ trackers: initialTrackers }: TrackerListProps) {
                     {trackers.length === 0 && !isAdding && (
                         <tr>
                             <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                                Chưa có tracker nào. Nhấn "Thêm tracker" để tạo mới.
+                                Chưa có tracker nào. Nhấn &quot;Thêm tracker&quot; để tạo mới.
                             </td>
                         </tr>
                     )}

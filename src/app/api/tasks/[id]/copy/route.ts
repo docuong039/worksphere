@@ -18,7 +18,6 @@ export async function POST(
         const {
             targetProjectId,
             copySubtasks,
-            copyAttachments,
             copyWatchers,
             linkOriginal,
         } = body;

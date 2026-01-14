@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Search, X, FileText, Folder, MessageSquare, User } from 'lucide-react';
+import Image from 'next/image';
 
 interface SearchResult {
     tasks: Array<{
@@ -245,9 +245,15 @@ export function GlobalSearch() {
                                                 key={user.id}
                                                 className="flex items-center gap-3 px-3 py-2 rounded-md"
                                             >
-                                                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                                                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
                                                     {user.avatar ? (
-                                                        <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full" />
+                                                        <Image
+                                                            src={user.avatar}
+                                                            alt={user.name}
+                                                            width={32}
+                                                            height={32}
+                                                            className="w-8 h-8 rounded-full object-cover"
+                                                        />
                                                     ) : (
                                                         <User className="w-4 h-4 text-gray-500" />
                                                     )}

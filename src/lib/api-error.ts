@@ -2,11 +2,17 @@ import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 
+// Type for field-level validation errors
+export interface ApiFieldError {
+    field?: string;
+    message: string;
+}
+
 export class ApiError extends Error {
     constructor(
         public statusCode: number,
         message: string,
-        public errors?: any
+        public errors?: ApiFieldError[]
     ) {
         super(message);
         this.name = 'ApiError';
@@ -102,7 +108,7 @@ export function successResponse<T>(data: T, status: number = 200) {
     );
 }
 
-export function errorResponse(message: string, status: number = 400, errors?: any) {
+export function errorResponse(message: string, status: number = 400, errors?: ApiFieldError[]) {
     return NextResponse.json(
         {
             success: false,

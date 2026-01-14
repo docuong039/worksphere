@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Plus, Trash2, User, Crown, Search } from 'lucide-react';
+import Image from 'next/image';
 
 interface Member {
     id: string;
@@ -96,21 +98,24 @@ export function ProjectMembers({
     // Update member role
     const handleUpdateRole = async (memberId: string, roleId: string) => {
         try {
-            await fetch(`/api/projects/${projectId}/members/${memberId}`, {
+            const res = await fetch(`/api/projects/${projectId}/members/${memberId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ roleId }),
             });
-            router.refresh();
-        } catch (err) {
-            console.error(err);
+            if (res.ok) {
+                toast.success('Đã cập nhật vai trò');
+                router.refresh();
+            }
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 
     // Remove member
     const handleRemoveMember = async (member: Member) => {
         if (member.user.id === creatorId) {
-            alert('Không thể xóa người tạo dự án');
+            toast.error('Không thể xóa người tạo dự án');
             return;
         }
 
@@ -124,13 +129,14 @@ export function ProjectMembers({
             });
 
             if (res.ok) {
+                toast.success('Đã xóa thành viên');
                 router.refresh();
             } else {
                 const data = await res.json();
-                alert(data.error || 'Có lỗi xảy ra');
+                toast.error(data.error || 'Có lỗi xảy ra');
             }
-        } catch (err) {
-            console.error(err);
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 
@@ -160,12 +166,14 @@ export function ProjectMembers({
                         >
                             <div className="flex items-center gap-4">
                                 {/* Avatar */}
-                                <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
                                     {member.user.avatar ? (
-                                        <img
+                                        <Image
                                             src={member.user.avatar}
                                             alt={member.user.name}
-                                            className="w-10 h-10 rounded-full"
+                                            width={40}
+                                            height={40}
+                                            className="w-10 h-10 rounded-full object-cover"
                                         />
                                     ) : (
                                         <User className="w-5 h-5 text-gray-500" />
@@ -276,9 +284,15 @@ export function ProjectMembers({
                                                     onChange={() => setSelectedUserId(user.id)}
                                                     className="w-4 h-4"
                                                 />
-                                                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                                                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
                                                     {user.avatar ? (
-                                                        <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full" />
+                                                        <Image
+                                                            src={user.avatar}
+                                                            alt={user.name}
+                                                            width={32}
+                                                            height={32}
+                                                            className="w-8 h-8 rounded-full object-cover"
+                                                        />
                                                     ) : (
                                                         <span className="text-sm text-gray-600">
                                                             {user.name.charAt(0).toUpperCase()}

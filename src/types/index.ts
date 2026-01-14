@@ -8,7 +8,6 @@ import {
     Status,
     Priority,
     Comment,
-    Watcher,
     Attachment,
     Notification
 } from '@prisma/client';
@@ -222,7 +221,7 @@ export type CreateCommentInput = {
 // API RESPONSE TYPES
 // ============================================
 
-export type ApiResponse<T = any> = {
+export type ApiResponse<T = unknown> = {
     success: boolean;
     data?: T;
     error?: string;

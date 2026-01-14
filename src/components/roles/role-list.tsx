@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Pencil, Trash2, Shield, ChevronDown, ChevronRight, Copy, Power, Layers } from 'lucide-react';
+import { toast } from 'sonner';
+import { Plus, Pencil, Trash2, Shield, ChevronDown, ChevronRight, Copy } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { RoleTrackerPermissions } from './role-tracker-permissions';
 
@@ -138,7 +139,7 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
             setFormData({ name: '', description: '', assignable: true, canAssignToOther: true });
             setSelectedPermissions(new Set());
             router.refresh();
-        } catch (err) {
+        } catch {
             setError('Có lỗi xảy ra');
         } finally {
             setLoading(false);
@@ -148,7 +149,7 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
     // Delete role
     const handleDelete = async (id: string, name: string, memberCount: number) => {
         if (memberCount > 0) {
-            alert(`Không thể xóa role "${name}" đang được sử dụng bởi ${memberCount} thành viên`);
+            toast.error(`Không thể xóa role "${name}" đang được sử dụng bởi ${memberCount} thành viên`);
             return;
         }
 
@@ -157,13 +158,14 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
         try {
             const res = await fetch(`/api/roles/${id}`, { method: 'DELETE' });
             if (res.ok) {
+                toast.success('Đã xóa vai trò');
                 router.refresh();
             } else {
                 const data = await res.json();
-                alert(data.error || 'Có lỗi xảy ra');
+                toast.error(data.error || 'Có lỗi xảy ra');
             }
-        } catch (err) {
-            console.error(err);
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 
@@ -218,14 +220,14 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
                     role.id === id ? { ...role, isActive: currentActive } : role
                 ));
                 const data = await res.json();
-                alert(data.error || 'Có lỗi xảy ra');
+                toast.error(data.error || 'Có lỗi xảy ra');
             }
-        } catch (err) {
+        } catch {
             // Revert on error
             setRoles(prev => prev.map(role =>
                 role.id === id ? { ...role, isActive: currentActive } : role
             ));
-            console.error(err);
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 
@@ -609,7 +611,7 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
 
             {roles.length === 0 && !isAdding && (
                 <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-500">
-                    Chưa có vai trò nào. Nhấn "Thêm vai trò" để tạo mới.
+                    Chưa có vai trò nào. Nhấn &quot;Thêm vai trò&quot; để tạo mới.
                 </div>
             )}
         </div>

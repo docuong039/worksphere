@@ -1,20 +1,21 @@
 import Link from 'next/link';
-import { ListTodo, Users, Calendar, ArrowRight } from 'lucide-react';
+import { ListTodo, Users, ArrowRight } from 'lucide-react';
 import type { DateLike } from '@/lib/types';
+import Image from 'next/image';
 
-interface Status {
+export interface Status {
     id: string;
     name: string;
     isClosed: boolean;
 }
 
-interface Priority {
+export interface Priority {
     id: string;
     name: string;
     color: string | null;
 }
 
-interface Task {
+export interface Task {
     id: string;
     number: number;
     title: string;
@@ -29,7 +30,7 @@ interface Task {
     updatedAt: DateLike;
 }
 
-interface Member {
+export interface Member {
     id: string;
     user: {
         id: string;
@@ -43,7 +44,7 @@ interface Member {
     };
 }
 
-interface Project {
+export interface Project {
     id: string;
     name: string;
     identifier: string;
@@ -220,14 +221,16 @@ export function ProjectOverview({
                                         </span>
                                         {task.assignee && (
                                             <div
-                                                className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center"
+                                                className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden"
                                                 title={task.assignee.name}
                                             >
                                                 {task.assignee.avatar ? (
-                                                    <img
+                                                    <Image
                                                         src={task.assignee.avatar}
                                                         alt={task.assignee.name}
-                                                        className="w-6 h-6 rounded-full"
+                                                        width={24}
+                                                        height={24}
+                                                        className="w-6 h-6 rounded-full object-cover"
                                                     />
                                                 ) : (
                                                     <span className="text-xs text-gray-600">
@@ -308,12 +311,14 @@ export function ProjectOverview({
                     <div className="space-y-3">
                         {project.members.slice(0, 5).map((member) => (
                             <div key={member.id} className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
                                     {member.user.avatar ? (
-                                        <img
+                                        <Image
                                             src={member.user.avatar}
                                             alt={member.user.name}
-                                            className="w-8 h-8 rounded-full"
+                                            width={32}
+                                            height={32}
+                                            className="w-8 h-8 rounded-full object-cover"
                                         />
                                     ) : (
                                         <span className="text-sm text-gray-600">

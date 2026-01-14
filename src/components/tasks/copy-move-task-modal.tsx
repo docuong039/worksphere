@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Copy, ArrowRightLeft, CheckSquare } from 'lucide-react';
+import { X, Copy, ArrowRightLeft } from 'lucide-react';
 
 interface Project {
     id: string;
@@ -235,8 +235,8 @@ export function CopyMoveTaskModal({
                         onClick={handleSubmit}
                         disabled={loading || (mode === 'move' && !targetProjectId)}
                         className={`px-4 py-2 text-white rounded-md text-sm disabled:opacity-50 ${mode === 'copy'
-                                ? 'bg-blue-600 hover:bg-blue-700'
-                                : 'bg-orange-600 hover:bg-orange-700'
+                            ? 'bg-blue-600 hover:bg-blue-700'
+                            : 'bg-orange-600 hover:bg-orange-700'
                             }`}
                     >
                         {loading

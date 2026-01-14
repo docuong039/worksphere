@@ -1,5 +1,21 @@
 import prisma from '@/lib/prisma';
-import { getSystemSettings } from '@/lib/system-settings';
+import { getSystemSettings, SettingMode } from '@/lib/system-settings';
+
+interface ProjectSettings {
+    parentIssueDates: SettingMode | null;
+    parentIssuePriority: SettingMode | null;
+    parentIssueDoneRatio: SettingMode | null;
+    parentIssueEstimatedHours: SettingMode | null;
+}
+
+interface ParentTaskWithProject {
+    startDate: Date | null;
+    dueDate: Date | null;
+    estimatedHours: number | null;
+    doneRatio: number | null;
+    parentId: string | null;
+    project: ProjectSettings;
+}
 
 /**
  * Recalculate parent task attributes based on its subtasks.
@@ -27,21 +43,22 @@ export async function updateParentAttributes(parentId: string | null): Promise<v
                 }
             }
         }
-    });
+    }) as ParentTaskWithProject | null;
 
     if (!currentParent) return;
 
     // Use project settings
-    const pSettings = (currentParent as any).project;
+    const pSettings = currentParent.project;
     const systemSettings = getSystemSettings();
 
     // Determine effective settings (Project overrides System)
     const settings = {
-        dates: (pSettings as any)?.parentIssueDates || (systemSettings as any).parent_issue_dates,
-        priority: (pSettings as any)?.parentIssuePriority || (systemSettings as any).parent_issue_priority,
-        doneRatio: (pSettings as any)?.parentIssueDoneRatio || (systemSettings as any).parent_issue_done_ratio,
-        estimatedHours: (pSettings as any)?.parentIssueEstimatedHours || (systemSettings as any).parent_issue_estimated_hours,
+        dates: pSettings?.parentIssueDates || systemSettings.parent_issue_dates,
+        priority: pSettings?.parentIssuePriority || systemSettings.parent_issue_priority,
+        doneRatio: pSettings?.parentIssueDoneRatio || systemSettings.parent_issue_done_ratio,
+        estimatedHours: pSettings?.parentIssueEstimatedHours || systemSettings.parent_issue_estimated_hours,
     };
+
 
     // Fetch all subtasks
     const subtasks = await prisma.task.findMany({
@@ -85,12 +102,19 @@ export async function updateParentAttributes(parentId: string | null): Promise<v
     if (totalEstimatedHours > 0) {
         aggregateDoneRatio = Math.round(weightedDoneRatioSum / totalEstimatedHours);
     } else if (activeSubtasksCount > 0) {
-        const totalRatio = subtasks.reduce((sum, t) => sum + (t.doneRatio || 0), 0);
+        type SubtaskData = { startDate: Date | null; dueDate: Date | null; estimatedHours: number | null; doneRatio: number | null };
+        const totalRatio = subtasks.reduce((sum: number, t: SubtaskData) => sum + (t.doneRatio || 0), 0);
         aggregateDoneRatio = Math.round(totalRatio / activeSubtasksCount);
     }
 
     // Build update data based on settings
-    const updateData: any = {};
+    const updateData: Partial<{
+        startDate: Date | null;
+        dueDate: Date | null;
+        estimatedHours: number | null;
+        doneRatio: number;
+        priorityId: string;
+    }> = {};
 
     if (settings.dates === 'calculated') {
         updateData.startDate = minStartDate;
@@ -114,7 +138,8 @@ export async function updateParentAttributes(parentId: string | null): Promise<v
 
         // Find the one with highest position (most urgent)
         if (subtasksWithPriority.length > 0) {
-            const highestPriorityTask = subtasksWithPriority.reduce((prev, curr) =>
+            type SubtaskWithPriority = typeof subtasksWithPriority[number];
+            const highestPriorityTask = subtasksWithPriority.reduce((prev: SubtaskWithPriority, curr: SubtaskWithPriority) =>
                 (curr.priority.position > prev.priority.position) ? curr : prev
             );
             updateData.priorityId = highestPriorityTask.priorityId;

@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import {
     Plus,
     FolderKanban,
-    Users,
     ListTodo,
     MoreVertical,
     Archive,
@@ -15,6 +15,8 @@ import {
     Search,
     ArrowRight,
 } from 'lucide-react';
+import Image from 'next/image';
+import type { ApiFieldError } from '@/lib/api-error';
 import type { DateLike } from '@/lib/types';
 
 interface Project {
@@ -98,11 +100,10 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
                 setShowCreateModal(false);
                 setFormData({ name: '', identifier: '', description: '' });
                 router.refresh();
-                window.location.reload();
             } else {
                 const data = await res.json();
                 if (data.errors && Array.isArray(data.errors)) {
-                    const errorMsgs = data.errors.map((e: any) => e.message).join(', ');
+                    const errorMsgs = (data.errors as ApiFieldError[]).map((e) => e.message).join(', ');
                     setError(`${data.error}: ${errorMsgs}`);
                 } else {
                     setError(data.error || 'Có lỗi xảy ra');
@@ -132,13 +133,14 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
         try {
             const res = await fetch(`/api/projects/${project.id}`, { method: 'DELETE' });
             if (res.ok) {
+                toast.success('Đã xóa dự án thành công');
                 router.refresh();
             } else {
                 const data = await res.json();
-                alert(data.error || 'Có lỗi xảy ra');
+                toast.error(data.error || 'Có lỗi xảy ra');
             }
-        } catch (err) {
-            console.error(err);
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 
@@ -298,9 +300,11 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
                                                     title={member.user.name}
                                                 >
                                                     {member.user.avatar ? (
-                                                        <img
+                                                        <Image
                                                             src={member.user.avatar}
                                                             alt={member.user.name}
+                                                            width={28}
+                                                            height={28}
                                                             className="w-full h-full object-cover"
                                                         />
                                                     ) : (

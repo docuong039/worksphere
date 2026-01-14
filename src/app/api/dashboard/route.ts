@@ -1,10 +1,9 @@
-import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
 
 // GET /api/dashboard - Lấy dữ liệu dashboard
-export async function GET(req: NextRequest) {
+export async function GET() {
     try {
         const session = await auth();
 

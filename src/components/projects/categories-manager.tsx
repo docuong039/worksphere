@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, FolderOpen, User } from 'lucide-react';
 
 interface Category {
@@ -109,13 +110,14 @@ export function CategoriesManager({
         try {
             const res = await fetch(`/api/categories/${id}`, { method: 'DELETE' });
             if (res.ok) {
+                toast.success('Đã xóa category');
                 router.refresh();
             } else {
                 const data = await res.json();
-                alert(data.error || 'Có lỗi xảy ra');
+                toast.error(data.error || 'Có lỗi xảy ra');
             }
-        } catch (err) {
-            console.error(err);
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 

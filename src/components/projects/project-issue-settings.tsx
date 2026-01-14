@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Save, Info, AlertCircle, Settings } from 'lucide-react';
 
 interface ProjectIssueSettingsProps {
@@ -36,16 +37,16 @@ export function ProjectIssueSettings({
             });
 
             if (res.ok) {
+                toast.success('Đã lưu cấu hình');
                 setSaved(true);
                 router.refresh();
                 setTimeout(() => setSaved(false), 2000);
             } else {
                 const data = await res.json();
-                alert(data.error || 'Có lỗi xảy ra khi lưu cấu hình');
+                toast.error(data.error || 'Có lỗi xảy ra khi lưu cấu hình');
             }
-        } catch (error) {
-            console.error('Failed to save issue settings', error);
-            alert('Lỗi kết nối máy chủ');
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         } finally {
             setLoading(false);
         }
@@ -131,7 +132,7 @@ export function ProjectIssueSettings({
                     <div className="p-4 border border-orange-200 bg-orange-50 rounded-lg flex gap-3 text-orange-800 italic">
                         <AlertCircle className="w-5 h-5 shrink-0" />
                         <div className="text-xs">
-                            <strong>Lưu ý:</strong> Chế độ "Tự động" sẽ vô hiệu hóa việc nhập liệu thủ công tại công việc cha nếu nó có ít nhất một công việc con.
+                            <strong>Lưu ý:</strong> Chế độ &quot;Tự động&quot; sẽ vô hiệu hóa việc nhập liệu thủ công tại công việc cha nếu nó có ít nhất một công việc con.
                         </div>
                     </div>
                 </div>

@@ -2,7 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Pencil, Trash2, Shield, User, Power, Eye, EyeOff } from 'lucide-react';
+import Image from 'next/image';
+import { toast } from 'sonner';
+import { Plus, Pencil, Trash2, Shield, User, Eye, EyeOff } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import type { DateLike } from '@/lib/types';
 
@@ -59,7 +61,8 @@ export function UserList({ users: initialUsers }: UserListProps) {
             } else {
                 const data = await res.json();
                 if (data.errors && Array.isArray(data.errors)) {
-                    const errorMsg = data.errors.map((e: any) => `${e.field || 'Lỗi'}: ${e.message}`).join(', ');
+                    interface FieldError { field?: string; message: string }
+                    const errorMsg = data.errors.map((e: FieldError) => `${e.field || 'Lỗi'}: ${e.message}`).join(', ');
                     setError(errorMsg);
                 } else {
                     setError(data.error || 'Có lỗi xảy ra');
@@ -109,7 +112,7 @@ export function UserList({ users: initialUsers }: UserListProps) {
     // Delete user
     const handleDelete = async (user: UserType) => {
         if (user._count.assignedTasks > 0) {
-            alert(`Không thể xóa user đang được gán ${user._count.assignedTasks} công việc`);
+            toast.error(`Không thể xóa user đang được gán ${user._count.assignedTasks} công việc`);
             return;
         }
 
@@ -118,13 +121,14 @@ export function UserList({ users: initialUsers }: UserListProps) {
         try {
             const res = await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
             if (res.ok) {
+                toast.success('Đã xóa người dùng');
                 router.refresh();
             } else {
                 const data = await res.json();
-                alert(data.error || 'Có lỗi xảy ra');
+                toast.error(data.error || 'Có lỗi xảy ra');
             }
-        } catch (err) {
-            console.error(err);
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 
@@ -149,14 +153,14 @@ export function UserList({ users: initialUsers }: UserListProps) {
                     user.id === id ? { ...user, isActive: currentActive } : user
                 ));
                 const data = await res.json();
-                alert(data.error || 'Có lỗi xảy ra');
+                toast.error(data.error || 'Có lỗi xảy ra');
             }
-        } catch (err) {
+        } catch {
             // Revert on error
             setUsers(prev => prev.map(user =>
                 user.id === id ? { ...user, isActive: currentActive } : user
             ));
-            console.error(err);
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 
@@ -358,9 +362,11 @@ export function UserList({ users: initialUsers }: UserListProps) {
                                         <div className="flex items-center gap-3">
                                             <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
                                                 {user.avatar ? (
-                                                    <img
+                                                    <Image
                                                         src={user.avatar}
                                                         alt={user.name}
+                                                        width={32}
+                                                        height={32}
                                                         className="w-8 h-8 rounded-full"
                                                     />
                                                 ) : (

@@ -13,8 +13,19 @@ import {
     defaultDropAnimationSideEffects
 } from '@dnd-kit/core';
 import { useDroppable } from '@dnd-kit/core';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { TaskCard } from './task-card';
+
+interface Tracker {
+    id: string;
+    name: string;
+}
+
+interface Priority {
+    id: string;
+    name: string;
+    color: string | null;
+}
 
 interface Task {
     id: string;
@@ -35,20 +46,20 @@ interface Task {
         assignee: { id: string; name: string; avatar: string | null } | null;
     }>;
     _count: { subtasks: number; comments: number };
-    dueDate: any;
+    dueDate: string | Date | null;
 }
 
 interface Status {
     id: string;
     name: string;
-    isClosed?: boolean;
+    isClosed: boolean;
 }
 
 interface KanbanBoardProps {
     tasks: Task[];
     statuses: Status[];
-    trackers: any[];
-    priorities: any[];
+    trackers: Tracker[];
+    priorities: Priority[];
     onRefresh: () => void;
     onStatusChange: (taskId: string, newStatusId: string) => Promise<void>;
 }
@@ -56,8 +67,8 @@ interface KanbanBoardProps {
 function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses }: {
     status: Status,
     tasks: Task[],
-    trackers: any[],
-    priorities: any[],
+    trackers: Tracker[],
+    priorities: Priority[],
     onRefresh: () => void,
     statuses: Status[]
 }) {
@@ -65,23 +76,79 @@ function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses
         id: status.id,
     });
 
+    // Get column colors based on status name
+    const getColumnStyle = () => {
+        const statusName = status.name.toLowerCase();
+
+        // New / Mới
+        if (statusName.includes('new') || statusName.includes('mới')) {
+            return {
+                bg: 'bg-sky-50/70',
+                border: 'border-sky-200',
+                headerBg: 'bg-sky-100/80',
+                badge: 'bg-sky-200 text-sky-700',
+                text: 'text-sky-800'
+            };
+        }
+        // In Progress / Đang thực hiện
+        if (statusName.includes('progress') || statusName.includes('đang') || statusName.includes('doing')) {
+            return {
+                bg: 'bg-amber-50/70',
+                border: 'border-amber-200',
+                headerBg: 'bg-amber-100/80',
+                badge: 'bg-amber-200 text-amber-700',
+                text: 'text-amber-800'
+            };
+        }
+        // Resolved / Hoàn thành / Review
+        if (statusName.includes('resolved') || statusName.includes('review') || statusName.includes('done') || statusName.includes('hoàn thành')) {
+            return {
+                bg: 'bg-emerald-50/70',
+                border: 'border-emerald-200',
+                headerBg: 'bg-emerald-100/80',
+                badge: 'bg-emerald-200 text-emerald-700',
+                text: 'text-emerald-800'
+            };
+        }
+        // Closed / Đóng
+        if (statusName.includes('closed') || statusName.includes('đóng') || status.isClosed) {
+            return {
+                bg: 'bg-slate-50/70',
+                border: 'border-slate-200',
+                headerBg: 'bg-slate-100/80',
+                badge: 'bg-slate-200 text-slate-600',
+                text: 'text-slate-700'
+            };
+        }
+        // Default
+        return {
+            bg: 'bg-gray-50/70',
+            border: 'border-gray-200',
+            headerBg: 'bg-gray-100/80',
+            badge: 'bg-gray-200 text-gray-600',
+            text: 'text-gray-700'
+        };
+    };
+
+    const columnStyle = getColumnStyle();
+
     return (
         <div
             ref={setNodeRef}
-            className={`flex flex-col w-[300px] min-w-[300px] h-full bg-gray-50/50 rounded-2xl border-2 transition-colors duration-200 ${isOver ? 'border-blue-400 bg-blue-50/30' : 'border-transparent'}`}
+            className={`flex flex-col w-[300px] min-w-[300px] h-full rounded-2xl border transition-all duration-200 ${columnStyle.bg} ${isOver ? 'border-blue-400 ring-2 ring-blue-200' : columnStyle.border}`}
         >
             {/* Column Header */}
-            <div className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-[13px] font-extrabold uppercase tracking-wider text-gray-700">{status.name}</h3>
-                    <span className="bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-bold">
+            <div className={`px-4 py-3 rounded-t-2xl ${columnStyle.headerBg}`}>
+                <div className="flex items-center justify-between">
+                    <h3 className={`text-[13px] font-bold uppercase tracking-wide ${columnStyle.text}`}>{status.name}</h3>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${columnStyle.badge}`}>
                         {tasks.length}
                     </span>
                 </div>
             </div>
 
             {/* Column Content */}
-            <div className="flex-1 px-2 pb-4 space-y-3 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+            <div className="flex-1 px-2 py-3 space-y-3 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
                 {tasks.map(task => (
                     <TaskCard
                         key={task.id}
@@ -93,8 +160,8 @@ function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses
                     />
                 ))}
                 {tasks.length === 0 && (
-                    <div className="h-32 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center">
-                        <span className="text-gray-300 text-xs font-medium">Kéo thả vào đây</span>
+                    <div className="h-28 rounded-xl border-2 border-dashed border-gray-200/50 bg-white/30 flex items-center justify-center">
+                        <span className="text-gray-400 text-xs font-medium">Kéo thả vào đây</span>
                     </div>
                 )}
             </div>
@@ -104,12 +171,9 @@ function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses
 
 export function KanbanBoard({ tasks, statuses, trackers, priorities, onRefresh, onStatusChange }: KanbanBoardProps) {
     const [activeId, setActiveId] = useState<string | null>(null);
-    const [isMounted, setIsMounted] = useState(false);
+    // Simple client-side check - avoid SSR hydration mismatch
+    const [isMounted] = useState(typeof window !== 'undefined');
     const activeTask = tasks.find(t => t.id === activeId);
-
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
 
     const sensors = useSensors(
         useSensor(MouseSensor, {

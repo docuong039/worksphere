@@ -1,17 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
+import { toast } from 'sonner';
 import {
     Plus,
     Search,
     Filter,
     ListTodo,
     MessageSquare,
-    GitBranch,
-    X,
-    ChevronDown,
     Save,
     Bookmark,
     LayoutGrid,
@@ -23,7 +22,7 @@ import { CreateTaskModal } from './create-task-modal';
 import { TaskContextMenu } from './task-context-menu';
 import { KanbanBoard } from './kanban-board';
 
-interface Query {
+export interface Query {
     id: string;
     name: string;
     isPublic: boolean;
@@ -36,7 +35,7 @@ interface Query {
     project: { id: string; name: string; identifier: string } | null;
 }
 
-interface Task {
+export interface Task {
     id: string;
     number: number;
     title: string;
@@ -103,12 +102,7 @@ export function TaskList({
     const [showSaveQueryModal, setShowSaveQueryModal] = useState(false);
     const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban');
 
-    // Refetch when viewMode changes (to apply parentId=null filter for Kanban)
-    useEffect(() => {
-        fetchTasks();
-    }, [viewMode]);
-
-    // Search & Filters
+    // Search & Filters - must be declared before fetchTasks
     const [search, setSearch] = useState('');
     const [filters, setFilters] = useState({
         projectId: propProjectId || '',
@@ -121,8 +115,8 @@ export function TaskList({
         myTasks: false,
     });
 
-    // Fetch tasks with filters
-    const fetchTasks = async (filterOverrides?: typeof filters) => {
+    // Fetch tasks with filters - wrapped with useCallback for proper dependency tracking
+    const fetchTasks = useCallback(async (filterOverrides?: typeof filters) => {
         setLoading(true);
         const activeFilters = filterOverrides || filters;
         try {
@@ -150,8 +144,12 @@ export function TaskList({
         } finally {
             setLoading(false);
         }
-    };
+    }, [filters, propProjectId, search, viewMode]);
 
+    // Refetch when viewMode changes (to apply parentId=null filter for Kanban)
+    useEffect(() => {
+        fetchTasks();
+    }, [fetchTasks]);
     // Select Query
     const handleSelectQuery = (query: Query) => {
         try {
@@ -174,25 +172,7 @@ export function TaskList({
         }
     };
 
-    // Save Query
-    const handleSaveQuery = async (data: any) => {
-        try {
-            const res = await fetch('/api/queries', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...data,
-                    filters: JSON.stringify(filters),
-                }),
-            });
-            if (res.ok) {
-                setShowSaveQueryModal(false);
-                router.refresh();
-            }
-        } catch (error) {
-            console.error(error);
-        }
-    };
+
 
     // Apply filters
     const applyFilters = () => {
@@ -209,13 +189,14 @@ export function TaskList({
                 body: JSON.stringify({ statusId: newStatusId }),
             });
             if (res.ok) {
+                toast.success('Đã cập nhật trạng thái');
                 fetchTasks();
             } else {
                 const data = await res.json();
-                alert(data.error || 'Không thể chuyển trạng thái');
+                toast.error(data.error || 'Không thể chuyển trạng thái');
             }
-        } catch (error) {
-            console.error('Failed to update status', error);
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
         }
     };
 
@@ -492,24 +473,24 @@ export function TaskList({
 
             {/* Task Content: List or Kanban */}
             {viewMode === 'list' ? (
-                <div className="bg-white rounded-lg border border-gray-200 overflow-visible">
+                <div className="bg-white rounded-lg overflow-visible">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="bg-gray-50 border-b border-gray-200">
+                            <tr className="bg-gray-50/80">
                                 <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest w-12 text-center">#</th>
                                 {!propProjectId && (
                                     <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">Dự án</th>
                                 )}
-                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tracker</th>
+                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">Loại</th>
                                 <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">Trạng thái</th>
-                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tiêu đề công việc</th>
+                                <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tiêu đề</th>
                                 <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ưu tiên</th>
                                 <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-400 uppercase tracking-widest">Thời gian</th>
                                 <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">Lịch trình</th>
                                 <th className="px-4 py-3 w-10"></th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody>
                             {loading ? (
                                 <tr>
                                     <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
@@ -517,16 +498,16 @@ export function TaskList({
                                     </td>
                                 </tr>
                             ) : tasks.length > 0 ? (
-                                tasks.map((task) => (
-                                    <tr key={task.id} className="hover:bg-blue-50/30 transition-colors group">
+                                tasks.map((task, index) => (
+                                    <tr key={task.id} className={`hover:bg-blue-50/50 transition-colors group ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
                                         <td className="px-4 py-3 font-bold text-gray-400 text-center">
-                                            <Link href={`/tasks/${task.id}`}>#{task.number}</Link>
+                                            <Link href={`/tasks/${task.id}`} className="hover:text-blue-600">#{task.number}</Link>
                                         </td>
                                         {!propProjectId && (
                                             <td className="px-4 py-3">
                                                 <Link
                                                     href={`/projects/${task.project.id}`}
-                                                    className="text-sm font-semibold text-gray-700 hover:text-blue-600 truncate block max-w-[150px]"
+                                                    className="text-sm font-medium text-gray-600 hover:text-blue-600 truncate block max-w-[150px]"
                                                     title={task.project.name}
                                                 >
                                                     {task.project.name}
@@ -534,32 +515,32 @@ export function TaskList({
                                             </td>
                                         )}
                                         <td className="px-4 py-3">
-                                            <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                            <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
                                                 {task.tracker.name}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
                                             <span
-                                                className={`text-[11px] font-bold px-2 py-1 rounded uppercase tracking-wider ${task.status.isClosed ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}
+                                                className={`text-[11px] font-semibold px-2 py-0.5 rounded ${task.status.isClosed ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}
                                             >
                                                 {task.status.name}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <div className="flex flex-col">
+                                            <div className="flex flex-col gap-1">
                                                 <Link
                                                     href={`/tasks/${task.id}`}
-                                                    className={`text-sm font-semibold hover:text-blue-600 ${task.status.isClosed ? 'text-gray-400 line-through' : 'text-gray-900'}`}
+                                                    className={`text-sm font-medium hover:text-blue-600 ${task.status.isClosed ? 'text-gray-400 line-through' : 'text-gray-900'}`}
                                                 >
                                                     {task.title}
                                                 </Link>
-                                                <div className="flex items-center gap-3 mt-1">
+                                                <div className="flex items-center gap-3">
                                                     {task.assignee && (
-                                                        <div className="flex items-center gap-1.5 grayscale group-hover:grayscale-0 transition-all">
-                                                            <div className="w-4 h-4 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center text-[8px] font-bold">
-                                                                {task.assignee.avatar ? <img src={task.assignee.avatar} alt="" /> : task.assignee.name.charAt(0)}
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div className="w-4 h-4 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center text-[8px] font-bold text-gray-500">
+                                                                {task.assignee.avatar ? <Image src={task.assignee.avatar} alt={task.assignee.name} width={16} height={16} className="w-4 h-4 object-cover" /> : task.assignee.name.charAt(0)}
                                                             </div>
-                                                            <span className="text-[10px] text-gray-500 font-medium">{task.assignee.name}</span>
+                                                            <span className="text-[10px] text-gray-500">{task.assignee.name}</span>
                                                         </div>
                                                     )}
                                                     {task._count.comments > 0 && (
@@ -573,7 +554,7 @@ export function TaskList({
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             <span
-                                                className="text-[10px] font-black px-2 py-0.5 rounded text-white uppercase"
+                                                className="text-[10px] font-bold px-2 py-0.5 rounded text-white"
                                                 style={{ backgroundColor: task.priority.color || '#6b7280' }}
                                             >
                                                 {task.priority.name}
@@ -581,22 +562,20 @@ export function TaskList({
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex flex-col items-end">
-                                                <span className="text-sm font-bold text-gray-800">
+                                                <span className="text-sm font-bold text-gray-700">
                                                     {task.totalSpentHours ? `${task.totalSpentHours.toFixed(1)}h` : '0h'}
                                                 </span>
                                                 {task.estimatedHours && (
-                                                    <span className="text-[10px] text-gray-400 font-medium italic">Ước tính: {task.estimatedHours}h</span>
+                                                    <span className="text-[10px] text-gray-400">/{task.estimatedHours}h</span>
                                                 )}
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 text-center">
-                                            <div className="flex flex-col items-center gap-1">
-                                                <span className="text-[10px] font-medium text-gray-600 bg-gray-50 border border-gray-100 px-1.5 rounded">
-                                                    {task.startDate ? new Date(task.startDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '---'}
-                                                </span>
-                                                <div className="w-px h-2 bg-gray-200" />
-                                                <span className={`text-[10px] font-bold px-1.5 rounded ${task.dueDate && new Date(task.dueDate) < new Date() && !task.status.isClosed ? 'text-red-600 bg-red-50 border border-red-100' : 'text-gray-600 bg-gray-50 border border-gray-100'}`}>
-                                                    {task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '---'}
+                                            <div className="inline-flex items-center gap-1.5 text-[10px] text-gray-500">
+                                                <span>{task.startDate ? new Date(task.startDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--'}</span>
+                                                <span className="text-gray-300">→</span>
+                                                <span className={task.dueDate && new Date(task.dueDate) < new Date() && !task.status.isClosed ? 'text-red-600 font-semibold' : ''}>
+                                                    {task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '--'}
                                                 </span>
                                             </div>
                                         </td>
@@ -630,10 +609,10 @@ export function TaskList({
                 </div>
             ) : (
                 <KanbanBoard
-                    tasks={tasks as any}
-                    statuses={statuses}
+                    tasks={tasks}
+                    statuses={statuses.map(s => ({ ...s, isClosed: s.isClosed ?? false }))}
                     trackers={trackers}
-                    priorities={priorities}
+                    priorities={priorities.map(p => ({ ...p, color: p.color ?? null }))}
                     onRefresh={() => fetchTasks()}
                     onStatusChange={handleStatusChange}
                 />

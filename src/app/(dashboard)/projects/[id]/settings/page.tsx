@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { ProjectSettingsClient } from '@/components/projects/project-settings-client';
+import { Project } from '@prisma/client';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -16,7 +17,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function ProjectSettingsPage({ params }: { params: Promise<{ id: string }> }) {
     const session = await auth();
-    if (!session) {
+    if (!session || !session.user) {
         redirect('/login');
     }
 
@@ -74,19 +75,24 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
         orderBy: { user: { name: 'asc' } },
     });
 
+    // Helper to safely access issue tracking settings
+    const p = project as Project;
+
     return (
         <ProjectSettingsClient
             projectId={id}
-            projectName={project.name}
             allTrackers={allTrackers}
             enabledTrackerIds={enabledTrackerIds}
             categories={categories}
-            members={members}
+            members={members.map(m => ({
+                userId: m.userId,
+                user: m.user
+            }))}
             issueSettings={{
-                parentIssueDates: (project as any).parentIssueDates,
-                parentIssuePriority: (project as any).parentIssuePriority,
-                parentIssueDoneRatio: (project as any).parentIssueDoneRatio,
-                parentIssueEstimatedHours: (project as any).parentIssueEstimatedHours,
+                parentIssueDates: p.parentIssueDates,
+                parentIssuePriority: p.parentIssuePriority,
+                parentIssueDoneRatio: p.parentIssueDoneRatio,
+                parentIssueEstimatedHours: p.parentIssueEstimatedHours,
             }}
             canManage={canManage}
         />

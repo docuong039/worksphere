@@ -17,7 +17,6 @@ export async function GET(req: NextRequest) {
         const projectId = searchParams.get('projectId');
         const startDate = searchParams.get('startDate');
         const endDate = searchParams.get('endDate');
-        const userId = searchParams.get('userId');
 
         const isAdmin = session.user.isAdministrator;
 
@@ -41,13 +40,13 @@ export async function GET(req: NextRequest) {
                 ] = await Promise.all([
                     prisma.project.count({ where: { ...projectFilter, isArchived: false } }),
                     prisma.task.count({
-                        where: { project: projectFilter as any },
+                        where: { project: projectFilter },
                     }),
                     prisma.task.count({
-                        where: { project: projectFilter as any, status: { isClosed: false } },
+                        where: { project: projectFilter, status: { isClosed: false } },
                     }),
                     prisma.task.count({
-                        where: { project: projectFilter as any, status: { isClosed: true } },
+                        where: { project: projectFilter, status: { isClosed: true } },
                     }),
                 ]);
 
@@ -142,18 +141,18 @@ export async function GET(req: NextRequest) {
 
             case 'by-activity': {
                 // Báo cáo theo hoạt động
-                const timeFilter: any = { ...dateFilter };
+                const timeFilter: { gte?: Date; lte?: Date; task?: { projectId: string } } = { ...dateFilter };
                 if (projectId) {
                     timeFilter.task = { projectId };
                 }
 
-                const timeLogs = await (prisma.timeLog as any).groupBy({
+                const timeLogs = await prisma.timeLog.groupBy({
                     by: ['activity'],
                     where: timeFilter,
                     _sum: { hours: true },
                 });
 
-                const activityReports = timeLogs.map((log: any) => ({
+                const activityReports = timeLogs.map(log => ({
                     name: log.activity || 'Khác',
                     hours: log._sum?.hours || 0,
                 }));

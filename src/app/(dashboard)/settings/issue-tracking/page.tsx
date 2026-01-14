@@ -51,6 +51,10 @@ export default function IssueTrackingSettings() {
     if (loading) return <div className="p-8 text-center">Đang tải cấu hình...</div>;
     if (!settings) return <div className="p-8 text-center text-red-500">Không thể tải cấu hình</div>;
 
+    const updateSetting = (key: keyof SystemSettings, value: 'calculated' | 'independent') => {
+        setSettings(prev => prev ? { ...prev, [key]: value } : null);
+    };
+
     return (
         <div className="p-6 max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-6">
@@ -75,17 +79,17 @@ export default function IssueTrackingSettings() {
             <div className="space-y-6">
                 {[
                     {
-                        id: 'parent_issue_dates',
+                        id: 'parent_issue_dates' as const,
                         label: 'Ngày bắt đầu và Hạn hoàn thành',
                         desc: 'Xác định cách tính ngày của công việc cha.',
                     },
                     {
-                        id: 'parent_issue_estimated_hours',
+                        id: 'parent_issue_estimated_hours' as const,
                         label: 'Thời gian ước tính',
                         desc: 'Xác định cách tính tổng thời gian ước tính của công việc cha.',
                     },
                     {
-                        id: 'parent_issue_done_ratio',
+                        id: 'parent_issue_done_ratio' as const,
                         label: 'Tỷ lệ hoàn thành (%)',
                         desc: 'Xác định cách tính phần trăm hoàn thành của công việc cha.',
                     }
@@ -98,19 +102,19 @@ export default function IssueTrackingSettings() {
                             </div>
                             <div className="flex bg-gray-100 p-1 rounded-lg self-start">
                                 <button
-                                    onClick={() => setSettings({ ...settings, [item.id]: 'calculated' } as any)}
-                                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${settings[item.id as keyof SystemSettings] === 'calculated'
-                                            ? 'bg-white text-blue-600 shadow-sm'
-                                            : 'text-gray-500 hover:text-gray-700'
+                                    onClick={() => updateSetting(item.id, 'calculated')}
+                                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${settings[item.id] === 'calculated'
+                                        ? 'bg-white text-blue-600 shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700'
                                         }`}
                                 >
                                     Tính toán tự động
                                 </button>
                                 <button
-                                    onClick={() => setSettings({ ...settings, [item.id]: 'independent' } as any)}
-                                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${settings[item.id as keyof SystemSettings] === 'independent'
-                                            ? 'bg-white text-blue-600 shadow-sm'
-                                            : 'text-gray-500 hover:text-gray-700'
+                                    onClick={() => updateSetting(item.id, 'independent')}
+                                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${settings[item.id] === 'independent'
+                                        ? 'bg-white text-blue-600 shadow-sm'
+                                        : 'text-gray-500 hover:text-gray-700'
                                         }`}
                                 >
                                     Độc lập
@@ -124,7 +128,7 @@ export default function IssueTrackingSettings() {
             <div className="mt-8 p-4 border border-orange-200 bg-orange-50 rounded-lg flex gap-3 text-orange-800">
                 <AlertCircle className="w-5 h-5 shrink-0" />
                 <div className="text-sm">
-                    <strong>Chú ý:</strong> Khi chọn chế độ "Tính toán tự động", các ô nhập liệu tương ứng tại công việc cha sẽ bị vô hiệu hóa khi công việc đó có các công việc con.
+                    <strong>Chú ý:</strong> Khi chọn chế độ &quot;Tính toán tự động&quot;, các ô nhập liệu tương ứng tại công việc cha sẽ bị vô hiệu hóa khi công việc đó có các công việc con.
                 </div>
             </div>
         </div>

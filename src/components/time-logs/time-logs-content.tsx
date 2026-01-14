@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Clock, ChevronLeft, ChevronRight, User, ArrowLeft, ListTodo } from 'lucide-react';
 
 interface UserSummary {
@@ -66,7 +67,7 @@ export function TimeLogsContent({
         fetchProjects();
     }, [hideProjectFilter]);
 
-    const fetchSummary = async () => {
+    const fetchSummary = useCallback(async () => {
         setLoading(true);
         try {
             const currentPid = initialProjectId || selectedProjectId;
@@ -84,9 +85,9 @@ export function TimeLogsContent({
         } finally {
             setLoading(false);
         }
-    };
+    }, [initialProjectId, selectedProjectId]);
 
-    const fetchDetails = async (userId: string) => {
+    const fetchDetails = useCallback(async (userId: string) => {
         setLoading(true);
         try {
             const currentPid = initialProjectId || selectedProjectId;
@@ -105,7 +106,7 @@ export function TimeLogsContent({
         } finally {
             setLoading(false);
         }
-    };
+    }, [initialProjectId, selectedProjectId, page]);
 
     useEffect(() => {
         if (viewMode === 'summary') {
@@ -113,7 +114,7 @@ export function TimeLogsContent({
         } else if (selectedUser) {
             fetchDetails(selectedUser.userId);
         }
-    }, [viewMode, selectedUser, page, selectedProjectId, initialProjectId]);
+    }, [viewMode, selectedUser, fetchSummary, fetchDetails]);
 
     const handleSelectUser = (user: UserSummary) => {
         setSelectedUser(user);
@@ -235,7 +236,7 @@ export function TimeLogsContent({
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-xs font-bold text-blue-600 border border-blue-100 uppercase overflow-hidden">
                                                             {user.avatar ? (
-                                                                <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                                                                <Image src={user.avatar} alt={user.userName} width={32} height={32} className="w-full h-full object-cover" />
                                                             ) : (
                                                                 user.userName.charAt(0)
                                                             )}

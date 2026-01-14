@@ -80,21 +80,23 @@ export function CreateTaskModal({
     // Members state
     const [members, setMembers] = useState<Array<{ user: { id: string; name: string } }>>([]);
 
-    // Update form when initialData changes or modal opens
-    useEffect(() => {
-        if (isOpen) {
-            const currentProjectId = initialData?.projectId || formData.projectId || projects[0]?.id || '';
-            const allowedIds = allowedTrackerIdsByProject?.[currentProjectId];
+    // Track if we've initialized for the current open state
+    const [initialized, setInitialized] = useState(false);
 
-            // Filter trackers based on project logic
+    useEffect(() => {
+        if (!isOpen) {
+            setInitialized(false);
+            return;
+        }
+
+        if (isOpen && !initialized) {
+            const currentProjectId = initialData?.projectId || projects[0]?.id || '';
+            const allowedIds = allowedTrackerIdsByProject?.[currentProjectId];
             const availableTrackers = trackers.filter(t => !allowedIds || allowedIds.includes(t.id));
 
-            // Determine best tracker ID:
             let bestTrackerId = '';
             if (initialData?.trackerId && availableTrackers.some(t => t.id === initialData.trackerId)) {
                 bestTrackerId = initialData.trackerId;
-            } else if (formData.trackerId && availableTrackers.some(t => t.id === formData.trackerId)) {
-                bestTrackerId = formData.trackerId;
             } else if (availableTrackers.length > 0) {
                 bestTrackerId = availableTrackers[0].id;
             }
@@ -104,10 +106,14 @@ export function CreateTaskModal({
                 projectId: currentProjectId,
                 parentId: initialData?.parentId || null,
                 trackerId: bestTrackerId,
+                statusId: initialData?.statusId || prev.statusId,
+                priorityId: initialData?.priorityId || prev.priorityId,
+                versionId: initialData?.versionId || prev.versionId,
             }));
+            setInitialized(true);
             setError('');
         }
-    }, [isOpen, initialData, projects, trackers, allowedTrackerIdsByProject, formData.projectId]);
+    }, [isOpen, initialized, initialData, projects, trackers, allowedTrackerIdsByProject]);
 
     // Fetch members when project changes
     useEffect(() => {
@@ -178,61 +184,59 @@ export function CreateTaskModal({
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold text-gray-900">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-4 bg-gray-50/80 shrink-0">
+                    <h2 className="text-base font-semibold text-gray-900">
                         {formData.parentId ? 'Thêm công việc con' : 'Tạo công việc mới'}
                     </h2>
                     <button
                         onClick={onClose}
-                        className="p-1 text-gray-400 hover:text-gray-600"
+                        className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded transition-colors"
                     >
-                        <X className="w-5 h-5" />
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
 
-                {error && (
-                    <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
-                        {error}
-                    </div>
-                )}
+                {/* Content */}
+                <div className="p-5 overflow-y-auto flex-1 space-y-4">
+                    {error && (
+                        <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                            {error}
+                        </div>
+                    )}
 
-                <div className="space-y-4">
                     {/* Project & Tracker */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-xs font-medium text-gray-600 mb-1.5">
                                 Dự án <span className="text-red-500">*</span>
                             </label>
                             <select
                                 value={formData.projectId}
                                 onChange={(e) => {
                                     const newProjectId = e.target.value;
-                                    // When project changes, update allowed tracker
                                     const allowedIds = allowedTrackerIdsByProject?.[newProjectId];
                                     const availableTrackers = trackers.filter(t => !allowedIds || allowedIds.includes(t.id));
                                     const newTrackerId = availableTrackers.length > 0 ? availableTrackers[0].id : '';
-
                                     setFormData({ ...formData, projectId: newProjectId, trackerId: newTrackerId, assigneeId: '' });
                                 }}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                                disabled={!!initialData?.parentId} // Disable project selection if adding subtask
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                disabled={!!initialData?.parentId}
                             >
                                 {projects.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.name}
-                                    </option>
+                                    <option key={p.id} value={p.id}>{p.name}</option>
                                 ))}
                             </select>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Tracker</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1.5">Loại công việc</label>
                             <select
                                 value={formData.trackerId}
                                 onChange={(e) => setFormData({ ...formData, trackerId: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                             >
                                 {trackers
                                     .filter(t => {
@@ -241,9 +245,7 @@ export function CreateTaskModal({
                                         return !allowed || allowed.includes(t.id);
                                     })
                                     .map((t) => (
-                                        <option key={t.id} value={t.id}>
-                                            {t.name}
-                                        </option>
+                                        <option key={t.id} value={t.id}>{t.name}</option>
                                     ))}
                             </select>
                         </div>
@@ -251,14 +253,14 @@ export function CreateTaskModal({
 
                     {/* Title */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">
                             Tiêu đề <span className="text-red-500">*</span>
                         </label>
                         <input
                             type="text"
                             value={formData.title}
                             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                             placeholder="Mô tả ngắn gọn công việc..."
                             autoFocus
                         />
@@ -266,159 +268,147 @@ export function CreateTaskModal({
 
                     {/* Description */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">Mô tả</label>
                         <textarea
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            rows={4}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none resize-none"
                             placeholder="Chi tiết về công việc..."
                         />
                     </div>
 
-                    {/* Status, Priority, Assignee */}
-                    <div className="grid grid-cols-3 gap-4">
+                    {/* Status, Priority, Assignee - 3 columns */}
+                    <div className="grid grid-cols-3 gap-3">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1.5">Trạng thái</label>
                             <select
                                 value={formData.statusId}
                                 onChange={(e) => setFormData({ ...formData, statusId: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                             >
                                 {statuses.map((s) => (
-                                    <option key={s.id} value={s.id}>
-                                        {s.name}
-                                    </option>
+                                    <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
                             </select>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Độ ưu tiên</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1.5">Độ ưu tiên</label>
                             <select
                                 value={formData.priorityId}
                                 onChange={(e) => setFormData({ ...formData, priorityId: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                             >
                                 {priorities.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.name}
-                                    </option>
+                                    <option key={p.id} value={p.id}>{p.name}</option>
                                 ))}
                             </select>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Người thực hiện</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1.5">Người thực hiện</label>
                             <select
                                 value={formData.assigneeId}
                                 onChange={(e) => setFormData({ ...formData, assigneeId: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                             >
-                                <option value="">-- Chưa gán --</option>
+                                <option value="">Chưa gán</option>
                                 {members.map((m) => (
-                                    <option key={m.user.id} value={m.user.id}>
-                                        {m.user.name}
-                                    </option>
+                                    <option key={m.user.id} value={m.user.id}>{m.user.name}</option>
                                 ))}
                             </select>
                         </div>
                     </div>
 
-                    {/* Date & Hours */}
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* Date, Hours, Done Ratio - 4 columns */}
+                    <div className="grid grid-cols-4 gap-3">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Ngày bắt đầu</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1.5">Bắt đầu</label>
                             <input
                                 type="date"
                                 value={formData.startDate}
                                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Ngày hết hạn</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1.5">Kết thúc</label>
                             <input
                                 type="date"
                                 value={formData.dueDate}
                                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                             />
                         </div>
-                    </div>
-
-                    {/* Version & Estimated Hours */}
-                    <div className="grid grid-cols-2 gap-4">
-                        {versions.length > 0 && (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Phiên bản</label>
-                                <select
-                                    value={formData.versionId}
-                                    onChange={(e) => setFormData({ ...formData, versionId: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                                >
-                                    <option value="">-- Không chọn --</option>
-                                    {versions.filter(v => v.status === 'open').map((v) => (
-                                        <option key={v.id} value={v.id}>
-                                            {v.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Ước tính (giờ)</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1.5">Ước tính (giờ)</label>
                             <input
                                 type="number"
                                 step="0.5"
                                 value={formData.estimatedHours}
                                 onChange={(e) => setFormData({ ...formData, estimatedHours: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                placeholder="0"
                             />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1.5">Hoàn thành</label>
+                            <select
+                                value={formData.doneRatio}
+                                onChange={(e) => setFormData({ ...formData, doneRatio: parseInt(e.target.value) })}
+                                className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                            >
+                                {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(n => (
+                                    <option key={n} value={n}>{n}%</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 
-                    {/* Done Ratio & Private */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                % Hoàn thành: {formData.doneRatio}%
-                            </label>
-                            <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                step="10"
-                                value={formData.doneRatio}
-                                onChange={(e) => setFormData({ ...formData, doneRatio: parseInt(e.target.value) })}
-                                className="w-full"
-                            />
-                        </div>
-                        <div className="flex items-center">
+                    {/* Version & Private */}
+                    <div className="flex items-end gap-4">
+                        {versions.length > 0 && (
+                            <div className="flex-1">
+                                <label className="block text-xs font-medium text-gray-600 mb-1.5">Phiên bản</label>
+                                <select
+                                    value={formData.versionId}
+                                    onChange={(e) => setFormData({ ...formData, versionId: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                >
+                                    <option value="">Không chọn</option>
+                                    {versions.filter(v => v.status === 'open').map((v) => (
+                                        <option key={v.id} value={v.id}>{v.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        <div className="flex items-center h-[38px]">
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input
                                     type="checkbox"
                                     checked={formData.isPrivate}
                                     onChange={(e) => setFormData({ ...formData, isPrivate: e.target.checked })}
-                                    className="w-4 h-4 text-blue-600 rounded border-gray-300"
+                                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                                 />
-                                <span className="text-sm text-gray-700">Riêng tư</span>
+                                <span className="text-sm text-gray-600">Riêng tư</span>
                             </label>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-3 mt-6">
+                {/* Footer */}
+                <div className="px-5 py-4 bg-gray-50/80 flex justify-end gap-3 shrink-0">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+                        className="px-4 py-2 text-sm text-gray-600 font-medium hover:text-gray-800 hover:bg-gray-200 rounded-lg transition-colors"
                     >
                         Hủy
                     </button>
                     <button
                         onClick={handleCreate}
                         disabled={loading || !formData.title.trim() || !formData.projectId}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 disabled:opacity-50"
+                        className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                     >
                         {loading ? 'Đang tạo...' : (formData.parentId ? 'Thêm công việc con' : 'Tạo công việc')}
                     </button>

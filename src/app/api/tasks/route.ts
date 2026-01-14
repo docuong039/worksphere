@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
 
         // 1. Check Permission: 'tasks.create' (Add Issues)
         const hasPermission = await checkProjectPermission(
-            session.user as any,
+            session.user,
             'tasks.create',
             validatedData.projectId
         );
@@ -231,9 +231,7 @@ export async function POST(req: NextRequest) {
                 });
 
                 // STRICT CHECK: explicit true required.
-                // Cast to any to avoid TS error if schema not synced in IDE
-                const RoleWithPerm = requesterMember?.role as any;
-                if (!requesterMember || RoleWithPerm?.canAssignToOther !== true) {
+                if (!requesterMember || requesterMember.role.canAssignToOther !== true) {
                     return errorResponse('Bạn không có quyền giao việc cho người khác', 403);
                 }
             }

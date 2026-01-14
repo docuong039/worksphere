@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
-import { createIssueRelationSchema, RELATION_TYPES } from '@/lib/validations';
+import { createIssueRelationSchema } from '@/lib/validations';
 
 interface Params {
     params: Promise<{ id: string }>;

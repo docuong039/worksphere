@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Eye, EyeOff, UserPlus, X, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -42,7 +43,6 @@ export function TaskWatchers({
     // For searching users to add
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<User[]>([]);
-    const [searching, setSearching] = useState(false);
 
     // Toggle watch myself
     const handleToggleWatch = async () => {
@@ -91,7 +91,6 @@ export function TaskWatchers({
             return;
         }
 
-        setSearching(true);
         try {
             // We reuse project members API or users API. 
             // Let's use project members API because we only want to add members
@@ -99,9 +98,9 @@ export function TaskWatchers({
             if (res.ok) {
                 const data = await res.json();
                 // data.data is array of members { user: {...}, role: ... }
-                // Filter client side for simplicity as API might not support search param yet or behaves differently
+                interface MemberData { user: User }
                 const results = data.data
-                    .map((m: any) => m.user)
+                    .map((m: MemberData) => m.user)
                     .filter((u: User) =>
                         !watchers.some(w => w.userId === u.id) && // Not already watching
                         (u.name.toLowerCase().includes(query.toLowerCase()) ||
@@ -109,8 +108,8 @@ export function TaskWatchers({
                     );
                 setSearchResults(results);
             }
-        } finally {
-            setSearching(false);
+        } catch {
+            // Silently handle search error
         }
     };
 
@@ -183,7 +182,7 @@ export function TaskWatchers({
                         <div className="flex items-center gap-2">
                             <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
                                 {watcher.user.avatar ? (
-                                    <img src={watcher.user.avatar} alt="" className="w-6 h-6 rounded-full" />
+                                    <Image src={watcher.user.avatar} alt={watcher.user.name} width={24} height={24} className="w-6 h-6 rounded-full object-cover" />
                                 ) : (
                                     <span className="text-xs text-gray-600">
                                         {watcher.user.name.charAt(0).toUpperCase()}
@@ -240,7 +239,7 @@ export function TaskWatchers({
                                     className="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-50 rounded-md text-left"
                                 >
                                     <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                                        {user.avatar ? <img src={user.avatar} className="w-8 h-8 rounded-full" /> : <span className="text-xs">{user.name.charAt(0)}</span>}
+                                        {user.avatar ? <Image src={user.avatar} alt={user.name} width={32} height={32} className="w-8 h-8 rounded-full object-cover" /> : <span className="text-xs">{user.name.charAt(0)}</span>}
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium text-gray-900">{user.name}</p>

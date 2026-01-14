@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Activity, Map, ListTodo, Users, Clock, Flag, Settings } from 'lucide-react';
+import { LayoutDashboard, Activity, Map, ListTodo, Users, Clock, Flag } from 'lucide-react';
 
 interface ProjectTabsProps {
     projectId: string;

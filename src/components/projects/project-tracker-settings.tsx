@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Tag, Check } from 'lucide-react';
 
 interface Tracker {
@@ -53,12 +54,13 @@ export function ProjectTrackerSettings({
             });
 
             if (res.ok) {
+                toast.success('Đã lưu cấu hình trackers');
                 setSaved(true);
                 router.refresh();
                 setTimeout(() => setSaved(false), 2000);
             } else {
                 const data = await res.json();
-                alert(data.error || 'Có lỗi xảy ra');
+                toast.error(data.error || 'Có lỗi xảy ra');
             }
         } finally {
             setLoading(false);
@@ -92,8 +94,8 @@ export function ProjectTrackerSettings({
                             <label
                                 key={tracker.id}
                                 className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${isEnabled
-                                        ? 'bg-green-50 border-green-200'
-                                        : 'bg-gray-50 border-gray-200'
+                                    ? 'bg-green-50 border-green-200'
+                                    : 'bg-gray-50 border-gray-200'
                                     } ${!canManage ? 'cursor-default' : 'hover:shadow-sm'}`}
                             >
                                 <input

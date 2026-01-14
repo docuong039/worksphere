@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
 async function resolveTaskId(idStr: string) {
     if (/^\d+$/.test(idStr)) {
         const task = await prisma.task.findUnique({
-            where: { number: parseInt(idStr) } as any,
+            where: { number: parseInt(idStr) },
             select: { id: true }
         });
 
@@ -94,7 +94,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     try {
         const session = await auth();
 
-        if (!session) {
+        if (!session || !session.user) {
             return errorResponse('Chưa đăng nhập', 401);
         }
 
@@ -215,7 +215,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     try {
         const session = await auth();
 
-        if (!session) {
+        if (!session || !session.user) {
             return errorResponse('Chưa đăng nhập', 401);
         }
 
@@ -264,7 +264,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
         // Check status transition if status is being changed
         if (validatedData.statusId && currentTask.statusId !== validatedData.statusId) {
             const canTransition = await canTransitionStatus(
-                session.user as any,
+                session.user,
                 id,
                 validatedData.statusId
             );
@@ -331,8 +331,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
                     include: { role: true }
                 });
 
-                const RoleWithPerm = requesterMember?.role as any;
-                return errorResponse('Bạn không có quyền giao việc cho người khác', 403);
+                // STRICT CHECK: explicit true required
+                if (!requesterMember || requesterMember.role.canAssignToOther !== true) {
+                    return errorResponse('Bạn không có quyền giao việc cho người khác', 403);
+                }
             }
         }
 
@@ -515,7 +517,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     try {
         const session = await auth();
 
-        if (!session) {
+        if (!session || !session.user) {
             return errorResponse('Chưa đăng nhập', 401);
         }
 
