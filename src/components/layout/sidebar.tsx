@@ -47,15 +47,14 @@ const adminMenu = [
 export function Sidebar({ user }: SidebarProps) {
     const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = useState(false);
-    const [isMounted] = useState(() => typeof window !== 'undefined');
+    const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
+        setIsMounted(true);
         const saved = localStorage.getItem('sidebar-collapsed');
         if (saved !== null) {
             const collapsed = saved === 'true';
-            setTimeout(() => {
-                setIsCollapsed(collapsed);
-            }, 0);
+            setIsCollapsed(collapsed);
         }
     }, []);
 

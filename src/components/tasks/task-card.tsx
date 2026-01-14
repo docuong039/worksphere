@@ -4,7 +4,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { MessageSquare, GitBranch, Clock, User, ChevronDown, ChevronRight, CheckCircle2, Circle } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TaskContextMenu } from './task-context-menu';
 
 interface Status {
@@ -59,6 +59,11 @@ interface TaskCardProps {
 export function TaskCard({ task, statuses, trackers, priorities, onRefresh }: TaskCardProps) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [updatingSubtask, setUpdatingSubtask] = useState<string | null>(null);
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: task.id,
@@ -107,13 +112,13 @@ export function TaskCard({ task, statuses, trackers, priorities, onRefresh }: Ta
         <div
             ref={setNodeRef}
             style={style}
-            {...attributes}
+            {...(isMounted ? attributes : {})}
             className={`group bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-50 ring-2 ring-blue-500 shadow-xl scale-[1.02]' : ''}`}
         >
             <div className="p-4 space-y-4">
                 {/* Header: Tracker & Project */}
                 <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-col gap-1.5 flex-1 min-w-0" {...listeners}>
+                    <div className="flex flex-col gap-1.5 flex-1 min-w-0" {...(isMounted ? listeners : {})}>
                         <div className="flex flex-wrap gap-1.5">
                             <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-wider rounded-md">
                                 {task.tracker.name}
@@ -127,24 +132,26 @@ export function TaskCard({ task, statuses, trackers, priorities, onRefresh }: Ta
                         </div>
                     </div>
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                        <TaskContextMenu
-                            taskId={task.id}
-                            projectId={task.project.id}
-                            currentStatusId={task.status.id}
-                            currentTrackerId={task.tracker.id}
-                            currentPriorityId={task.priority.id}
-                            currentAssigneeId={task.assignee?.id || null}
-                            currentDoneRatio={task.doneRatio}
-                            statuses={statuses}
-                            trackers={trackers}
-                            priorities={priorities}
-                            onRefresh={onRefresh}
-                        />
+                        {isMounted && (
+                            <TaskContextMenu
+                                taskId={task.id}
+                                projectId={task.project.id}
+                                currentStatusId={task.status.id}
+                                currentTrackerId={task.tracker.id}
+                                currentPriorityId={task.priority.id}
+                                currentAssigneeId={task.assignee?.id || null}
+                                currentDoneRatio={task.doneRatio}
+                                statuses={statuses}
+                                trackers={trackers}
+                                priorities={priorities}
+                                onRefresh={onRefresh}
+                            />
+                        )}
                     </div>
                 </div>
 
                 {/* Title */}
-                <div {...listeners}>
+                <div {...(isMounted ? listeners : {})}>
                     <Link
                         href={`/tasks/${task.id}`}
                         className={`text-[14px] font-bold leading-snug hover:text-blue-600 transition-colors block ${task.status.isClosed ? 'text-gray-400 line-through' : 'text-gray-900'}`}
@@ -155,7 +162,7 @@ export function TaskCard({ task, statuses, trackers, priorities, onRefresh }: Ta
                 </div>
 
                 {/* Subtasks Progress */}
-                <div className="space-y-2" {...listeners}>
+                <div className="space-y-2" {...(isMounted ? listeners : {})}>
                     <div className="flex justify-between items-center px-0.5">
                         <div className="flex items-center gap-2">
                             <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400">
@@ -233,7 +240,7 @@ export function TaskCard({ task, statuses, trackers, priorities, onRefresh }: Ta
                 )}
 
                 {/* Footer Info */}
-                <div className="flex items-center justify-between pt-1 border-t border-gray-50" {...listeners}>
+                <div className="flex items-center justify-between pt-1 border-t border-gray-50" {...(isMounted ? listeners : {})}>
                     <div className="flex items-center gap-4 text-gray-400">
                         {dueDate && task.dueDate && (
                             <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold ${new Date(task.dueDate) < new Date() && !task.status.isClosed ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-500'}`}>

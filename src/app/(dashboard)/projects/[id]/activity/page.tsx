@@ -55,6 +55,8 @@ interface CommentActivity {
 interface ActivityItem {
     id: string;
     type: 'task' | 'comment';
+    action: string;
+    actionLabel: string;
     date: Date;
     user: {
         id: string;
@@ -77,27 +79,40 @@ export default async function ProjectActivityPage({ params }: Props) {
     });
     if (!canAccess) notFound();
 
+    const [project, projectTasks] = await Promise.all([
+        prisma.project.findUnique({
+            where: { id },
+            select: { id: true, name: true }
+        }),
+        prisma.task.findMany({
+            where: { projectId: id },
+            select: { id: true, number: true, title: true, tracker: { select: { name: true } } }
+        })
+    ]);
+
+    if (!project) notFound();
+
+    const taskIds = projectTasks.map(t => t.id);
+    const taskMap = new Map(projectTasks.map(t => [t.id, t]));
+
     const since = new Date();
     since.setDate(since.getDate() - 30);
 
-    const [newTasks, comments] = await Promise.all([
-        prisma.task.findMany({
-            where: { projectId: id, createdAt: { gt: since } },
-            select: {
-                id: true,
-                number: true,
-                title: true,
-                description: true,
-                createdAt: true,
-                creator: { select: { id: true, name: true, avatar: true } },
-                tracker: { select: { name: true } },
-                status: { select: { name: true } }
+    const [auditLogs, comments] = await Promise.all([
+        prisma.auditLog.findMany({
+            where: {
+                OR: [
+                    { entityType: 'project', entityId: id },
+                    { entityType: 'task', entityId: { in: taskIds } }
+                ],
+                createdAt: { gt: since }
+            },
+            include: {
+                user: { select: { id: true, name: true, avatar: true } }
             },
             orderBy: { createdAt: 'desc' },
-
-            take: 50
+            take: 100
         }),
-
         prisma.comment.findMany({
             where: { task: { projectId: id }, createdAt: { gt: since } },
             include: {
@@ -111,30 +126,54 @@ export default async function ProjectActivityPage({ params }: Props) {
                         status: { select: { name: true } }
                     }
                 }
-
-
-
             },
             orderBy: { createdAt: 'desc' },
             take: 50
         })
-    ]) as [TaskActivity[], CommentActivity[]];
-
+    ]);
 
     const activities: ActivityItem[] = [
-        ...newTasks.map(t => ({
-            id: `task-${t.id}`,
-            type: 'task' as const,
-            date: t.createdAt,
-            user: t.creator,
-            title: `${t.tracker.name} #${t.number} (${t.status.name}): ${t.title}`,
-            description: t.description,
-            link: `/tasks/${t.id}`
-        })),
-        ...comments.map(c => ({
+        ...auditLogs.map(log => {
+            let title = '';
+            let link = '';
+            let type: 'task' | 'comment' | 'project_update' = 'task'; // We'll reuse 'task' for most but can adjust
 
+            if (log.entityType === 'task') {
+                const task = taskMap.get(log.entityId);
+                if (task) {
+                    title = `${task.tracker.name} #${task.number}: ${task.title}`;
+                    link = `/tasks/${task.id}`;
+                } else {
+                    // Task might have been deleted, try to get title from changes if available
+                    const changes = log.changes as any;
+                    const oldTitle = changes?.old?.title || changes?.new?.title || 'Công việc';
+                    title = `Công việc: ${oldTitle}`;
+                    link = '#';
+                }
+            } else {
+                title = `Dự án: ${project.name}`;
+                link = `/projects/${project.id}`;
+            }
+
+            const actionLabel = log.action === 'created' ? 'Tạo mới' : log.action === 'updated' ? 'Cập nhật' : 'Xóa';
+
+            return {
+                id: log.id,
+                type: 'task' as const, // Use task UI style
+                action: log.action,
+                actionLabel,
+                date: log.createdAt,
+                user: log.user,
+                title: title,
+                description: null, // Could add change details here later
+                link: link
+            };
+        }),
+        ...comments.map(c => ({
             id: `comment-${c.id}`,
             type: 'comment' as const,
+            action: 'commented',
+            actionLabel: 'Bình luận',
             date: c.createdAt,
             user: c.user,
             title: `${c.task.tracker.name} #${c.task.number}: ${c.task.title}`,
@@ -173,15 +212,15 @@ export default async function ProjectActivityPage({ params }: Props) {
                                     <div className="flex items-center gap-2 text-xs text-gray-500 mb-0.5">
                                         <span className="font-medium text-gray-900">{item.user.name}</span>
                                         <span>{format(item.date, 'HH:mm')}</span>
-                                        {item.type === 'task' ? (
-                                            <span className="flex items-center gap-1 bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs">
-                                                <PlusCircle className="w-3 h-3" /> Tạo mới
-                                            </span>
-                                        ) : (
-                                            <span className="flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs">
-                                                <MessageSquare className="w-3 h-3" /> Bình luận
-                                            </span>
-                                        )}
+                                        <span className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs ${item.action === 'created' ? 'bg-green-100 text-green-700' :
+                                            item.action === 'updated' ? 'bg-amber-100 text-amber-700' :
+                                                item.action === 'deleted' ? 'bg-red-100 text-red-700' :
+                                                    'bg-blue-100 text-blue-700'
+                                            }`}>
+                                            {item.action === 'created' ? <PlusCircle className="w-3 h-3" /> :
+                                                item.action === 'commented' ? <MessageSquare className="w-3 h-3" /> : null}
+                                            {item.actionLabel}
+                                        </span>
                                     </div>
                                     <Link href={item.link} className="text-blue-600 hover:underline font-medium block">
                                         {item.title}

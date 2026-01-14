@@ -13,7 +13,7 @@ import {
     defaultDropAnimationSideEffects
 } from '@dnd-kit/core';
 import { useDroppable } from '@dnd-kit/core';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TaskCard } from './task-card';
 
 interface Tracker {
@@ -171,8 +171,11 @@ function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses
 
 export function KanbanBoard({ tasks, statuses, trackers, priorities, onRefresh, onStatusChange }: KanbanBoardProps) {
     const [activeId, setActiveId] = useState<string | null>(null);
-    // Simple client-side check - avoid SSR hydration mismatch
-    const [isMounted] = useState(typeof window !== 'undefined');
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
     const activeTask = tasks.find(t => t.id === activeId);
 
     const sensors = useSensors(

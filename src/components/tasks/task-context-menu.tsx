@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import {
@@ -78,6 +78,19 @@ export function TaskContextMenu({
 }: TaskContextMenuProps) {
     const [members, setMembers] = useState<Member[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    if (!isMounted) {
+        return (
+            <button className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded">
+                <MoreHorizontal className="w-4 h-4" />
+            </button>
+        );
+    }
 
     // Fetch members when Assignee submenu is opened
     const fetchMembers = async () => {
