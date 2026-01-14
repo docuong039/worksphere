@@ -37,7 +37,6 @@ model User {
   attachments            Attachment[]
   defaultCategoryAssigns IssueCategory[]   @relation("DefaultCategoryAssignee")
   queries                Query[]           @relation("QueryOwner")
-  timeLogs               TimeLog[]
 
   @@index([email])
   @@index([isAdministrator])
@@ -373,7 +372,6 @@ model Task {
   attachments   Attachment[]
   relationsFrom IssueRelation[] @relation("RelationFrom")
   relationsTo   IssueRelation[] @relation("RelationTo")
-  timeLogs      TimeLog[]
 
   @@index([projectId])
   @@index([assigneeId])
@@ -462,31 +460,6 @@ model Attachment {
   @@index([taskId])
   @@index([userId])
   @@map("attachments")
-}
-
-// ============================================
-// TIME TRACKING
-// ============================================
-
-model TimeLog {
-  id          String   @id @default(cuid())
-  hours       Float
-  description String?  @db.Text
-  date        DateTime
-  activity    String?
-  taskId      String
-  userId      String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([taskId])
-  @@index([userId])
-  @@index([date])
-  @@map("time_logs")
 }
 
 // ============================================

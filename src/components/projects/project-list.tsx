@@ -327,7 +327,7 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
                                     href={`/projects/${project.id}`}
                                     className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-bold rounded-lg hover:bg-blue-600 hover:text-white"
                                 >
-                                    Chi tiết
+                                    Vào dự án
                                     <ArrowRight className="w-3 h-3" />
                                 </Link>
                             </div>

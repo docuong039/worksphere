@@ -20,9 +20,9 @@ export async function GET(req: NextRequest) {
 
         const isAdmin = session.user.isAdministrator;
 
-        // Check permissions
-        const canViewAll = await hasPermission(session.user, 'timelogs.view_all');
-        const canViewOwn = await hasPermission(session.user, 'timelogs.view_own');
+        // Check permissions (Sử dụng quyền xem công việc vì đây là thống kê giờ ước tính)
+        const canViewAll = await hasPermission(session.user, 'tasks.view_all');
+        const canViewOwn = true; // Ai cũng có thể xem khối lượng của mình
 
         if (!isAdmin && !canViewAll && !canViewOwn) {
             return errorResponse('Không có quyền xem thống kê thời gian', 403);

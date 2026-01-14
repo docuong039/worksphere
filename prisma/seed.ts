@@ -51,9 +51,6 @@ async function main() {
         { key: 'reports.view_system', name: 'View System Reports', module: 'reports' },
         { key: 'reports.export', name: 'Export Reports', module: 'reports' },
 
-        // Time Tracking
-        { key: 'timelogs.view_own', name: 'View Own Time Summary', module: 'Thời gian' },
-        { key: 'timelogs.view_all', name: 'View All Time Summary', module: 'Thời gian' },
 
         // System
         { key: 'system.manage_roles', name: 'Manage Roles', module: 'system' },
@@ -181,7 +178,6 @@ async function main() {
         'tasks.edit_own', 'tasks.edit_assigned', 'tasks.edit_any', 'tasks.delete_any',
         'tasks.assign', 'tasks.change_status', 'tasks.comment', 'tasks.upload_files',
         'reports.view_personal', 'reports.view_project', 'reports.view_system', 'reports.export',
-        'timelogs.view_own', 'timelogs.view_all',
     ]);
 
     // 2. TECH LEAD (Senior Developer with management rights)
@@ -202,7 +198,6 @@ async function main() {
         'tasks.edit_own', 'tasks.edit_assigned', 'tasks.edit_any',
         'tasks.assign', 'tasks.change_status', 'tasks.comment', 'tasks.upload_files',
         'reports.view_personal', 'reports.view_project',
-        'timelogs.view_own', 'timelogs.view_all',
     ]);
 
     // 3. DEVELOPER (Standard developer)
@@ -223,7 +218,6 @@ async function main() {
         'tasks.edit_own', 'tasks.edit_assigned',
         'tasks.change_status', 'tasks.comment', 'tasks.upload_files',
         'reports.view_personal',
-        'timelogs.view_own',
     ]);
 
     // 4. TESTER / QA (Quality Assurance)
@@ -244,7 +238,6 @@ async function main() {
         'tasks.edit_own', 'tasks.edit_assigned',
         'tasks.change_status', 'tasks.comment', 'tasks.upload_files',
         'reports.view_personal', 'reports.view_project',
-        'timelogs.view_own',
     ]);
 
     // 5. DESIGNER (UI/UX Designer)
@@ -265,7 +258,6 @@ async function main() {
         'tasks.edit_own', 'tasks.edit_assigned',
         'tasks.change_status', 'tasks.comment', 'tasks.upload_files',
         'reports.view_personal',
-        'timelogs.view_own',
     ]);
 
     // 6. REPORTER (Client / Stakeholder - Read mostly)

@@ -179,7 +179,6 @@ export default function ActivityPage() {
             case 'archived': return 'đã lưu trữ';
             case 'unarchived': return 'đã hủy lưu trữ';
             case 'commented': return 'đã bình luận vào';
-            case 'logged_time': return 'đã ghi nhận thời gian cho';
             default: return `đã ${actionLower}`;
         }
     };

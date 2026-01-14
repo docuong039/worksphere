@@ -150,7 +150,7 @@ export function TimeLogsContent({
                         {titleSize === 'lg' && (
                             <p className="text-sm text-gray-500 mt-1">
                                 {viewMode === 'summary'
-                                    ? 'Thống kê giờ ước tính từ các công việc được giao'
+                                    ? 'Thống kê giờ dự kiến từ các công việc được giao'
                                     : `Danh sách công việc của ${selectedUser?.userName}`}
                             </p>
                         )}
@@ -184,7 +184,7 @@ export function TimeLogsContent({
                 <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm flex items-center justify-between">
                     <div>
                         <p className="text-xs font-medium text-gray-500 uppercase">
-                            {viewMode === 'summary' ? 'Tổng giờ ước tính' : 'Giờ ước tính'}
+                            {viewMode === 'summary' ? 'Tổng giờ dự kiến' : 'Giờ dự kiến'}
                         </p>
                         <h3 className="text-2xl font-bold text-gray-900 mt-1">
                             {viewMode === 'summary' ? grandTotal.toFixed(1) : detailTotalHours.toFixed(1)}h
@@ -210,7 +210,7 @@ export function TimeLogsContent({
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden text-nowrap scrollbar-none">
                 {loading ? (
                     <div className="p-12 text-center text-gray-500">
                         Đang tải dữ liệu...
@@ -225,7 +225,7 @@ export function TimeLogsContent({
                                             <th className="px-6 py-4">Thành viên</th>
                                             <th className="px-6 py-4">Số công việc</th>
                                             <th className="px-6 py-4">Tỷ lệ</th>
-                                            <th className="px-6 py-4 text-right">Giờ ước tính</th>
+                                            <th className="px-6 py-4 text-right">Giờ dự kiến</th>
                                             <th className="px-6 py-4 w-20"></th>
                                         </tr>
                                     </thead>
@@ -271,7 +271,7 @@ export function TimeLogsContent({
                                         {summaryData.length === 0 && (
                                             <tr>
                                                 <td colSpan={5} className="px-6 py-12 text-center text-gray-500 italic font-medium">
-                                                    Chưa có dữ liệu thời gian ước tính.
+                                                    Chưa có dữ liệu thời gian công việc.
                                                 </td>
                                             </tr>
                                         )}
@@ -288,7 +288,7 @@ export function TimeLogsContent({
                                                 <th className="px-6 py-4">Tracker</th>
                                                 <th className="px-6 py-4">Trạng thái</th>
                                                 <th className="px-6 py-4">% Xong</th>
-                                                <th className="px-6 py-4 text-right">Giờ ước tính</th>
+                                                <th className="px-6 py-4 text-right">Giờ dự kiến</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">
