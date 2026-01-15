@@ -13,6 +13,7 @@ import {
     Settings,
     Search,
     ArrowRight,
+    Pencil,
 } from 'lucide-react';
 import Image from 'next/image';
 import type { ApiFieldError } from '@/lib/api-error';
@@ -56,6 +57,7 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
     const [filter, setFilter] = useState<'all' | 'active' | 'archived'>('active');
     const [search, setSearch] = useState('');
     const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+    const [editingProject, setEditingProject] = useState<Project | null>(null);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -109,6 +111,42 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
                     setError(data.error || 'Có lỗi xảy ra');
                 }
             }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Update project
+    const handleUpdate = async () => {
+        if (!editingProject) return;
+        if (!formData.name.trim() || !formData.identifier.trim()) return;
+
+        setLoading(true);
+        setError('');
+
+        try {
+            const res = await fetch(`/api/projects/${editingProject.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData),
+            });
+
+            if (res.ok) {
+                setEditingProject(null);
+                setFormData({ name: '', identifier: '', description: '' });
+                router.refresh();
+                toast.success('Đã cập nhật dự án thành công');
+            } else {
+                const data = await res.json();
+                if (data.errors && Array.isArray(data.errors)) {
+                    const errorMsgs = (data.errors as ApiFieldError[]).map((e) => e.message).join(', ');
+                    setError(`${data.error}: ${errorMsgs}`);
+                } else {
+                    setError(data.error || 'Có lỗi xảy ra');
+                }
+            }
+        } catch {
+            setError('Lỗi kết nối');
         } finally {
             setLoading(false);
         }
@@ -201,7 +239,7 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
             </div>
 
             {/* Project Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredProjects.map((project) => {
                     const completedTasks = project.tasks?.length || 0;
                     const totalTasks = project._count.tasks || 0;
@@ -211,145 +249,138 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
                     return (
                         <div
                             key={project.id}
-                            className={`bg-white rounded-[24px] border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all relative group flex flex-col ${project.isArchived ? 'opacity-70' : ''
-                                }`}
+                            className={`bg-white rounded-2xl border border-gray-200 p-5 flex flex-col h-full hover:shadow-md transition-shadow relative group ${project.isArchived ? 'opacity-70' : ''}`}
                         >
-                            <div>
-                                {/* Header */}
-                                <div className="flex items-start justify-between mb-8">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-14 h-14 bg-blue-50/50 rounded-2xl flex items-center justify-center border border-blue-100/50">
-                                            <FolderKanban className="w-7 h-7 text-blue-500" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <Link
-                                                href={`/projects/${project.id}`}
-                                                className="text-[17px] font-bold text-gray-900 hover:text-blue-600 truncate block transition-colors leading-tight"
-                                            >
-                                                {project.name}
-                                            </Link>
-                                            <p className="text-[13px] text-gray-400 font-medium mt-1">#{project.identifier}</p>
-                                        </div>
-                                    </div>
-
-                                    {/* Menu */}
-                                    <div className="relative">
-                                        <button
-                                            onClick={() => setMenuOpenId(menuOpenId === project.id ? null : project.id)}
-                                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-                                        >
-                                            <MoreVertical className="w-5 h-5" />
-                                        </button>
-
-                                        {menuOpenId === project.id && (
-                                            <div className="absolute right-0 top-10 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-20 py-2">
-                                                <Link
-                                                    href={`/projects/${project.id}/settings`}
-                                                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                                >
-                                                    <Settings className="w-4 h-4 text-gray-400" />
-                                                    Cài đặt
-                                                </Link>
-                                                <button
-                                                    onClick={() => {
-                                                        handleArchive(project.id);
-                                                        setMenuOpenId(null);
-                                                    }}
-                                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                                                >
-                                                    <Archive className="w-4 h-4 text-gray-400" />
-                                                    {project.isArchived ? 'Khôi phục' : 'Lưu trữ'}
-                                                </button>
-                                                <div className="h-px bg-gray-100 my-1 mx-2" />
-                                                <button
-                                                    onClick={() => {
-                                                        handleDelete(project);
-                                                        setMenuOpenId(null);
-                                                    }}
-                                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                    Xóa dự án
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
+                            {/* Top Row: Icon and Menu */}
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                                    <FolderKanban className="w-6 h-6 text-white" />
                                 </div>
 
-                                {/* Progress Section */}
-                                <div className="mb-8">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-[14px] font-bold text-gray-700">
-                                            {project._count.tasks} tasks
-                                        </span>
-                                        <div className="flex items-center gap-1.5">
-                                            <div className="w-2 h-2 rounded-full bg-green-500" />
-                                            <span className="text-[14px] font-bold text-green-600">{progress}%</span>
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setMenuOpenId(menuOpenId === project.id ? null : project.id)}
+                                        className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-50 transition-colors"
+                                    >
+                                        <MoreVertical className="w-5 h-5" />
+                                    </button>
+
+                                    {menuOpenId === project.id && (
+                                        <div className="absolute right-0 top-8 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-20 py-2">
+                                            <Link
+                                                href={`/projects/${project.id}/settings`}
+                                                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                            >
+                                                <Settings className="w-4 h-4 text-gray-400" />
+                                                Cài đặt
+                                            </Link>
+                                            <button
+                                                onClick={() => {
+                                                    setEditingProject(project);
+                                                    setFormData({
+                                                        name: project.name,
+                                                        identifier: project.identifier,
+                                                        description: project.description || '',
+                                                    });
+                                                    setMenuOpenId(null);
+                                                }}
+                                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                            >
+                                                <Pencil className="w-4 h-4 text-gray-400" />
+                                                Chỉnh sửa
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    handleArchive(project.id);
+                                                    setMenuOpenId(null);
+                                                }}
+                                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                            >
+                                                <Archive className="w-4 h-4 text-gray-400" />
+                                                {project.isArchived ? 'Khôi phục' : 'Lưu trữ'}
+                                            </button>
+                                            <div className="h-px bg-gray-100 my-1 mx-2" />
+                                            <button
+                                                onClick={() => {
+                                                    handleDelete(project);
+                                                    setMenuOpenId(null);
+                                                }}
+                                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                                Xóa dự án
+                                            </button>
                                         </div>
-                                    </div>
-                                    <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-blue-600 rounded-full transition-all duration-500"
-                                            style={{ width: `${progress}%` }}
-                                        />
-                                    </div>
+                                    )}
                                 </div>
                             </div>
 
-                            <div className="mt-auto">
-                                {/* Team & Action */}
-                                <div className="flex items-center justify-between">
-                                    <div className="flex flex-col gap-2">
-                                        <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none">TEAM</span>
-                                        <div className="flex items-center gap-2">
-                                            <div className="flex items-center -space-x-2.5">
-                                                {project.members.slice(0, 3).map((member) => (
-                                                    <div
-                                                        key={member.user.id}
-                                                        className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center shadow-sm overflow-hidden bg-gray-100 ring-1 ring-gray-100"
-                                                        title={member.user.name}
-                                                    >
-                                                        {member.user.avatar ? (
-                                                            <Image
-                                                                src={member.user.avatar}
-                                                                alt={member.user.name}
-                                                                width={32}
-                                                                height={32}
-                                                                className="w-full h-full object-cover"
-                                                            />
-                                                        ) : (
-                                                            <span className="text-[11px] font-bold text-gray-500">
-                                                                {member.user.name.charAt(0).toUpperCase()}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                                {project._count.members > 3 && (
-                                                    <div className="w-8 h-8 bg-gray-50 rounded-full border-2 border-white flex items-center justify-center shadow-sm ring-1 ring-gray-100">
-                                                        <span className="text-[10px] font-bold text-gray-500">+{project._count.members - 3}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <span className="text-[14px] font-semibold text-gray-700 truncate max-w-[120px]">
-                                                {project.name}
+                            {/* Project Name */}
+                            <h3 className="font-bold text-lg text-gray-900 mb-3 truncate" title={project.name}>
+                                {project.name}
+                            </h3>
+
+                            {/* Progress */}
+                            <div className="flex items-center gap-3 mb-1">
+                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-blue-600 rounded-full transition-all duration-500"
+                                        style={{ width: `${progress}%` }}
+                                    />
+                                </div>
+                                <span className="text-sm font-medium text-gray-600">{progress}%</span>
+                            </div>
+
+                            {/* Task Count & Members */}
+                            <div className="mb-6">
+                                <p className="text-sm text-gray-500 mb-3">
+                                    {project._count.tasks} công việc
+                                </p>
+
+                                <div className="flex items-center -space-x-2">
+                                    {project.members.slice(0, 4).map((member) => (
+                                        <div
+                                            key={member.user.id}
+                                            className="w-8 h-8 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center overflow-hidden ring-1 ring-gray-50"
+                                            title={member.user.name}
+                                        >
+                                            {member.user.avatar ? (
+                                                <Image
+                                                    src={member.user.avatar}
+                                                    alt={member.user.name}
+                                                    width={32}
+                                                    height={32}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <span className="text-[10px] font-bold text-gray-500">
+                                                    {member.user.name.charAt(0).toUpperCase()}
+                                                </span>
+                                            )}
+                                        </div>
+                                    ))}
+                                    {project._count.members > 4 && (
+                                        <div className="w-8 h-8 rounded-full border-2 border-white bg-gray-50 flex items-center justify-center ring-1 ring-gray-50">
+                                            <span className="text-[10px] font-medium text-gray-500">
+                                                +{project._count.members - 4}
                                             </span>
                                         </div>
-                                    </div>
-
-                                    <Link
-                                        href={`/projects/${project.id}`}
-                                        className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-50 text-blue-600 text-[14px] font-bold rounded-xl hover:bg-blue-100 hover:text-blue-700 transition-all group/btn"
-                                    >
-                                        Vào dự án
-                                        <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-0.5" />
-                                    </Link>
+                                    )}
                                 </div>
+                            </div>
 
-                                {/* Archived Badge */}
+                            {/* Action Button */}
+                            <div className="mt-auto">
+                                <Link
+                                    href={`/projects/${project.id}`}
+                                    className="block w-full py-2.5 border border-gray-200 rounded-xl text-center text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                                >
+                                    Vào dự án
+                                </Link>
+
                                 {project.isArchived && (
-                                    <div className="mt-4 flex items-center justify-center gap-1.5 text-[10px] font-bold text-orange-600 bg-orange-50 py-1.5 rounded-lg w-full uppercase tracking-wider">
-                                        <Archive className="w-3 h-3" />
-                                        Dự án đã lưu trữ
+                                    <div className="mt-2 text-center text-xs font-medium text-orange-600 bg-orange-50 py-1 rounded w-full">
+                                        Đã lưu trữ
                                     </div>
                                 )}
                             </div>
@@ -377,19 +408,19 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
 
             {/* Create Modal */}
             {showCreateModal && (
-                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-md p-8 shadow-2xl">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-6">Tạo dự án mới</h2>
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg w-full max-w-md p-6 shadow-xl">
+                        <h2 className="text-xl font-semibold text-gray-900 mb-6">Tạo dự án mới</h2>
 
                         {error && (
-                            <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl text-sm font-medium">
+                            <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-700 rounded-md text-sm font-medium">
                                 {error}
                             </div>
                         )}
 
-                        <div className="space-y-5">
+                        <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1.5">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Tên dự án <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -403,13 +434,13 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
                                             identifier: formData.identifier || generateIdentifier(name),
                                         });
                                     }}
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-transparent focus:border-blue-500 focus:bg-white rounded-xl text-sm outline-none"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     placeholder="VD: Website Redesign"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1.5">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Định danh (identifier) <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -418,38 +449,38 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
                                     onChange={(e) =>
                                         setFormData({ ...formData, identifier: e.target.value.toLowerCase() })
                                     }
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-transparent focus:border-blue-500 focus:bg-white rounded-xl text-sm outline-none"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     placeholder="website-redesign"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1.5">Mô tả</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
                                 <textarea
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                     rows={3}
-                                    className="w-full px-4 py-2.5 bg-gray-50 border border-transparent focus:border-blue-500 focus:bg-white rounded-xl text-sm outline-none resize-none"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                                     placeholder="Mô tả ngắn về dự án..."
                                 />
                             </div>
                         </div>
 
-                        <div className="flex gap-3 mt-8">
+                        <div className="flex justify-end gap-3 mt-6">
                             <button
                                 onClick={() => {
                                     setShowCreateModal(false);
                                     setFormData({ name: '', identifier: '', description: '' });
                                     setError('');
                                 }}
-                                className="flex-1 py-2.5 text-gray-500 font-bold rounded-xl hover:bg-gray-100"
+                                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm font-medium"
                             >
                                 Hủy
                             </button>
                             <button
                                 onClick={handleCreate}
                                 disabled={loading || !formData.name.trim() || !formData.identifier.trim()}
-                                className="flex-[2] py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 disabled:opacity-50"
+                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading ? 'Đang tạo...' : 'Tạo dự án'}
                             </button>
@@ -457,6 +488,88 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
                     </div>
                 </div>
             )}
-        </div>
+
+
+            {/* Edit Modal */}
+            {
+                editingProject && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-lg w-full max-w-md p-6 shadow-xl">
+                            <h2 className="text-xl font-semibold text-gray-900 mb-6">Chỉnh sửa dự án</h2>
+
+                            {error && (
+                                <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-700 rounded-md text-sm font-medium">
+                                    {error}
+                                </div>
+                            )}
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Tên dự án <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.name}
+                                        onChange={(e) => {
+                                            const name = e.target.value;
+                                            setFormData({
+                                                ...formData,
+                                                name,
+                                            });
+                                        }}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Định danh (identifier) <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.identifier}
+                                        onChange={(e) =>
+                                            setFormData({ ...formData, identifier: e.target.value.toLowerCase() })
+                                        }
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
+                                    <textarea
+                                        value={formData.description}
+                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                        rows={3}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button
+                                    onClick={() => {
+                                        setEditingProject(null);
+                                        setFormData({ name: '', identifier: '', description: '' });
+                                        setError('');
+                                    }}
+                                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm font-medium"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    onClick={handleUpdate}
+                                    disabled={loading || !formData.name.trim() || !formData.identifier.trim()}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 }
