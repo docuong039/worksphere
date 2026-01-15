@@ -10,7 +10,6 @@ import {
     PointerSensor,
     DragStartEvent,
     DragOverlay,
-    defaultDropAnimationSideEffects
 } from '@dnd-kit/core';
 import { useDroppable } from '@dnd-kit/core';
 import { useState, useEffect } from 'react';
@@ -169,8 +168,10 @@ export function KanbanBoard({ tasks, statuses, trackers, priorities, onRefresh, 
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
+        // eslint-disable-next-line
         setIsMounted(true);
     }, []);
+
     const activeTask = tasks.find(t => t.id === activeId);
 
     const sensors = useSensors(

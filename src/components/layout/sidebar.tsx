@@ -30,7 +30,7 @@ const mainMenu = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/projects', label: 'Dự án', icon: FolderKanban },
     { href: '/tasks', label: 'Công việc', icon: ListTodo },
-    { href: '/time-logs', label: 'Thời gian', icon: Clock },
+    { href: '/workload', label: 'Phân bổ việc', icon: Clock },
     { href: '/activity', label: 'Hoạt động', icon: Activity },
     { href: '/reports', label: 'Báo cáo', icon: BarChart3 },
 ];
@@ -50,6 +50,7 @@ export function Sidebar({ user }: SidebarProps) {
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
+        // eslint-disable-next-line
         setIsMounted(true);
         const saved = localStorage.getItem('sidebar-collapsed');
         if (saved !== null) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Tag, Layers, Settings } from 'lucide-react';
+import { Layers, Settings } from 'lucide-react';
 
 import { ProjectTrackerSettings } from '@/components/projects/project-tracker-settings';
 import { ProjectIssueSettings } from '@/components/projects/project-issue-settings';
@@ -15,22 +15,12 @@ interface Tracker {
 
 
 
-interface Member {
-    userId: string;
-    user: { id: string; name: string; avatar: string | null };
-}
+
 
 interface ProjectSettingsClientProps {
     projectId: string;
     allTrackers: Tracker[];
     enabledTrackerIds: string[];
-
-    project: {
-        name: string;
-        description: string | null;
-        identifier: string;
-    };
-    members: Member[];
     issueSettings: {
         parentIssueDates: string;
         parentIssuePriority: string;
@@ -44,8 +34,6 @@ export function ProjectSettingsClient({
     projectId,
     allTrackers,
     enabledTrackerIds,
-    project,
-    members,
     issueSettings,
     canManage,
 }: ProjectSettingsClientProps) {

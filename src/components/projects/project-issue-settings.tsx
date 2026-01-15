@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Save, Info, AlertCircle, Settings } from 'lucide-react';
+import { Save, Info, Settings } from 'lucide-react';
 
 interface ProjectIssueSettingsProps {
     projectId: string;

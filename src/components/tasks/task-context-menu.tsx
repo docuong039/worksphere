@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+
 import { toast } from 'sonner';
 import {
     MoreHorizontal,
@@ -95,20 +95,17 @@ interface TaskContextMenuProps {
 
 export function TaskContextMenu({
     taskId,
-    taskTitle,
     projectId,
     currentStatusId,
     currentTrackerId,
     currentPriorityId,
     currentAssigneeId,
     currentDoneRatio,
-    hasSubtasks = false,
     statuses,
     trackers,
     priorities,
     onRefresh,
 }: TaskContextMenuProps) {
-    const router = useRouter();
     const [members, setMembers] = useState<Member[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(false);
     const [isMounted, setIsMounted] = useState(false);

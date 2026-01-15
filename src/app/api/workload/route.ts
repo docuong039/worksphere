@@ -20,9 +20,10 @@ export async function GET(req: NextRequest) {
 
         const isAdmin = session.user.isAdministrator;
 
-        // Check permissions (Sử dụng quyền xem công việc vì đây là thống kê giờ ước tính)
-        const canViewAll = await hasPermission(session.user, 'tasks.view_all');
-        const canViewOwn = true; // Ai cũng có thể xem khối lượng của mình
+        // Check permissions
+        const canViewAll = await hasPermission(session.user, 'timelogs.view_all');
+        // Quyền xem của chính mình (thường là mặc định, nhưng check để đảm bảo)
+        const canViewOwn = await hasPermission(session.user, 'timelogs.view_own');
 
         if (!isAdmin && !canViewAll && !canViewOwn) {
             return errorResponse('Không có quyền xem thống kê thời gian', 403);
@@ -100,11 +101,23 @@ export async function GET(req: NextRequest) {
             _count: { id: true },
         });
 
-        const userIds = tasksByUser.map((t) => t.assigneeId).filter((id): id is string => id !== null);
-        const users = await prisma.user.findMany({
-            where: { id: { in: userIds } },
-            select: { id: true, name: true, avatar: true },
-        });
+        let users: { id: string; name: string; avatar: string | null }[] = [];
+
+        if (projectId) {
+            // Nếu có projectId, lấy tất cả thành viên dự án (bao gồm người chưa có task)
+            const members = await prisma.projectMember.findMany({
+                where: { projectId },
+                include: { user: { select: { id: true, name: true, avatar: true } } }
+            });
+            users = members.map(m => m.user);
+        } else {
+            // Nếu xem toàn cục, chỉ lấy những người có task để tránh list quá dài
+            const userIds = tasksByUser.map((t) => t.assigneeId).filter((id): id is string => id !== null);
+            users = await prisma.user.findMany({
+                where: { id: { in: userIds } },
+                select: { id: true, name: true, avatar: true },
+            });
+        }
 
         const summary = users.map((u) => {
             const taskStat = tasksByUser.find((t) => t.assigneeId === u.id);

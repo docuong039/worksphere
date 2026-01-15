@@ -11,46 +11,7 @@ interface Props {
     params: Promise<{ id: string }>;
 }
 
-interface TaskActivity {
-    id: string;
-    number: number;
-    title: string;
-    description: string | null;
-    createdAt: Date;
-    creator: {
-        id: string;
-        name: string;
-        avatar: string | null;
-    };
-    tracker: {
-        name: string;
-    };
-    status: {
-        name: string;
-    };
-}
 
-interface CommentActivity {
-    id: string;
-    content: string;
-    createdAt: Date;
-    user: {
-        id: string;
-        name: string;
-        avatar: string | null;
-    };
-    task: {
-        id: string;
-        number: number;
-        title: string;
-        tracker: {
-            name: string;
-        };
-        status: {
-            name: string;
-        };
-    };
-}
 
 interface ActivityItem {
     id: string;
@@ -136,7 +97,7 @@ export default async function ProjectActivityPage({ params }: Props) {
         ...auditLogs.map(log => {
             let title = '';
             let link = '';
-            let type: 'task' | 'comment' | 'project_update' = 'task'; // We'll reuse 'task' for most but can adjust
+            // removed unused type variable
 
             if (log.entityType === 'task') {
                 const task = taskMap.get(log.entityId);
@@ -145,6 +106,7 @@ export default async function ProjectActivityPage({ params }: Props) {
                     link = `/tasks/${task.id}`;
                 } else {
                     // Task might have been deleted, try to get title from changes if available
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const changes = log.changes as any;
                     const oldTitle = changes?.old?.title || changes?.new?.title || 'Công việc';
                     title = `Công việc: ${oldTitle}`;

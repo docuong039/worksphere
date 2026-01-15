@@ -60,13 +60,7 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
 
 
 
-    const members = await prisma.projectMember.findMany({
-        where: { projectId: id },
-        include: {
-            user: { select: { id: true, name: true, avatar: true } },
-        },
-        orderBy: { user: { name: 'asc' } },
-    });
+
 
     // Helper to safely access issue tracking settings
     const p = project as Project;
@@ -76,12 +70,6 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
             projectId={id}
             allTrackers={allTrackers}
             enabledTrackerIds={enabledTrackerIds}
-            project={p}
-
-            members={members.map(m => ({
-                userId: m.userId,
-                user: m.user
-            }))}
             issueSettings={{
                 parentIssueDates: p.parentIssueDates,
                 parentIssuePriority: p.parentIssuePriority,

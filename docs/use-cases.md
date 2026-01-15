@@ -201,6 +201,17 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 ---
 
+## ⏳ Module 16: Phân bổ Công việc (Workload)
+
+| STT | Tên Use Case | Mô tả |
+|-----|--------------|-------|
+| UC-58 | Xem phân bổ cá nhân | Người dùng có quyền `timelogs.view_own` xem tổng hợp giờ dự kiến của chính mình. Giúp cá nhân quản lý khối lượng công việc được giao. |
+| UC-59 | Xem phân bổ dự án | Người dùng có quyền `timelogs.view_all` (hoặc Admin) xem thống kê của **tất cả thành viên dự án** (kể cả người chưa có task) để cân đối nguồn lực. |
+| UC-60 | Xem phân bổ toàn cục | Admin hoặc người có quyền `timelogs.view_all` xem và lọc phân bổ trên toàn hệ thống (chỉ hiển thị nhân sự đang có công việc). |
+| UC-61 | Xem chi tiết đóng góp | Xem danh sách chi tiết các công việc đóng góp vào giờ dự kiến. Tuân thủ quyền xem task (`tasks.view_all` hoặc `tasks.view_project`). |
+
+---
+
 ## ⚙️ Module 17: Cấu hình Statuses - Admin Only
 
 | STT | Tên Use Case | Mô tả |
@@ -288,6 +299,7 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 | Bộ lọc đã lưu | 4 |
 | Dashboard & Báo cáo | 5 |
 | Cấu hình Trackers | 4 |
+| Phân bổ Công việc | 4 |
 | Cấu hình Statuses | 4 |
 | Cấu hình Priorities | 4 |
 | Cấu hình Roles | 4 |
@@ -295,7 +307,7 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 | Cấu hình Issue Tracking | 1 |
 | Cấu hình Trackers/Dự án | 2 |
 | Nhật ký Hoạt động | 1 |
-| **TỔNG CỘNG** | **75** |
+| **TỔNG CỘNG** | **79** |
 
 ---
 

@@ -25,17 +25,17 @@ interface TaskItem {
     project: { id: string; name: string; identifier: string };
 }
 
-interface TimeLogsContentProps {
+interface WorkloadContentProps {
     projectId?: string;
     hideProjectFilter?: boolean;
     titleSize?: 'sm' | 'md' | 'lg';
 }
 
-export function TimeLogsContent({
+export function WorkloadContent({
     projectId: initialProjectId,
     hideProjectFilter = false,
     titleSize = 'lg'
-}: TimeLogsContentProps) {
+}: WorkloadContentProps) {
     const [viewMode, setViewMode] = useState<'summary' | 'detail'>('summary');
     const [selectedUser, setSelectedUser] = useState<UserSummary | null>(null);
     const [summaryData, setSummaryData] = useState<UserSummary[]>([]);
@@ -72,8 +72,8 @@ export function TimeLogsContent({
         try {
             const currentPid = initialProjectId || selectedProjectId;
             const url = currentPid
-                ? `/api/time-logs?projectId=${currentPid}`
-                : '/api/time-logs';
+                ? `/api/workload?projectId=${currentPid}`
+                : '/api/workload';
             const res = await fetch(url);
             const data = await res.json();
             if (data.success) {
@@ -91,7 +91,7 @@ export function TimeLogsContent({
         setLoading(true);
         try {
             const currentPid = initialProjectId || selectedProjectId;
-            let url = `/api/time-logs?userId=${userId}&page=${page}&limit=20`;
+            let url = `/api/workload?userId=${userId}&page=${page}&limit=20`;
             if (currentPid) url += `&projectId=${currentPid}`;
 
             const res = await fetch(url);
@@ -145,12 +145,12 @@ export function TimeLogsContent({
                     <div>
                         <h1 className={`${titleClasses} font-semibold text-gray-900 flex items-center gap-2`}>
                             <Clock className="w-6 h-6 text-blue-600" />
-                            {viewMode === 'summary' ? 'Tổng hợp thời gian' : `Chi tiết: ${selectedUser?.userName}`}
+                            {viewMode === 'summary' ? 'Phân bổ công việc (Dự kiến)' : `Chi tiết: ${selectedUser?.userName}`}
                         </h1>
                         {titleSize === 'lg' && (
                             <p className="text-sm text-gray-500 mt-1">
                                 {viewMode === 'summary'
-                                    ? 'Thống kê giờ dự kiến từ các công việc được giao'
+                                    ? 'Thống kê dựa trên thời gian ước lượng của các công việc được giao'
                                     : `Danh sách công việc của ${selectedUser?.userName}`}
                             </p>
                         )}
@@ -225,7 +225,7 @@ export function TimeLogsContent({
                                             <th className="px-6 py-4">Thành viên</th>
                                             <th className="px-6 py-4">Số công việc</th>
                                             <th className="px-6 py-4">% Đóng góp</th>
-                                            <th className="px-6 py-4 text-right">Giờ làm</th>
+                                            <th className="px-6 py-4 text-right">Giờ dự kiến</th>
                                             <th className="px-6 py-4 w-20"></th>
                                         </tr>
                                     </thead>
@@ -294,7 +294,7 @@ export function TimeLogsContent({
                                                 <th className="px-6 py-4">Tracker</th>
                                                 <th className="px-6 py-4">Trạng thái</th>
                                                 <th className="px-6 py-4">% Xong</th>
-                                                <th className="px-6 py-4 text-right">Giờ làm</th>
+                                                <th className="px-6 py-4 text-right">Giờ dự kiến</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100">

@@ -17,7 +17,7 @@ export function ProjectTabs({ projectId, className = '' }: ProjectTabsProps) {
         { id: 'activity', label: 'Hoạt động', href: `/projects/${projectId}/activity`, icon: Activity },
         { id: 'roadmap', label: 'Roadmap', href: `/projects/${projectId}/roadmap`, icon: Map },
         { id: 'tasks', label: 'Công việc', href: `/projects/${projectId}/tasks`, icon: ListTodo },
-        { id: 'time-logs', label: 'Thời gian', href: `/projects/${projectId}/time-logs`, icon: Clock },
+        { id: 'workload', label: 'Phân bổ việc', href: `/projects/${projectId}/workload`, icon: Clock },
         { id: 'members', label: 'Thành viên', href: `/projects/${projectId}/members`, icon: Users },
         { id: 'versions', label: 'Phiên bản', href: `/projects/${projectId}/versions`, icon: Flag },
     ];

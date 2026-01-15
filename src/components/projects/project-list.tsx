@@ -12,7 +12,7 @@ import {
     Trash2,
     Settings,
     Search,
-    ArrowRight,
+
     Pencil,
 } from 'lucide-react';
 import Image from 'next/image';

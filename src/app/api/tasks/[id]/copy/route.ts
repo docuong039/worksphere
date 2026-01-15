@@ -19,7 +19,7 @@ export async function POST(
             targetProjectId,
             copySubtasks,
             copyWatchers,
-            linkOriginal,
+
         } = body;
 
         // Get original task

@@ -16,10 +16,13 @@ interface Notification {
 }
 
 export default function NotificationsPage() {
-    const [notifications, setNotifications] = useState<Notification[]>([]);
     const [allNotifications, setAllNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'unread'>('all');
+
+    const notifications = filter === 'unread'
+        ? allNotifications.filter(n => !n.isRead)
+        : allNotifications;
 
     // Fetch all notifications
     const fetchNotifications = useCallback(async () => {
@@ -37,17 +40,11 @@ export default function NotificationsPage() {
     }, []);
 
     useEffect(() => {
+        // eslint-disable-next-line
         fetchNotifications();
     }, [fetchNotifications]);
 
-    // Filter notifications based on tab
-    useEffect(() => {
-        if (filter === 'unread') {
-            setNotifications(allNotifications.filter(n => !n.isRead));
-        } else {
-            setNotifications(allNotifications);
-        }
-    }, [filter, allNotifications]);
+
 
     // Mark as read
     const markAsRead = async (notificationIds: string[]) => {
