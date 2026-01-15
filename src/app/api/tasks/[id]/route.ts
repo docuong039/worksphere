@@ -252,7 +252,6 @@ export async function PUT(req: NextRequest, { params }: Params) {
                 dueDate: true,
                 estimatedHours: true,
                 versionId: true,
-                categoryId: true,
                 status: { select: { name: true } },
             },
         });
@@ -349,7 +348,6 @@ export async function PUT(req: NextRequest, { params }: Params) {
         if (validatedData.priorityId !== undefined) updateData.priorityId = validatedData.priorityId;
         if (validatedData.assigneeId !== undefined) updateData.assigneeId = validatedData.assigneeId || null;
         if (validatedData.versionId !== undefined) updateData.versionId = validatedData.versionId || null;
-        if (validatedData.categoryId !== undefined) updateData.categoryId = validatedData.categoryId || null;
         if (validatedData.estimatedHours !== undefined) updateData.estimatedHours = validatedData.estimatedHours;
         if (validatedData.isPrivate !== undefined) updateData.isPrivate = validatedData.isPrivate;
         if (validatedData.startDate !== undefined) updateData.startDate = validatedData.startDate ? new Date(validatedData.startDate) : null;

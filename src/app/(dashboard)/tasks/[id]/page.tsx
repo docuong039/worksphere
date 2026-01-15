@@ -50,7 +50,6 @@ export default async function TaskDetailPage({ params }: Props) {
             version: { select: { id: true, name: true, status: true } },
             assignee: { select: { id: true, name: true, email: true, avatar: true } },
             creator: { select: { id: true, name: true, avatar: true } },
-            category: { select: { id: true, name: true } },
             parent: {
                 select: {
                     id: true,

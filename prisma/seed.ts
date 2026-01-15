@@ -30,7 +30,6 @@ async function main() {
         { key: 'projects.manage_members', name: 'Manage Members', module: 'Dự án' },
         { key: 'projects.manage_versions', name: 'Manage Versions', module: 'Dự án' },
         { key: 'projects.manage_trackers', name: 'Manage Trackers', module: 'Dự án' },
-        { key: 'projects.manage_categories', name: 'Manage Categories', module: 'Dự án' },
         { key: 'projects.create_subprojects', name: 'Create Sub-projects', module: 'Dự án' },
         { key: 'projects.manage', name: 'Manage Project Settings', module: 'Dự án' },
         { key: 'projects.archive', name: 'Archive Project', module: 'Dự án' },

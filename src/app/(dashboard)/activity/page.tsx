@@ -145,7 +145,7 @@ export default function ActivityPage() {
     // Hàm chuyển đổi tên field kỹ thuật sang tiếng Việt thân thiện
     const getFieldLabel = (fieldName: string): string | null => {
         // Các field ID không cần hiển thị (đã có giá trị trong các field khác)
-        const hiddenFields = ['statusId', 'priorityId', 'assigneeId', 'categoryId', 'trackerId', 'parentId', 'projectId'];
+        const hiddenFields = ['statusId', 'priorityId', 'assigneeId', 'trackerId', 'parentId', 'projectId'];
         if (hiddenFields.includes(fieldName)) return null;
 
         const fieldMap: Record<string, string> = {
@@ -158,7 +158,6 @@ export default function ActivityPage() {
             'startDate': 'Ngày bắt đầu',
             'estimatedHours': 'Giờ ước tính',
             'progress': 'Tiến độ',
-            'category': 'Danh mục',
             'tracker': 'Loại công việc',
             'name': 'Tên',
             'identifier': 'Mã định danh',

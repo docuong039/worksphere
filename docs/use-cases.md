@@ -27,7 +27,6 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 - `projects.create` - Tạo dự án mới
 - `projects.manage_members` - Quản lý thành viên dự án
 - `projects.manage_versions` - Quản lý phiên bản/milestone
-- `projects.manage_categories` - Quản lý danh mục công việc
 - `projects.manage_trackers` - Quản lý loại công việc trong dự án
 - `tasks.create` - Tạo công việc mới
 - `tasks.edit_own` - Sửa công việc do mình tạo
@@ -191,25 +190,14 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 ---
 
-## 📋 Module 15: Danh mục Công việc (Issue Categories)
+## ⚙️ Module 15: Cấu hình Trackers - Admin Only
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-54 | Xem danh mục | Thành viên xem danh sách danh mục công việc với người gán mặc định. |
-| UC-55 | Tạo danh mục | Người dùng có quyền `projects.manage_categories` tạo danh mục. |
-| UC-56 | Cập nhật danh mục | Người dùng có quyền chỉnh sửa danh mục. |
-| UC-57 | Xóa danh mục | Người dùng có quyền xóa danh mục. |
-
----
-
-## ⚙️ Module 16: Cấu hình Trackers - Admin Only
-
-| STT | Tên Use Case | Mô tả |
-|-----|--------------|-------|
-| UC-58 | Xem danh sách Tracker | Người dùng xem danh sách loại công việc (Bug, Feature, Task...). |
-| UC-59 | Tạo Tracker | Administrator tạo loại công việc mới. |
-| UC-60 | Cập nhật Tracker | Administrator chỉnh sửa tracker. |
-| UC-61 | Xóa Tracker | Administrator xóa tracker (chỉ khi không có task sử dụng). |
+| UC-54 | Xem danh sách Tracker | Người dùng xem danh sách loại công việc (Bug, Feature, Task...). |
+| UC-55 | Tạo Tracker | Administrator tạo loại công việc mới. |
+| UC-56 | Cập nhật Tracker | Administrator chỉnh sửa tracker. |
+| UC-57 | Xóa Tracker | Administrator xóa tracker (chỉ khi không có task sử dụng). |
 
 ---
 
@@ -255,22 +243,20 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 ---
 
-## ⚙️ Module 21: Cấu hình Issue Tracking Settings
+## ⚙️ Module 21: Cấu hình Quy tắc Task trong Dự án (Project Task Rules)
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-76 | Xem cài đặt hệ thống | Administrator xem cài đặt tính toán thuộc tính công việc cha. |
-| UC-77 | Cập nhật cài đặt hệ thống | Administrator thay đổi cách tính (calculated/independent) cho dates, priority, doneRatio, estimatedHours. |
-| UC-78 | Cấu hình cho dự án | Người có quyền Manager ghi đè cài đặt cho riêng dự án. |
+| UC-76 | Cấu hình quy tắc tính toán | Quản lý dự án thiết lập quy tắc tính toán (Calculated/Independent) cho các thuộc tính của Task cha dựa trên Task con. |
 
 ---
 
-## ⚙️ Module 22: Cấu hình Trackers cho Dự án
+## ⚙️ Module 22: Cấu hình Loại công việc cho Dự án (Project Trackers)
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-79 | Xem Tracker của dự án | Thành viên xem danh sách tracker được kích hoạt cho dự án. |
-| UC-80 | Cấu hình Tracker cho dự án | Người có quyền `projects.manage_trackers` chọn tracker cho dự án. |
+| UC-79 | Xem Tracker của dự án | Xem danh sách các loại công việc (Bug, Feature...) được phép sử dụng trong dự án. |
+| UC-80 | Chọn Tracker cho dự án | Quản lý dự án chọn/bỏ chọn các loại công việc áp dụng cho dự án. |
 
 ---
 
@@ -279,7 +265,7 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
 | UC-81 | Xem hoạt động gần đây | Người dùng xem danh sách hoạt động trong các dự án mình là thành viên. |
-| UC-82 | Xem lịch sử công việc | Trong chi tiết task, xem lịch sử thay đổi: ai đổi, khi nào, thay đổi gì. |
+
 
 ---
 
@@ -301,16 +287,15 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 | Tìm kiếm Toàn cục | 1 |
 | Bộ lọc đã lưu | 4 |
 | Dashboard & Báo cáo | 5 |
-| Danh mục Công việc | 4 |
 | Cấu hình Trackers | 4 |
 | Cấu hình Statuses | 4 |
 | Cấu hình Priorities | 4 |
 | Cấu hình Roles | 4 |
 | Cấu hình Workflow | 2 |
-| Cấu hình Issue Tracking | 3 |
+| Cấu hình Issue Tracking | 1 |
 | Cấu hình Trackers/Dự án | 2 |
-| Nhật ký Hoạt động | 2 |
-| **TỔNG CỘNG** | **82** |
+| Nhật ký Hoạt động | 1 |
+| **TỔNG CỘNG** | **75** |
 
 ---
 

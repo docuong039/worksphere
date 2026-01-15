@@ -35,7 +35,6 @@ model User {
   notifications          Notification[]
   auditLogs              AuditLog[]
   attachments            Attachment[]
-  defaultCategoryAssigns IssueCategory[]   @relation("DefaultCategoryAssignee")
   queries                Query[]           @relation("QueryOwner")
 
   @@index([email])
@@ -253,7 +252,6 @@ model Project {
   tasks        Task[]
   versions     Version[]
   trackers     ProjectTracker[]
-  categories   IssueCategory[]
   queries      Query[]
 
   @@index([identifier])
@@ -344,7 +342,6 @@ model Task {
   creatorId      String
   parentId       String?
   versionId      String?
-  categoryId     String?
   path           String?
   level          Int       @default(0)
   estimatedHours Float?
@@ -365,7 +362,6 @@ model Task {
   creator       User           @relation("CreatedTasks", fields: [creatorId], references: [id])
   parent        Task?          @relation("Subtasks", fields: [parentId], references: [id], onDelete: Restrict)
   version       Version?       @relation(fields: [versionId], references: [id], onDelete: SetNull)
-  category      IssueCategory? @relation("TaskCategory", fields: [categoryId], references: [id], onDelete: SetNull)
   subtasks      Task[]         @relation("Subtasks")
   watchers      Watcher[]
   comments      Comment[]
@@ -381,7 +377,6 @@ model Task {
   @@index([trackerId])
   @@index([parentId])
   @@index([versionId])
-  @@index([categoryId])
   @@index([dueDate])
   @@index([isPrivate])
   @@map("tasks")
@@ -502,30 +497,6 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_logs")
 }
-
-// ============================================
-// ISSUE CATEGORIES
-// ============================================
-
-model IssueCategory {
-  id           String   @id @default(cuid())
-  name         String
-  projectId    String
-  assignedToId String?  // Default assignee for this category
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Relations
-  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignedTo User?   @relation("DefaultCategoryAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
-  tasks      Task[]  @relation("TaskCategory")
-
-  @@unique([projectId, name])
-  @@index([projectId])
-  @@index([assignedToId])
-  @@map("issue_categories")
-}
-
 // ============================================
 // SAVED QUERIES
 // ============================================
