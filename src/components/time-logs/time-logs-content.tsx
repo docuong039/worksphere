@@ -224,50 +224,56 @@ export function TimeLogsContent({
                                         <tr>
                                             <th className="px-6 py-4">Thành viên</th>
                                             <th className="px-6 py-4">Số công việc</th>
-                                            <th className="px-6 py-4">Tỷ lệ</th>
+                                            <th className="px-6 py-4">% Đóng góp</th>
                                             <th className="px-6 py-4 text-right">Giờ làm</th>
                                             <th className="px-6 py-4 w-20"></th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {summaryData.map((user) => (
-                                            <tr key={user.userId} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-xs font-bold text-blue-600 border border-blue-100 uppercase overflow-hidden">
-                                                            {user.avatar ? (
-                                                                <Image src={user.avatar} alt={user.userName} width={32} height={32} className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                user.userName.charAt(0)
-                                                            )}
+                                        {summaryData.map((user) => {
+                                            const percent = grandTotal > 0 ? (user.totalHours / grandTotal) * 100 : 0;
+                                            return (
+                                                <tr key={user.userId} className="hover:bg-gray-50">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-xs font-bold text-blue-600 border border-blue-100 uppercase overflow-hidden">
+                                                                {user.avatar ? (
+                                                                    <Image src={user.avatar} alt={user.userName} width={32} height={32} className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    user.userName.charAt(0)
+                                                                )}
+                                                            </div>
+                                                            <span className="font-medium text-gray-900">{user.userName}</span>
                                                         </div>
-                                                        <span className="font-medium text-gray-900">{user.userName}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 text-gray-600">
-                                                    {user.taskCount} task
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="w-32 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                        <div
-                                                            className="h-full bg-blue-600 rounded-full"
-                                                            style={{ width: `${grandTotal > 0 ? (user.totalHours / grandTotal) * 100 : 0}%` }}
-                                                        />
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 text-right font-semibold text-gray-900">
-                                                    {user.totalHours.toFixed(1)}h
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <button
-                                                        onClick={() => handleSelectUser(user)}
-                                                        className="text-blue-600 hover:text-blue-800 text-xs font-semibold"
-                                                    >
-                                                        Chi tiết
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-gray-600">
+                                                        {user.taskCount} task
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full bg-blue-600 rounded-full"
+                                                                    style={{ width: `${percent}%` }}
+                                                                />
+                                                            </div>
+                                                            <span className="text-xs font-medium text-gray-600">{Math.round(percent)}%</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right font-semibold text-gray-900">
+                                                        {user.totalHours.toFixed(1)}h
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <button
+                                                            onClick={() => handleSelectUser(user)}
+                                                            className="text-blue-600 hover:text-blue-800 text-xs font-semibold"
+                                                        >
+                                                            Chi tiết
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                         {summaryData.length === 0 && (
                                             <tr>
                                                 <td colSpan={5} className="px-6 py-12 text-center text-gray-500 italic font-medium">
