@@ -9,8 +9,7 @@ import {
     Briefcase,
     Calendar,
     TrendingUp,
-    ArrowRight,
-    Clock
+    ArrowRight
 } from 'lucide-react';
 
 interface SummaryData {
@@ -41,12 +40,11 @@ interface UserReport {
 }
 
 export default function ReportsPage() {
-    const [reportType, setReportType] = useState<'summary' | 'by-project' | 'by-user' | 'by-activity'>('summary');
+    const [reportType, setReportType] = useState<'summary' | 'by-project' | 'by-user'>('summary');
     const [loading, setLoading] = useState(true);
     const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
     const [projectReports, setProjectReports] = useState<ProjectReport[]>([]);
     const [userReports, setUserReports] = useState<UserReport[]>([]);
-    const [activityReports, setActivityReports] = useState<{ name: string; hours: number }[]>([]);
     const [dateRange, setDateRange] = useState({
         startDate: '',
         endDate: '',
@@ -73,9 +71,6 @@ export default function ReportsPage() {
                         break;
                     case 'by-user':
                         setUserReports(innerData || []);
-                        break;
-                    case 'by-activity':
-                        setActivityReports(innerData || []);
                         break;
                 }
             }
@@ -113,11 +108,10 @@ export default function ReportsPage() {
                     { key: 'summary', label: 'Tổng quan', icon: PieChart },
                     { key: 'by-project', label: 'Theo dự án', icon: Briefcase },
                     { key: 'by-user', label: 'Theo người dùng', icon: Users },
-                    { key: 'by-activity', label: 'Theo hoạt động', icon: Clock },
                 ].map(({ key, label, icon: Icon }) => (
                     <button
                         key={key}
-                        onClick={() => setReportType(key as 'summary' | 'by-project' | 'by-user' | 'by-activity')}
+                        onClick={() => setReportType(key as 'summary' | 'by-project' | 'by-user')}
                         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${reportType === key
                             ? 'bg-blue-600 text-white'
                             : 'text-gray-600 hover:bg-gray-100'
@@ -353,59 +347,7 @@ export default function ReportsPage() {
                         </div>
                     )}
 
-                    {/* Activity Report */}
-                    {reportType === 'by-activity' && (
-                        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                            <div className="p-6 border-b bg-gray-50/50">
-                                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                    <Clock className="w-5 h-5 text-blue-600" />
-                                    Báo cáo thời gian theo hoạt động
-                                </h3>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gray-50/50 border-b border-gray-200">
-                                        <tr>
-                                            <th className="px-6 py-4 text-left font-bold text-gray-500 uppercase tracking-wider">Loại hoạt động</th>
-                                            <th className="px-6 py-4 text-right font-bold text-gray-500 uppercase tracking-wider">Tổng thời gian (h)</th>
-                                            <th className="px-6 py-4 w-1/2"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-200">
-                                        {activityReports.map((item) => {
-                                            const totalHours = activityReports.reduce((sum, r) => sum + r.hours, 0);
-                                            const percentage = totalHours > 0 ? (item.hours / totalHours) * 100 : 0;
-                                            return (
-                                                <tr key={item.name} className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-6 py-4 font-bold text-gray-900">{item.name || 'Khác'}</td>
-                                                    <td className="px-6 py-4 text-right font-bold text-gray-900">{item.hours.toFixed(1)}h</td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                            <div className="h-full bg-indigo-500 transition-all duration-500" style={{ width: `${percentage}%` }} />
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                    {activityReports.length > 0 && (
-                                        <tfoot className="bg-gray-50/50 font-bold">
-                                            <tr>
-                                                <td className="px-6 py-4">Tổng cộng</td>
-                                                <td className="px-6 py-4 text-right text-blue-600">
-                                                    {activityReports.reduce((sum, r) => sum + r.hours, 0).toFixed(1)}h
-                                                </td>
-                                                <td></td>
-                                            </tr>
-                                        </tfoot>
-                                    )}
-                                </table>
-                            </div>
-                            {activityReports.length === 0 && (
-                                <div className="p-12 text-center text-gray-500 font-medium bg-gray-50/30">Chưa có dữ liệu thời gian trong khoảng này</div>
-                            )}
-                        </div>
-                    )}
+
                 </>
             )}
         </div>

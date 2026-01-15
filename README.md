@@ -13,7 +13,7 @@ Worksphere là một nền tảng quản lý dự án và công việc chuyên n
 
 ## 🛠 Hướng dẫn cài đặt và Chạy dự án
 
-### 1. Yêu cầu hệ thống
+### 1. Yêu cầu hệ 
 - **Node.js:** Phiên bản 20.x trở lên
 - **MySQL:** Đang chạy cục bộ hoặc trên cloud
 
@@ -24,26 +24,30 @@ npm install
 ```
 
 ### 3. Cấu hình biến môi trường
-Tạo file `.env` tại thư mục gốc (nếu chưa có) và cấu hình các thông số sau:
+Tạo file `.env` tại thư mục gốc và cấu hình các thông số sau (có thể tham khảo `.env.example` nếu có):
 ```env
 # Kết nối cơ sở dữ liệu MySQL
 DATABASE_URL="mysql://username:password@localhost:3306/worksphere"
 
-# Bí mật cho Authentication (ví dụ: Auth.js / NextAuth)
+# Bí mật cho Authentication (NextAuth)
+# Bạn có thể tạo key bằng lệnh: npx auth secret
 AUTH_SECRET="your_secret_key_here"
 ```
-*Lưu ý: Thay thế `username`, `password` và `worksphere` bằng thông tin database của bạn.*
+*Lưu ý: Thay thế `username`, `password` và `worksphere` bằng thông tin database thực tế của bạn.*
 
-### 4. Thiết lập Cơ sở dữ liệu
-Chạy các lệnh sau để đồng bộ schema và khởi tạo dữ liệu mẫu:
+### 4. Thiết lập Cơ sở dữ liệu và Dữ liệu mẫu
+Dự án sử dụng Prisma để quản lý database. Chạy các lệnh sau để khởi tạo:
 ```bash
-# Tạo các bảng trong database
+# 1. Tạo các bảng trong database dựa trên schema
 npx prisma db push
 
-# Khởi tạo dữ liệu mẫu (Roles, Permissions, Users, v.v.)
-# Nếu package.json chưa cấu hình seed, bạn có thể chạy:
-npx ts-node prisma/seed.ts
+# 2. Khởi tạo dữ liệu mẫu (Roles, Permissions, Users, Trackers, v.v.)
+npx prisma db seed
 ```
+
+**Tài khoản quản trị mặc định sau khi seed:**
+- **Email:** `admin@worksphere.com`
+- **Mật khẩu:** `admin123`
 
 ### 5. Chạy dự án ở môi trường phát triển
 ```bash

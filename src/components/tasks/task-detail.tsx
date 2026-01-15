@@ -12,6 +12,9 @@ import {
     X,
     Send,
     Plus,
+    MoreVertical,
+    Trash2,
+    Check,
 } from 'lucide-react';
 import { TaskWatchers } from './task-watchers';
 import { TaskAttachments } from './task-attachments';
@@ -167,6 +170,13 @@ export function TaskDetail({
     const [addingComment, setAddingComment] = useState(false);
     const [showSubtaskModal, setShowSubtaskModal] = useState(false);
 
+    // Comment edit/delete states
+    const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+    const [editingCommentContent, setEditingCommentContent] = useState('');
+    const [savingComment, setSavingComment] = useState(false);
+    const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+    const [openMenuCommentId, setOpenMenuCommentId] = useState<string | null>(null);
+
     const hasSubtasks = task.subtasks && task.subtasks.length > 0;
     const isDateDisabled = hasSubtasks && systemSettings?.parent_issue_dates === 'calculated';
     const isHoursDisabled = hasSubtasks && systemSettings?.parent_issue_estimated_hours === 'calculated';
@@ -236,6 +246,62 @@ export function TaskDetail({
             console.error(err);
         }
         setAddingComment(false);
+    };
+
+    const handleEditComment = (commentId: string, content: string) => {
+        setEditingCommentId(commentId);
+        setEditingCommentContent(content);
+        setOpenMenuCommentId(null);
+    };
+
+    const handleSaveEditComment = async () => {
+        if (!editingCommentId || !editingCommentContent.trim()) return;
+        setSavingComment(true);
+        try {
+            const res = await fetch(`/api/tasks/${task.id}/comments/${editingCommentId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: editingCommentContent }),
+            });
+            if (res.ok) {
+                toast.success('Đã cập nhật bình luận');
+                setEditingCommentId(null);
+                setEditingCommentContent('');
+                router.refresh();
+            } else {
+                const data = await res.json();
+                toast.error(data.error || 'Có lỗi xảy ra');
+            }
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
+        }
+        setSavingComment(false);
+    };
+
+    const handleCancelEditComment = () => {
+        setEditingCommentId(null);
+        setEditingCommentContent('');
+    };
+
+    const handleDeleteComment = async (commentId: string) => {
+        if (!confirm('Bạn có chắc muốn xóa bình luận này?')) return;
+        setDeletingCommentId(commentId);
+        setOpenMenuCommentId(null);
+        try {
+            const res = await fetch(`/api/tasks/${task.id}/comments/${commentId}`, {
+                method: 'DELETE',
+            });
+            if (res.ok) {
+                toast.success('Đã xóa bình luận');
+                router.refresh();
+            } else {
+                const data = await res.json();
+                toast.error(data.error || 'Có lỗi xảy ra');
+            }
+        } catch {
+            toast.error('Lỗi kết nối máy chủ');
+        }
+        setDeletingCommentId(null);
     };
 
     return (
@@ -345,6 +411,21 @@ export function TaskDetail({
                                     {task.project.members?.map((m) => <option key={m.user.id} value={m.user.id}>{m.user.name}</option>)}
                                 </select>
                             </div>
+                            {versions.length > 0 && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-2">Phiên bản</label>
+                                    <select
+                                        value={editData.versionId}
+                                        onChange={(e) => setEditData({ ...editData, versionId: e.target.value })}
+                                        className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none"
+                                    >
+                                        <option value="">Không chọn</option>
+                                        {versions.filter(v => v.status === 'open' || v.id === task.version?.id).map((v) => (
+                                            <option key={v.id} value={v.id}>{v.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                         </div>
 
                         {/* Schedule & Progress */}
@@ -455,11 +536,11 @@ export function TaskDetail({
                                 <span className="text-sm text-gray-700 font-medium">{formatDate(task.dueDate)}</span>
                             </PropertyRow>
 
-                            {task.version && (
-                                <PropertyRow label="Phiên bản">
-                                    <span className="text-sm text-gray-900 font-medium">{task.version.name}</span>
-                                </PropertyRow>
-                            )}
+                            <PropertyRow label="Phiên bản">
+                                <span className={`text-sm font-medium ${task.version ? 'text-gray-900' : 'text-gray-400 italic'}`}>
+                                    {task.version?.name || 'Chưa gán'}
+                                </span>
+                            </PropertyRow>
 
                             <PropertyRow label="Hoàn thành">
                                 <div className="flex items-center gap-3">
@@ -605,10 +686,71 @@ export function TaskDetail({
                                     <div className="flex items-center gap-2 mb-1 px-1">
                                         <span className="font-semibold text-xs text-gray-700">{c.user.name}</span>
                                         <span className="text-[10px] text-gray-400">{new Date(c.createdAt).toLocaleString('vi-VN')}</span>
+                                        {/* Menu dropdown for comment owner */}
+                                        {c.user.id === currentUserId && (
+                                            <div className="relative">
+                                                <button
+                                                    onClick={() => setOpenMenuCommentId(openMenuCommentId === c.id ? null : c.id)}
+                                                    className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+                                                    title="Tùy chọn"
+                                                >
+                                                    <MoreVertical className="w-3.5 h-3.5 text-gray-400" />
+                                                </button>
+                                                {openMenuCommentId === c.id && (
+                                                    <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[120px]">
+                                                        <button
+                                                            onClick={() => handleEditComment(c.id, c.content)}
+                                                            className="w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                                        >
+                                                            <Pencil className="w-3.5 h-3.5" />
+                                                            Chỉnh sửa
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteComment(c.id)}
+                                                            className="w-full px-3 py-2 text-left text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                            Xóa
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className={`px-4 py-3 rounded-2xl text-sm shadow-sm ${c.user.id === currentUserId ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm border border-gray-200'}`}>
-                                        <p className="whitespace-pre-wrap leading-relaxed">{c.content}</p>
-                                    </div>
+                                    {/* Edit mode or display mode */}
+                                    {editingCommentId === c.id ? (
+                                        <div className="w-full space-y-2">
+                                            <textarea
+                                                value={editingCommentContent}
+                                                onChange={(e) => setEditingCommentContent(e.target.value)}
+                                                rows={3}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 outline-none resize-none"
+                                                autoFocus
+                                            />
+                                            <div className="flex gap-2 justify-end">
+                                                <button
+                                                    onClick={handleCancelEditComment}
+                                                    className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                                    disabled={savingComment}
+                                                >
+                                                    <X className="w-3.5 h-3.5 inline mr-1" />
+                                                    Hủy
+                                                </button>
+                                                <button
+                                                    onClick={handleSaveEditComment}
+                                                    className="px-3 py-1.5 text-xs bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                                                    disabled={savingComment || !editingCommentContent.trim()}
+                                                >
+                                                    <Check className="w-3.5 h-3.5 inline mr-1" />
+                                                    {savingComment ? 'Đang lưu...' : 'Lưu'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className={`px-4 py-3 rounded-2xl text-sm shadow-sm ${c.user.id === currentUserId ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm border border-gray-200'} ${deletingCommentId === c.id ? 'opacity-50' : ''}`}>
+                                            <p className="whitespace-pre-wrap leading-relaxed">{c.content}</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}

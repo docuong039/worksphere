@@ -116,6 +116,7 @@ export const createTaskSchema = z.object({
     assigneeId: z.string().optional().nullable(),
     parentId: z.string().optional().nullable(),
     versionId: z.string().optional().nullable(),
+    categoryId: z.string().optional().nullable(),
 
     estimatedHours: z.number().positive().optional().nullable(),
     doneRatio: z.number().int().min(0).max(100).optional(),

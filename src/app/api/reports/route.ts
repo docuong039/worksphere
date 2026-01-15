@@ -139,30 +139,6 @@ export async function GET(req: NextRequest) {
                 });
             }
 
-            case 'by-activity': {
-                // Báo cáo theo hoạt động
-                const timeFilter: { gte?: Date; lte?: Date; task?: { projectId: string } } = { ...dateFilter };
-                if (projectId) {
-                    timeFilter.task = { projectId };
-                }
-
-                const timeLogs = await prisma.timeLog.groupBy({
-                    by: ['activity'],
-                    where: timeFilter,
-                    _sum: { hours: true },
-                });
-
-                const activityReports = timeLogs.map(log => ({
-                    name: log.activity || 'Khác',
-                    hours: log._sum?.hours || 0,
-                }));
-
-                return successResponse({
-                    type: 'by-activity',
-                    data: activityReports,
-                });
-            }
-
             default:
                 return errorResponse('Loại báo cáo không hợp lệ', 400);
         }

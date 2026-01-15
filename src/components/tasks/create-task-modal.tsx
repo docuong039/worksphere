@@ -115,22 +115,31 @@ export function CreateTaskModal({
         }
     }, [isOpen, initialized, initialData, projects, trackers, allowedTrackerIdsByProject]);
 
-    // Fetch members when project changes
+    // Fetch members and versions when project changes
+    const [availableVersions, setAvailableVersions] = useState<Version[]>(versions);
+
     useEffect(() => {
-        const fetchMembers = async () => {
+        const fetchData = async () => {
             if (!formData.projectId || !isOpen) return;
             try {
-                // Add timestamp to prevent caching
-                const res = await fetch(`/api/projects/${formData.projectId}/members?assignable=true&t=${Date.now()}`);
-                if (res.ok) {
-                    const data = await res.json();
+                // Fetch members
+                const memRes = await fetch(`/api/projects/${formData.projectId}/members?assignable=true&t=${Date.now()}`);
+                if (memRes.ok) {
+                    const data = await memRes.json();
                     setMembers(data.data || []);
                 }
+
+                // Fetch versions
+                const verRes = await fetch(`/api/projects/${formData.projectId}/versions?t=${Date.now()}`);
+                if (verRes.ok) {
+                    const data = await verRes.json();
+                    setAvailableVersions(data.data || []);
+                }
             } catch (err) {
-                console.error('Failed to fetch members', err);
+                console.error('Failed to fetch project data', err);
             }
         };
-        fetchMembers();
+        fetchData();
     }, [formData.projectId, isOpen]);
 
     if (!isOpen) return null;
@@ -368,7 +377,7 @@ export function CreateTaskModal({
 
                     {/* Version & Private */}
                     <div className="flex items-end gap-4">
-                        {versions.length > 0 && (
+                        {availableVersions.length > 0 && (
                             <div className="flex-1">
                                 <label className="block text-xs font-medium text-gray-600 mb-1.5">Phiên bản</label>
                                 <select
@@ -377,7 +386,7 @@ export function CreateTaskModal({
                                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
                                 >
                                     <option value="">Không chọn</option>
-                                    {versions.filter(v => v.status === 'open').map((v) => (
+                                    {availableVersions.filter(v => v.status === 'open').map((v) => (
                                         <option key={v.id} value={v.id}>{v.name}</option>
                                     ))}
                                 </select>
