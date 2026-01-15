@@ -10,7 +10,7 @@ export async function GET(
     try {
         const session = await auth();
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Không được quyền truy cập' }, { status: 401 });
         }
 
         const { id } = await params;
@@ -25,13 +25,13 @@ export async function GET(
         });
 
         if (!category) {
-            return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Không tìm thấy danh mục' }, { status: 404 });
         }
 
         return NextResponse.json(category);
     } catch (error) {
         console.error('Error fetching category:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }
 
@@ -43,7 +43,7 @@ export async function PUT(
     try {
         const session = await auth();
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Không được quyền truy cập' }, { status: 401 });
         }
 
         const { id } = await params;
@@ -54,7 +54,7 @@ export async function PUT(
         });
 
         if (!category) {
-            return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Không tìm thấy danh mục' }, { status: 404 });
         }
 
         // Check permission
@@ -72,14 +72,14 @@ export async function PUT(
             });
 
         if (!hasPermission) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Hành động bị cấm' }, { status: 403 });
         }
 
         const body = await request.json();
         const { name, assignedToId } = body;
 
         if (name !== undefined && !name?.trim()) {
-            return NextResponse.json({ error: 'Name cannot be empty' }, { status: 400 });
+            return NextResponse.json({ error: 'Tên không được để trống' }, { status: 400 });
         }
 
         // Check duplicate name
@@ -92,7 +92,7 @@ export async function PUT(
                 },
             });
             if (existing) {
-                return NextResponse.json({ error: 'Category with this name already exists' }, { status: 400 });
+                return NextResponse.json({ error: 'Danh mục với tên này đã tồn tại' }, { status: 400 });
             }
         }
 
@@ -110,7 +110,7 @@ export async function PUT(
         return NextResponse.json(updated);
     } catch (error) {
         console.error('Error updating category:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }
 
@@ -122,7 +122,7 @@ export async function DELETE(
     try {
         const session = await auth();
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Không được quyền truy cập' }, { status: 401 });
         }
 
         const { id } = await params;
@@ -133,7 +133,7 @@ export async function DELETE(
         });
 
         if (!category) {
-            return NextResponse.json({ error: 'Category not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Không tìm thấy danh mục' }, { status: 404 });
         }
 
         // Check permission
@@ -151,7 +151,7 @@ export async function DELETE(
             });
 
         if (!hasPermission) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Hành động bị cấm' }, { status: 403 });
         }
 
         // Delete category (tasks will have categoryId set to null due to onDelete: SetNull)
@@ -160,6 +160,6 @@ export async function DELETE(
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Error deleting category:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }

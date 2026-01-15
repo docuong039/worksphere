@@ -10,7 +10,7 @@ export async function GET(
     try {
         const session = await auth();
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Không được quyền truy cập' }, { status: 401 });
         }
 
         const { id } = await params;
@@ -32,7 +32,7 @@ export async function GET(
         return NextResponse.json(roleTrackers.map(rt => rt.tracker));
     } catch (error) {
         console.error('Error fetching role trackers:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }
 
@@ -44,20 +44,20 @@ export async function PUT(
     try {
         const session = await auth();
         if (!session?.user?.isAdministrator) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Hành động bị cấm' }, { status: 403 });
         }
 
         const { id } = await params;
         const { trackerIds } = await request.json();
 
         if (!Array.isArray(trackerIds)) {
-            return NextResponse.json({ error: 'trackerIds must be an array' }, { status: 400 });
+            return NextResponse.json({ error: 'Danh sách ID tracker phải là một mảng' }, { status: 400 });
         }
 
         // Verify role exists
         const role = await prisma.role.findUnique({ where: { id } });
         if (!role) {
-            return NextResponse.json({ error: 'Role not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Không tìm thấy vai trò' }, { status: 404 });
         }
 
         // Transaction: delete existing and create new
@@ -88,6 +88,6 @@ export async function PUT(
         return NextResponse.json(updated.map(rt => rt.tracker));
     } catch (error) {
         console.error('Error updating role trackers:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }

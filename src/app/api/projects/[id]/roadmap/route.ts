@@ -10,7 +10,7 @@ export async function GET(
     try {
         const session = await auth();
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Không được quyền truy cập' }, { status: 401 });
         }
 
         const { id } = await params;
@@ -25,7 +25,7 @@ export async function GET(
             });
 
         if (!canAccess) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Hành động bị cấm' }, { status: 403 });
         }
 
         // Get versions with their tasks
@@ -120,6 +120,6 @@ export async function GET(
         });
     } catch (error) {
         console.error('Error fetching roadmap:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }

@@ -108,7 +108,6 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 | UC-27 | Gán công việc | Người dùng gán công việc cho thành viên. Role có `canAssignToOther=true` mới được gán cho người khác. |
 | UC-28 | Xóa công việc | Người dùng có quyền xóa công việc và dữ liệu liên quan. Công việc cha được cập nhật lại. |
 
-
 ---
 
 ## 💬 Module 7: Bình luận (Comments)
@@ -140,17 +139,15 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 | UC-37 | Xem người theo dõi | Người dùng xem danh sách người đang theo dõi công việc. |
 | UC-38 | Theo dõi công việc | Thành viên dự án đăng ký theo dõi để nhận thông báo. |
 | UC-39 | Hủy theo dõi | Người dùng hủy theo dõi công việc. |
-| UC-40 | Thêm người theo dõi khác | Người tạo task hoặc thành viên có thể thêm người khác vào watcher. |
+| UC-40 | Thêm người theo dõi khác | Người tạo task hoặc thành viên có thể thêm người khác (trong dự án) vào watcher. |
 
 ---
 
-## 📋 Module 10: Sao chép & Di chuyển Công việc
+## 📋 Module 10: Sao chép Công việc
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-41 | Sao chép công việc | Người dùng có quyền sao chép công việc. Tùy chọn: copy subtasks, watchers, link với bản gốc. |
-| UC-42 | Di chuyển công việc | Người dùng có quyền `tasks.move` di chuyển công việc sang dự án khác. |
-| UC-43 | Chỉnh sửa hàng loạt | Người dùng chọn nhiều công việc và cập nhật đồng thời các thuộc tính. |
+| UC-41 | Sao chép công việc | Hệ thống hiển thị form điền sẵn dữ liệu từ task gốc. Người dùng có thể chỉnh sửa các trường, chọn dự án đích và tùy chọn sao chép cả công việc con. |
 
 ---
 
@@ -158,8 +155,8 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-44 | Xem danh sách thông báo | Người dùng xem thông báo của mình, lọc chưa đọc, số thông báo chưa đọc. |
-| UC-45 | Đánh dấu đã đọc | Người dùng đánh dấu thông báo là đã đọc (một hoặc tất cả). |
+| UC-42 | Xem danh sách thông báo | Người dùng xem thông báo của mình, lọc chưa đọc, số thông báo chưa đọc. |
+| UC-43 | Đánh dấu đã đọc | Người dùng đánh dấu thông báo là đã đọc (một hoặc tất cả). |
 
 ---
 
@@ -167,7 +164,7 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-46 | Tìm kiếm toàn cục | Người dùng tìm kiếm trong toàn hệ thống (tasks, projects, comments, users). Non-admin chỉ thấy kết quả trong project mình là member. |
+| UC-44 | Tìm kiếm toàn cục | Người dùng tìm kiếm trong toàn hệ thống (tasks, projects, comments, users). Non-admin chỉ thấy kết quả trong project mình là member. |
 
 ---
 
@@ -175,10 +172,10 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-47 | Xem bộ lọc đã lưu | Người dùng xem danh sách bộ lọc: của mình và public. |
-| UC-48 | Lưu bộ lọc mới | Người dùng lưu cấu hình lọc với tên, điều kiện, cột, sắp xếp. |
-| UC-49 | Chia sẻ bộ lọc | Người dùng có quyền tạo bộ lọc public. |
-| UC-50 | Xóa bộ lọc | Người sở hữu hoặc Admin xóa bộ lọc. |
+| UC-45 | Xem bộ lọc đã lưu | Người dùng xem danh sách bộ lọc: của mình và public. |
+| UC-46 | Lưu bộ lọc mới | Người dùng lưu cấu hình lọc với tên, điều kiện, cột, sắp xếp. |
+| UC-47 | Chia sẻ bộ lọc | người dùng tạo bộ lọc public nếu có quyền. |
+| UC-48 | Xóa bộ lọc | Người sở hữu hoặc Admin xóa bộ lọc. |
 
 ---
 
@@ -186,11 +183,11 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-51 | Xem Dashboard | Người dùng xem tổng quan: task được gán, quá hạn, sắp đến hạn, hoạt động gần đây, thống kê. |
-| UC-52 | Xem báo cáo tổng hợp | Người dùng xem thống kê: tổng dự án, tổng task, task mở/đóng, tỷ lệ hoàn thành. |
-| UC-53 | Xem báo cáo theo dự án | Người dùng xem thống kê từng dự án. |
-| UC-54 | Xem báo cáo theo người dùng | Administrator xem thống kê theo từng user. |
-| UC-55 | Xuất dữ liệu CSV | Người dùng xuất danh sách công việc ra file CSV. |
+| UC-49 | Xem Dashboard | Người dùng xem tổng quan: task được gán, quá hạn, sắp đến hạn, hoạt động gần đây, thống kê. |
+| UC-50 | Xem báo cáo tổng hợp | Người dùng xem thống kê: tổng dự án, tổng task, task mở/đóng, tỷ lệ hoàn thành. |
+| UC-51 | Xem báo cáo theo dự án | Người dùng xem thống kê từng dự án. |
+| UC-52 | Xem báo cáo theo người dùng | Administrator xem thống kê theo từng user. |
+| UC-53 | Xuất dữ liệu CSV | Người dùng xuất danh sách công việc ra file CSV. |
 
 ---
 
@@ -198,10 +195,10 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-56 | Xem danh mục | Thành viên xem danh sách danh mục công việc với người gán mặc định. |
-| UC-57 | Tạo danh mục | Người dùng có quyền `projects.manage_categories` tạo danh mục. |
-| UC-58 | Cập nhật danh mục | Người dùng có quyền chỉnh sửa danh mục. |
-| UC-59 | Xóa danh mục | Người dùng có quyền xóa danh mục. |
+| UC-54 | Xem danh mục | Thành viên xem danh sách danh mục công việc với người gán mặc định. |
+| UC-55 | Tạo danh mục | Người dùng có quyền `projects.manage_categories` tạo danh mục. |
+| UC-56 | Cập nhật danh mục | Người dùng có quyền chỉnh sửa danh mục. |
+| UC-57 | Xóa danh mục | Người dùng có quyền xóa danh mục. |
 
 ---
 
@@ -209,10 +206,10 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-60 | Xem danh sách Tracker | Người dùng xem danh sách loại công việc (Bug, Feature, Task...). |
-| UC-61 | Tạo Tracker | Administrator tạo loại công việc mới. |
-| UC-62 | Cập nhật Tracker | Administrator chỉnh sửa tracker. |
-| UC-63 | Xóa Tracker | Administrator xóa tracker (chỉ khi không có task sử dụng). |
+| UC-58 | Xem danh sách Tracker | Người dùng xem danh sách loại công việc (Bug, Feature, Task...). |
+| UC-59 | Tạo Tracker | Administrator tạo loại công việc mới. |
+| UC-60 | Cập nhật Tracker | Administrator chỉnh sửa tracker. |
+| UC-61 | Xóa Tracker | Administrator xóa tracker (chỉ khi không có task sử dụng). |
 
 ---
 
@@ -220,10 +217,10 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-64 | Xem danh sách Status | Người dùng xem danh sách trạng thái. |
-| UC-65 | Tạo Status | Administrator tạo trạng thái với tên, isClosed, defaultDoneRatio. |
-| UC-66 | Cập nhật Status | Administrator chỉnh sửa trạng thái. |
-| UC-67 | Xóa Status | Administrator xóa trạng thái (chỉ khi không có task sử dụng). |
+| UC-62 | Xem danh sách Status | Người dùng xem danh sách trạng thái. |
+| UC-63 | Tạo Status | Administrator tạo trạng thái với tên, isClosed, defaultDoneRatio. |
+| UC-64 | Cập nhật Status | Administrator chỉnh sửa trạng thái. |
+| UC-65 | Xóa Status | Administrator xóa trạng thái (chỉ khi không có task sử dụng). |
 
 ---
 
@@ -231,10 +228,10 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-68 | Xem danh sách Priority | Người dùng xem danh sách độ ưu tiên với màu sắc. |
-| UC-69 | Tạo Priority | Administrator tạo độ ưu tiên mới. |
-| UC-70 | Cập nhật Priority | Administrator chỉnh sửa độ ưu tiên. |
-| UC-71 | Xóa Priority | Administrator xóa độ ưu tiên (chỉ khi không có task sử dụng). |
+| UC-66 | Xem danh sách Priority | Người dùng xem danh sách độ ưu tiên với màu sắc. |
+| UC-67 | Tạo Priority | Administrator tạo độ ưu tiên mới. |
+| UC-68 | Cập nhật Priority | Administrator chỉnh sửa độ ưu tiên. |
+| UC-69 | Xóa Priority | Administrator xóa độ ưu tiên (chỉ khi không có task sử dụng). |
 
 ---
 
@@ -242,10 +239,10 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-72 | Xem danh sách Role | Người dùng xem danh sách vai trò kèm permissions. |
-| UC-73 | Tạo Role | Administrator tạo vai trò mới với tên, assignable, canAssignToOther. |
-| UC-74 | Cập nhật Role | Administrator chỉnh sửa vai trò và gán permissions. |
-| UC-75 | Xóa Role | Administrator xóa vai trò (chỉ khi không có member sử dụng). |
+| UC-70 | Xem danh sách Role | Người dùng xem danh sách vai trò kèm permissions. |
+| UC-71 | Tạo Role | Administrator tạo vai trò mới với tên, assignable, canAssignToOther. |
+| UC-72 | Cập nhật Role | Administrator chỉnh sửa vai trò và gán permissions. |
+| UC-73 | Xóa Role | Administrator xóa vai trò (chỉ khi không có member sử dụng). |
 
 ---
 
@@ -253,8 +250,8 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-76 | Xem Workflow Matrix | Administrator xem ma trận workflow: trackers, statuses, roles và transitions. |
-| UC-77 | Cấu hình Transition | Administrator định nghĩa chuyển đổi trạng thái cho (tracker, role). |
+| UC-74 | Xem Workflow Matrix | Administrator xem ma trận workflow: trackers, statuses, roles và transitions. |
+| UC-75 | Cấu hình Transition | Administrator định nghĩa chuyển đổi trạng thái cho (tracker, role). |
 
 ---
 
@@ -262,9 +259,9 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-78 | Xem cài đặt hệ thống | Administrator xem cài đặt tính toán thuộc tính công việc cha. |
-| UC-79 | Cập nhật cài đặt hệ thống | Administrator thay đổi cách tính (calculated/independent) cho dates, priority, doneRatio, estimatedHours. |
-| UC-80 | Cấu hình cho dự án | Người có quyền Manager ghi đè cài đặt cho riêng dự án. |
+| UC-76 | Xem cài đặt hệ thống | Administrator xem cài đặt tính toán thuộc tính công việc cha. |
+| UC-77 | Cập nhật cài đặt hệ thống | Administrator thay đổi cách tính (calculated/independent) cho dates, priority, doneRatio, estimatedHours. |
+| UC-78 | Cấu hình cho dự án | Người có quyền Manager ghi đè cài đặt cho riêng dự án. |
 
 ---
 
@@ -272,8 +269,8 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-81 | Xem Tracker của dự án | Thành viên xem danh sách tracker được kích hoạt cho dự án. |
-| UC-82 | Cấu hình Tracker cho dự án | Người có quyền `projects.manage_trackers` chọn tracker cho dự án. |
+| UC-79 | Xem Tracker của dự án | Thành viên xem danh sách tracker được kích hoạt cho dự án. |
+| UC-80 | Cấu hình Tracker cho dự án | Người có quyền `projects.manage_trackers` chọn tracker cho dự án. |
 
 ---
 
@@ -281,8 +278,8 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 
 | STT | Tên Use Case | Mô tả |
 |-----|--------------|-------|
-| UC-83 | Xem hoạt động gần đây | Người dùng xem danh sách hoạt động trong các dự án mình là thành viên. |
-| UC-84 | Xem lịch sử công việc | Trong chi tiết task, xem lịch sử thay đổi: ai đổi, khi nào, thay đổi gì. |
+| UC-81 | Xem hoạt động gần đây | Người dùng xem danh sách hoạt động trong các dự án mình là thành viên. |
+| UC-82 | Xem lịch sử công việc | Trong chi tiết task, xem lịch sử thay đổi: ai đổi, khi nào, thay đổi gì. |
 
 ---
 
@@ -299,7 +296,7 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 | Bình luận | 4 |
 | File đính kèm | 4 |
 | Theo dõi Công việc | 4 |
-| Sao chép & Di chuyển | 3 |
+| Sao chép Công việc | 1 |
 | Thông báo | 2 |
 | Tìm kiếm Toàn cục | 1 |
 | Bộ lọc đã lưu | 4 |
@@ -313,7 +310,7 @@ Worksphere sử dụng hệ thống **Role-Based Access Control (RBAC)** linh ho
 | Cấu hình Issue Tracking | 3 |
 | Cấu hình Trackers/Dự án | 2 |
 | Nhật ký Hoạt động | 2 |
-| **TỔNG CỘNG** | **84** |
+| **TỔNG CỘNG** | **82** |
 
 ---
 

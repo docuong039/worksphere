@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     try {
         const session = await auth();
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 });
         }
 
         const { searchParams } = new URL(request.url);
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(queries);
     } catch (error) {
         console.error('Error fetching queries:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }
 
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     try {
         const session = await auth();
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 });
         }
 
         const body = await request.json();
@@ -61,11 +61,11 @@ export async function POST(request: NextRequest) {
         } = body;
 
         if (!name?.trim()) {
-            return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+            return NextResponse.json({ error: 'Vui lòng nhập tên bộ lọc' }, { status: 400 });
         }
 
         if (!filters || typeof filters !== 'object') {
-            return NextResponse.json({ error: 'Filters are required' }, { status: 400 });
+            return NextResponse.json({ error: 'Tiêu chí lọc là bắt buộc' }, { status: 400 });
         }
 
         // Only admins or users with manage_public_queries permission can create public queries
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
                 },
             });
             if (!hasPermission) {
-                return NextResponse.json({ error: 'No permission to create public queries' }, { status: 403 });
+                return NextResponse.json({ error: 'Không có quyền tạo bộ lọc công khai' }, { status: 403 });
             }
         }
 
@@ -107,6 +107,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(query, { status: 201 });
     } catch (error) {
         console.error('Error creating query:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }

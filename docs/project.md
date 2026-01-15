@@ -300,25 +300,6 @@ model Task {
 }
 ```
 
-#### `IssueRelation`
-Quan hệ giữa các task:
-```prisma
-model IssueRelation {
-  id           String @id @default(cuid())
-  issueFromId  String
-  issueToId    String
-  relationType String  // relates, duplicates, blocks, precedes, follows...
-  delay        Int?    // Delay in days (for precedes/follows)
-}
-```
-
-**Các loại relation:**
-- `relates`: Liên quan
-- `duplicates` / `duplicated`: Trùng lặp
-- `blocks` / `blocked`: Chặn
-- `precedes` / `follows`: Trước/Sau
-- `copied_to` / `copied_from`: Sao chép
-
 #### `Watcher`
 Người theo dõi task:
 ```prisma
@@ -568,8 +549,6 @@ Deny
 | PUT | `/api/tasks/[id]` | Cập nhật task |
 | DELETE | `/api/tasks/[id]` | Xóa task |
 | POST | `/api/tasks/[id]/copy` | Copy task |
-| POST | `/api/tasks/[id]/move` | Move task sang project khác |
-| POST | `/api/tasks/[id]/duplicate` | Duplicate task |
 | GET | `/api/tasks/[id]/comments` | Danh sách comments |
 | POST | `/api/tasks/[id]/comments` | Thêm comment |
 | GET | `/api/tasks/[id]/attachments` | Danh sách attachments |
@@ -578,11 +557,8 @@ Deny
 | POST | `/api/tasks/[id]/watchers` | Thêm watcher |
 | DELETE | `/api/tasks/[id]/watchers/[userId]` | Xóa watcher |
 | POST | `/api/tasks/[id]/watch` | Toggle watch (self) |
-| GET | `/api/tasks/[id]/relations` | Danh sách relations |
-| POST | `/api/tasks/[id]/relations` | Thêm relation |
 | GET | `/api/tasks/[id]/time-logs` | Time logs |
 | POST | `/api/tasks/[id]/time-logs` | Log time |
-| POST | `/api/tasks/bulk-update` | Bulk update tasks |
 
 ### Configuration
 
@@ -620,7 +596,6 @@ Deny
 | POST | `/api/versions` | Tạo version |
 | PUT/DELETE | `/api/versions/[id]` | Quản lý version |
 | DELETE | `/api/attachments/[id]` | Xóa attachment |
-| DELETE | `/api/relations/[id]` | Xóa relation |
 | DELETE | `/api/categories/[id]` | Xóa category |
 
 ---
@@ -705,10 +680,8 @@ Deny
 | `TaskContextMenu` | `task-context-menu.tsx` | Right-click menu cho task |
 | `TaskAttachments` | `task-attachments.tsx` | Quản lý file đính kèm |
 | `TaskWatchers` | `task-watchers.tsx` | Quản lý watchers |
-| `TaskRelations` | `task-relations.tsx` | Quản lý relations |
 | `SavedQueries` | `saved-queries.tsx` | Lưu/Load queries |
-| `BulkEditModal` | `bulk-edit-modal.tsx` | Bulk edit tasks |
-| `CopyMoveTaskModal` | `copy-move-task-modal.tsx` | Copy/Move task |
+| `CopyTaskModal` | `copy-task-modal.tsx` | Copy task |
 | `VersionSelector` | `version-selector.tsx` | Dropdown chọn version |
 | `DoneRatioSlider` | `done-ratio-slider.tsx` | Slider % hoàn thành |
 
@@ -747,7 +720,6 @@ Zod schemas cho validation:
 - `createProjectSchema`, `updateProjectSchema`
 - `createVersionSchema`, `updateVersionSchema`
 - `createTaskSchema`, `updateTaskSchema`
-- `createIssueRelationSchema`
 - `createCommentSchema`, `updateCommentSchema`
 - `updateWorkflowSchema`
 - `addWatcherSchema`, `removeWatcherSchema`
@@ -977,4 +949,4 @@ AUTH_SECRET="your_secret_key"
 
 ---
 
-*Tài liệu được tạo tự động. Cập nhật lần cuối: 2026-01-14*
+*Tài liệu được tạo tự động. Cập nhật lần cuối: 2026-01-15*

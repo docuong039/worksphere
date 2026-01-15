@@ -10,7 +10,7 @@ export async function GET(
     try {
         const session = await auth();
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Không được quyền truy cập' }, { status: 401 });
         }
 
         const { id } = await params;
@@ -22,7 +22,7 @@ export async function GET(
             });
 
         if (!canAccess) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Hành động bị cấm' }, { status: 403 });
         }
 
         const subprojects = await prisma.project.findMany({
@@ -49,7 +49,7 @@ export async function GET(
         return NextResponse.json(subprojects);
     } catch (error) {
         console.error('Error fetching subprojects:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }
 
@@ -61,7 +61,7 @@ export async function POST(
     try {
         const session = await auth();
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Không được quyền truy cập' }, { status: 401 });
         }
 
         const { id } = await params;
@@ -81,17 +81,17 @@ export async function POST(
             });
 
         if (!hasPermission) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Hành động bị cấm' }, { status: 403 });
         }
 
         const body = await request.json();
         const { name, identifier, description, isPublic } = body;
 
         if (!name?.trim()) {
-            return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+            return NextResponse.json({ error: 'Vui lòng nhập tên' }, { status: 400 });
         }
         if (!identifier?.trim()) {
-            return NextResponse.json({ error: 'Identifier is required' }, { status: 400 });
+            return NextResponse.json({ error: 'Vui lòng nhập định danh' }, { status: 400 });
         }
 
         // Check identifier uniqueness
@@ -99,7 +99,7 @@ export async function POST(
             where: { identifier: identifier.toLowerCase() },
         });
         if (existingProject) {
-            return NextResponse.json({ error: 'Project identifier already exists' }, { status: 400 });
+            return NextResponse.json({ error: 'Định danh dự án đã tồn tại' }, { status: 400 });
         }
 
         // Check max nesting level (e.g., 3 levels)
@@ -115,7 +115,7 @@ export async function POST(
         });
 
         if (!parentProject) {
-            return NextResponse.json({ error: 'Parent project not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Không tìm thấy dự án cha' }, { status: 404 });
         }
 
         let nestingLevel = 1;
@@ -127,7 +127,7 @@ export async function POST(
         }
 
         if (nestingLevel >= 3) {
-            return NextResponse.json({ error: 'Maximum nesting level (3) reached' }, { status: 400 });
+            return NextResponse.json({ error: 'Đã đạt giới hạn cấp lồng nhau tối đa (3 cấp)' }, { status: 400 });
         }
 
         // Create subproject
@@ -165,6 +165,6 @@ export async function POST(
         return NextResponse.json(subproject, { status: 201 });
     } catch (error) {
         console.error('Error creating subproject:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }

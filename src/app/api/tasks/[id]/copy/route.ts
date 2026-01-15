@@ -10,7 +10,7 @@ export async function POST(
     try {
         const session = await auth();
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Không được quyền truy cập' }, { status: 401 });
         }
 
         const { id } = await params;
@@ -33,7 +33,7 @@ export async function POST(
         });
 
         if (!originalTask) {
-            return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Không tìm thấy công việc' }, { status: 404 });
         }
 
         const projectId = targetProjectId || originalTask.projectId;
@@ -53,7 +53,7 @@ export async function POST(
             });
 
         if (!canCreate) {
-            return NextResponse.json({ error: 'No permission to create tasks in target project' }, { status: 403 });
+            return NextResponse.json({ error: 'Bạn không có quyền tạo công việc trong dự án đích' }, { status: 403 });
         }
 
         // Get default status
@@ -62,7 +62,7 @@ export async function POST(
         });
 
         if (!defaultStatus) {
-            return NextResponse.json({ error: 'No default status configured' }, { status: 500 });
+            return NextResponse.json({ error: 'Hệ thống chưa cấu hình trạng thái mặc định' }, { status: 500 });
         }
 
         // Copy the task
@@ -94,16 +94,8 @@ export async function POST(
             });
         }
 
-        // Link to original if requested
-        if (linkOriginal) {
-            await prisma.issueRelation.create({
-                data: {
-                    issueFromId: copiedTask.id,
-                    issueToId: originalTask.id,
-                    relationType: 'copied_from',
-                },
-            });
-        }
+        // Link to original if requested (Chức năng này đã tạm dừng do gỡ bỏ IssueRelation)
+        // if (linkOriginal) { ... }
 
         // Copy subtasks if requested
         if (copySubtasks && originalTask.subtasks.length > 0) {
@@ -141,6 +133,6 @@ export async function POST(
         return NextResponse.json(result, { status: 201 });
     } catch (error) {
         console.error('Error copying task:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }

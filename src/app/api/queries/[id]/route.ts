@@ -10,7 +10,7 @@ export async function GET(
     try {
         const session = await auth();
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 });
         }
 
         const { id } = await params;
@@ -24,12 +24,12 @@ export async function GET(
         });
 
         if (!query) {
-            return NextResponse.json({ error: 'Query not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Không tìm thấy bộ lọc' }, { status: 404 });
         }
 
         // Check access
         if (!query.isPublic && query.userId !== session.user.id && !session.user.isAdministrator) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Bạn không có quyền truy cập bộ lọc này' }, { status: 403 });
         }
 
         return NextResponse.json({
@@ -39,7 +39,7 @@ export async function GET(
         });
     } catch (error) {
         console.error('Error fetching query:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }
 
@@ -51,19 +51,19 @@ export async function PUT(
     try {
         const session = await auth();
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 });
         }
 
         const { id } = await params;
 
         const query = await prisma.query.findUnique({ where: { id } });
         if (!query) {
-            return NextResponse.json({ error: 'Query not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Không tìm thấy bộ lọc' }, { status: 404 });
         }
 
         // Only owner or admin can update
         if (query.userId !== session.user.id && !session.user.isAdministrator) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Bạn không có quyền chỉnh sửa bộ lọc này' }, { status: 403 });
         }
 
         const body = await request.json();
@@ -71,7 +71,7 @@ export async function PUT(
 
         // Check permission for making public
         if (isPublic && !query.isPublic && !session.user.isAdministrator) {
-            return NextResponse.json({ error: 'No permission to make query public' }, { status: 403 });
+            return NextResponse.json({ error: 'Không có quyền đặt bộ lọc thành công khai' }, { status: 403 });
         }
 
         const updated = await prisma.query.update({
@@ -98,7 +98,7 @@ export async function PUT(
         });
     } catch (error) {
         console.error('Error updating query:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }
 
@@ -110,19 +110,19 @@ export async function DELETE(
     try {
         const session = await auth();
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Không có quyền truy cập' }, { status: 401 });
         }
 
         const { id } = await params;
 
         const query = await prisma.query.findUnique({ where: { id } });
         if (!query) {
-            return NextResponse.json({ error: 'Query not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Không tìm thấy bộ lọc' }, { status: 404 });
         }
 
         // Only owner or admin can delete
         if (query.userId !== session.user.id && !session.user.isAdministrator) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Bạn không có quyền xóa bộ lọc này' }, { status: 403 });
         }
 
         await prisma.query.delete({ where: { id } });
@@ -130,6 +130,6 @@ export async function DELETE(
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Error deleting query:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }

@@ -10,7 +10,7 @@ export async function GET(
     try {
         const session = await auth();
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Không được quyền truy cập' }, { status: 401 });
         }
 
         const { id } = await params;
@@ -22,7 +22,7 @@ export async function GET(
             });
 
         if (!canAccess) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Hành động bị cấm' }, { status: 403 });
         }
 
         const categories = await prisma.issueCategory.findMany({
@@ -39,7 +39,7 @@ export async function GET(
         return NextResponse.json(categories);
     } catch (error) {
         console.error('Error fetching categories:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }
 
@@ -51,7 +51,7 @@ export async function POST(
     try {
         const session = await auth();
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Không được quyền truy cập' }, { status: 401 });
         }
 
         const { id } = await params;
@@ -71,14 +71,14 @@ export async function POST(
             });
 
         if (!hasPermission) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Hành động bị cấm' }, { status: 403 });
         }
 
         const body = await request.json();
         const { name, assignedToId } = body;
 
         if (!name?.trim()) {
-            return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+            return NextResponse.json({ error: 'Vui lòng nhập tên' }, { status: 400 });
         }
 
         // Check duplicate
@@ -86,7 +86,7 @@ export async function POST(
             where: { projectId: id, name: name.trim() },
         });
         if (existing) {
-            return NextResponse.json({ error: 'Category with this name already exists' }, { status: 400 });
+            return NextResponse.json({ error: 'Danh mục với tên này đã tồn tại' }, { status: 400 });
         }
 
         const category = await prisma.issueCategory.create({
@@ -105,6 +105,6 @@ export async function POST(
         return NextResponse.json(category, { status: 201 });
     } catch (error) {
         console.error('Error creating category:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
     }
 }

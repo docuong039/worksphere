@@ -635,12 +635,14 @@ export function TaskDetail({
                                         <td className="px-4 py-3 text-right">
                                             <TaskContextMenu
                                                 taskId={sub.id}
+                                                taskTitle={sub.title}
                                                 projectId={task.project.id}
                                                 currentStatusId={sub.status.id}
                                                 currentTrackerId={sub.tracker.id}
                                                 currentPriorityId={sub.priority.id}
                                                 currentAssigneeId={sub.assignee?.id || null}
                                                 currentDoneRatio={sub.doneRatio || 0}
+                                                hasSubtasks={false}
                                                 statuses={statuses}
                                                 trackers={trackers}
                                                 priorities={priorities}

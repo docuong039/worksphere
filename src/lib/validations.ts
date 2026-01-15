@@ -132,28 +132,6 @@ export const updateTaskSchema = createTaskSchema.partial().extend({
 });
 
 // ============================================
-// ISSUE RELATION
-// ============================================
-
-export const RELATION_TYPES = [
-    'relates',
-    'duplicates',
-    'duplicated',
-    'blocks',
-    'blocked',
-    'precedes',
-    'follows',
-    'copied_to',
-    'copied_from',
-] as const;
-
-export const createIssueRelationSchema = z.object({
-    issueToId: z.string().min(1, 'Task liên quan không được để trống'),
-    relationType: z.enum(RELATION_TYPES, { message: 'Loại quan hệ không hợp lệ' }),
-    delay: z.number().int().optional().nullable(),
-});
-
-// ============================================
 // COMMENT
 // ============================================
 

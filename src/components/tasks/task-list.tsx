@@ -653,12 +653,14 @@ export function TaskList({
                                             <td className="px-4 py-3 text-right">
                                                 <TaskContextMenu
                                                     taskId={task.id}
+                                                    taskTitle={task.title}
                                                     projectId={task.project.id}
                                                     currentStatusId={task.status.id}
                                                     currentTrackerId={task.tracker.id}
                                                     currentPriorityId={task.priority.id}
                                                     currentAssigneeId={task.assignee?.id || null}
-                                                    currentDoneRatio={0}
+                                                    currentDoneRatio={task.doneRatio}
+                                                    hasSubtasks={task._count.subtasks > 0}
                                                     statuses={statuses}
                                                     trackers={trackers}
                                                     priorities={priorities}
