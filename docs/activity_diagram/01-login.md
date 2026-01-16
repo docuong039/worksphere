@@ -48,9 +48,12 @@ note right
 end note
 
 |System|
-if (User tồn tại?) then (Không)
+if (User tồn tại VÀ isActive?) then (Không)
   :Hiển thị lỗi "Email hoặc mật khẩu không đúng";
-  note right: **Security**: Không tiết lộ email tồn tại
+  note right
+    **Security**: Check !user || !user.isActive
+    Không tiết lộ user có tồn tại hay bị khóa
+  end note
   |User|
   stop
 endif
@@ -60,17 +63,6 @@ endif
 if (Password đúng?) then (Không)
   :Hiển thị lỗi "Email hoặc mật khẩu không đúng";
   note right: **Security**: Lỗi chung chung
-  |User|
-  stop
-endif
-
-if (Account active?) then (Không)
-  :Hiển thị lỗi "Email hoặc mật khẩu không đúng";
-  note right #FFAAAA
-    **Security**: KHÔNG tiết lộ 
-    "Tài khoản đã bị khóa"
-    (Khớp với UC E3)
-  end note
   |User|
   stop
 endif
@@ -101,11 +93,10 @@ stop
 | 2 | - | System | Hiển thị form | (implicit) |
 | 3-4 | 2 | User | Nhập email & password | Required fields |
 | 5 | 3 | User | Click Đăng nhập | Submit form |
-| 6 | 4-5 | System/DB | Kiểm tra email tồn tại | Query by email |
+| 6 | 4-5 | System/DB | Check user tồn tại AND isActive | Query + check |
 | 7 | 6 | System | Xác minh password | bcrypt.compare() |
-| 8 | 7 | System | Kiểm tra isActive | Boolean field |
-| 9 | 8-9 | System | Tạo phiên đăng nhập | JWT session |
-| 10 | 10 | User | Chuyển đến Dashboard | Redirect |
+| 8 | 7-8 | System | Tạo phiên đăng nhập | JWT session |
+| 9 | 9 | User | Chuyển đến Dashboard | Redirect |
 
 ---
 
@@ -114,9 +105,8 @@ stop
 | # | Condition | True | False | UC Ref |
 |---|-----------|------|-------|--------|
 | D1 | Email format hợp lệ? | Tiếp tục | Lỗi, dừng | - |
-| D2 | User tồn tại? | Tiếp tục | Lỗi chung, dừng | E1 |
-| D3 | Password đúng? | Tiếp tục | Lỗi chung, dừng | E2 |
-| D4 | Account active? | Tạo session | **Lỗi chung**, dừng | **E3** |
+| D2 | User tồn tại VÀ isActive? | Tiếp tục | Lỗi chung, dừng | E1 + E3 |
+| D3 | Password đúng? | Tạo session | Lỗi chung, dừng | E2 |
 
 ---
 
@@ -125,13 +115,14 @@ stop
 | Exception | Xử lý | UC Ref |
 |-----------|-------|--------|
 | Email không tồn tại | Hiển thị lỗi **chung** (security) | E1 |
+| Account bị khóa (isActive=false) | Hiển thị lỗi **chung** (security) | E3 |
 | Password sai | Hiển thị lỗi **chung** (security) | E2 |
-| Account bị khóa | Hiển thị lỗi **chung** (security) | **E3** |
 | Database error | Hiển thị lỗi server | E4 |
 
 **Lưu ý quan trọng**: 
+- Code check `!user || !user.isActive` CÙNG LÚC (Line 23 auth.ts)
+- Password chỉ được verify SAU khi user tồn tại và active
 - Tất cả lỗi xác thực đều hiển thị thông báo **chung** "Email hoặc mật khẩu không đúng"
-- KHÔNG tiết lộ việc tài khoản bị khóa (theo UC E3)
 
 ---
 

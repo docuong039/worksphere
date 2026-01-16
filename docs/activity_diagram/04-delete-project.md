@@ -55,26 +55,26 @@ if (Là Creator hoặc Admin?) then (Không)
 endif
 
 |Database|
-fork
-  :DELETE Comments WHERE taskId IN project;
-fork again
-  :DELETE Attachments WHERE taskId IN project;
-  :Xóa files từ disk;
-fork again
-  :DELETE Watchers WHERE taskId IN project;
-fork again
-  :DELETE Notifications WHERE projectId;
-end fork
+:Cascade Delete trong transaction;
 
+:DELETE Comments WHERE taskId IN project tasks;
+:DELETE Attachments WHERE taskId IN project tasks;
+note right
+  Chỉ xóa records, **KHÔNG** 
+  xóa files vật lý từ disk
+end note
+:DELETE Watchers WHERE taskId IN project tasks;
 :DELETE Tasks WHERE projectId;
 note right
   Subtasks tự động xóa
   do ON DELETE CASCADE
 end note
-
-:DELETE Versions WHERE projectId;
 :DELETE ProjectMembers WHERE projectId;
 :DELETE Project WHERE id;
+note right
+  Versions được xóa tự động
+  bởi Prisma cascade
+end note
 
 |System|
 :Trả về success;
@@ -94,14 +94,13 @@ stop
 
 | Thứ tự | Entity | Điều kiện | Ghi chú |
 |--------|--------|-----------|---------|
-| 1 | Comments | taskId IN project tasks | - |
-| 2 | Attachments | taskId IN project tasks | + Xóa files |
-| 3 | Watchers | taskId IN project tasks | - |
-| 4 | Notifications | projectId | - |
-| 5 | Tasks | projectId | Subtasks cascade |
-| 6 | Versions | projectId | - |
-| 7 | ProjectMembers | projectId | - |
-| 8 | Project | id | Finally |
+| 1 | Comments | taskId IN project tasks | Xóa explicit |
+| 2 | Attachments | taskId IN project tasks | **Chỉ xóa DB**, KHÔNG xóa files |
+| 3 | Watchers | taskId IN project tasks | Xóa explicit |
+| 4 | Tasks | projectId | Subtasks cascade |
+| 5 | ProjectMembers | projectId | Xóa explicit |
+| 6 | Project | id | Finally |
+| - | Versions | projectId | Prisma cascade tự động |
 
 ---
 

@@ -73,9 +73,6 @@ end note
 6. <<include>> Update Project Trackers: Cập nhật ProjectTracker records
 7. Hiển thị thông báo thành công
 
-**Ngoại lệ:**
-- E1: Không thể bỏ tracker đang có task sử dụng → Cảnh báo
-
 **Hậu điều kiện:** Project trackers được cập nhật
 
 ---
@@ -85,8 +82,9 @@ end note
 | ID | Rule |
 |----|------|
 | BR-01 | Project có thể giới hạn trackers được phép dùng |
-| BR-02 | Không thể bỏ tracker đang có task sử dụng |
-| BR-03 | Mặc định: tất cả system trackers được cho phép |
+| BR-02 | Mặc định: tất cả system trackers được cho phép |
+| BR-03 | Sử dụng transaction delete-then-create |
+| BR-04 | Cần quyền `projects.manage_trackers` hoặc Admin |
 
 ---
 

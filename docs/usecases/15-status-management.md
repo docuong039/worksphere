@@ -94,6 +94,7 @@ Xóa trạng thái khỏi hệ thống.
 
 #### 3. Luồng ngoại lệ
 - Nếu có công việc sử dụng: không cho xóa.
+- Nếu có workflow transitions sử dụng: không cho xóa.
 - Nếu là mặc định: không cho xóa.
 
 ---
@@ -104,8 +105,9 @@ Xóa trạng thái khỏi hệ thống.
 |----|------|-------|
 | BR-01 | Single Default | Chỉ có 1 status mặc định |
 | BR-02 | Closed = 100% | isClosed = true thường đi kèm doneRatio = 100 |
-| BR-03 | No Delete Used | Không xóa status đang được sử dụng |
-| BR-04 | Position Order | Sắp xếp hiển thị theo position |
+| BR-03 | No Delete Used | Không xóa status đang được sử dụng bởi task |
+| BR-04 | No Delete Workflow | Không xóa status đang dùng trong workflow transitions |
+| BR-05 | Position Order | Sắp xếp hiển thị theo position |
 
 ---
 

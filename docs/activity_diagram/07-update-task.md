@@ -39,9 +39,13 @@ else (Không)
   if (tasks.edit_own AND là creator?) then (Có)
     :Cho phép edit;
   else (Không)
-    :Hiển thị lỗi 403 Forbidden;
-    |User|
-    stop
+    if (tasks.edit_assigned AND là assignee?) then (Có)
+      :Cho phép edit;
+    else (Không)
+      :Hiển thị lỗi 403 Forbidden;
+      |User|
+      stop
+    endif
   endif
 endif
 
@@ -128,6 +132,7 @@ Server check: SELECT version FROM Task WHERE id = ?
 |-------|-----------|---------|
 | tasks.edit_any | Có quyền | Cho phép |
 | tasks.edit_own | Là creator | Cho phép |
+| tasks.edit_assigned | Là assignee | Cho phép |
 | Không có quyền | - | 403 Forbidden |
 
 ---

@@ -28,7 +28,10 @@
 ---
 
 #### 1. Mô tả
-Xuất danh sách công việc ra file CSV hoặc PDF với các filter.
+Xuất dữ liệu công việc hoặc tổng hợp ra file CSV. Hỗ trợ 3 loại:
+- **tasks**: Danh sách công việc
+- **project-summary**: Tổng hợp dự án
+- **user-summary**: Tổng hợp nhân sự (Admin only)
 
 #### 2. Tác nhân chính
 - **User**: Thành viên có quyền xem công việc.

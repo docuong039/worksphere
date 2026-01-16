@@ -144,32 +144,27 @@ Use Case này cho phép người dùng xác thực danh tính bằng email và m
 3. Người dùng nhập địa chỉ email.
 4. Người dùng nhập mật khẩu.
 5. Người dùng nhấn nút "Đăng nhập".
-6. Hệ thống kiểm tra email tồn tại trong cơ sở dữ liệu.
-7. Hệ thống xác minh mật khẩu nhập vào khớp với mật khẩu đã lưu.
-8. Hệ thống kiểm tra tài khoản đang ở trạng thái hoạt động.
-9. Hệ thống tạo phiên đăng nhập cho người dùng.
-10. Hệ thống chuyển người dùng đến trang Dashboard.
-11. Kết thúc Use Case.
+6. Hệ thống kiểm tra email tồn tại và tài khoản đang hoạt động (`isActive`).
+7. Hệ thống xác minh mật khẩu nhập vào khớp với mật khẩu đã lưu (bcrypt).
+8. Hệ thống tạo phiên đăng nhập JWT cho người dùng.
+9. Hệ thống chuyển người dùng đến trang Dashboard.
+10. Kết thúc Use Case.
 
 #### 8. Luồng thay thế (Alternative Flow)
 - *Không có*
 
 #### 9. Luồng ngoại lệ (Exception Flow)
 
-**E1: Email không tồn tại trong hệ thống**
+**E1: Email không tồn tại hoặc tài khoản bị khóa**
 - Rẽ nhánh từ bước 6.
+- Hệ thống kiểm tra: `!user || !user.isActive` → trả về lỗi.
 - Hệ thống hiển thị thông báo lỗi chung: "Email hoặc mật khẩu không đúng".
+- Ghi chú: Không tiết lộ email có tồn tại hay tài khoản bị khóa (security).
 - Quay lại bước 2.
 
 **E2: Mật khẩu không chính xác**
 - Rẽ nhánh từ bước 7.
 - Hệ thống hiển thị thông báo lỗi chung: "Email hoặc mật khẩu không đúng".
-- Quay lại bước 2.
-
-**E3: Tài khoản bị khóa**
-- Rẽ nhánh từ bước 8.
-- Hệ thống hiển thị thông báo lỗi chung: "Email hoặc mật khẩu không đúng".
-- Ghi chú: Không tiết lộ việc tài khoản bị khóa để tránh rò rỉ thông tin.
 - Quay lại bước 2.
 
 **E4: Lỗi kết nối hệ thống**
@@ -178,9 +173,10 @@ Use Case này cho phép người dùng xác thực danh tính bằng email và m
 - Kết thúc Use Case.
 
 #### 10. Ghi chú
-- Mật khẩu được mã hóa một chiều trước khi lưu trữ.
-- Phiên đăng nhập có thời hạn tối đa 30 ngày.
+- Mật khẩu được mã hóa một chiều bằng bcrypt trước khi lưu trữ.
+- Session sử dụng JWT strategy (NextAuth default).
 - Thông báo lỗi được thiết kế chung chung để ngăn chặn tấn công dò tìm email.
+- Thứ tự kiểm tra: user exists → isActive → password (theo `auth.ts` Line 19-34).
 
 ---
 

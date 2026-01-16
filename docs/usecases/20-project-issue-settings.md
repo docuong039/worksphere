@@ -41,6 +41,7 @@ note right of UC76
   - Due Date: Calculated/Independent
   - Done Ratio: Calculated/Independent
   - Priority: Calculated/Independent
+  - Estimated Hours: Calculated/Independent
 end note
 @enduml
 ```
@@ -66,6 +67,7 @@ end note
    - Due Date: Calculated from subtasks / Independent
    - Done Ratio: Calculated from subtasks / Independent
    - Priority: Calculated (max of subtasks) / Independent
+   - Estimated Hours: Calculated (sum of subtasks) / Independent
 3. User chọn options
 4. User submit
 5. <<include>> Save Project Settings: Lưu vào Project record

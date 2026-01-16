@@ -29,47 +29,36 @@ start
 :Chọn file từ máy;
 
 |System|
-:Kiểm tra kích thước file;
+:Check user permission;
 
-if (Size > MAX_SIZE?) then (Có)
-  :Hiển thị lỗi "File quá lớn";
-  note right
-    MAX_SIZE = 10MB
-  end note
-  |User|
-  stop
-endif
-
-:Kiểm tra loại file;
-
-if (Type không được phép?) then (Có)
-  :Hiển thị lỗi "Loại file không hợp lệ";
+if (Admin hoặc Member?) then (Không)
+  :Hiển thị lỗi 403 "Không có quyền upload file";
   |User|
   stop
 endif
 
 :Generate UUID filename;
 note right
-  uuid() + extension
-  vd: "a1b2c3d4.pdf"
+  randomUUID() + extension
+  vd: "a1b2c3d4-5e6f-7890.pdf"
 end note
 
 |File System|
-:Lưu file vào public/uploads/;
+:mkdir public/uploads/ (if not exists);
+:writeFile lưu buffer vào disk;
 
 |Database|
 :INSERT Attachment;
 note right
-  taskId
-  userId (uploader)
-  filename (original)
-  storedFilename (UUID)
-  contentType
-  size
+  taskId = param.id
+  userId = session.user.id
+  filename = original name
+  path = "/uploads/" + uuid + ext
+  size, mimeType
 end note
 
 |System|
-:Trả về attachment info;
+:Trả về attachment với user info;
 
 |User|
 :Hiển thị file trong danh sách;
@@ -97,13 +86,15 @@ stop
 
 ---
 
-## 4. Validation Rules
+## 4. Implementation Notes
 
-| Rule | Giá trị | Mô tả |
-|------|---------|-------|
-| Max size | 10 MB | Giới hạn kích thước |
-| Allowed types | pdf, doc, docx, xls, xlsx, png, jpg, gif | Whitelist |
-| UUID filename | uuid() + ext | Tránh trùng tên |
+| Đặc điểm | Giá trị | Ghi chú |
+|----------|---------|---------|
+| UUID filename | randomUUID() + ext | Tránh trùng tên |
+| Storage path | /public/uploads/ | Relative URL |
+| Permission | Admin OR Member | Kiểm tra trước upload |
+
+**⚠️ Lưu ý**: Code hiện tại KHÔNG có validation size/type ở server-side. Có thể cần bổ sung sau.
 
 ---
 

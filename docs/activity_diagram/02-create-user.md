@@ -27,11 +27,10 @@ start
 :Truy cập /settings/users;
 :Click "Thêm người dùng";
 :Nhập thông tin:
-- Name
-- Email
-- Password
-- isAdministrator
-- isActive;
+- Name (bắt buộc)
+- Email (bắt buộc)
+- Password (bắt buộc)
+- isAdministrator (checkbox);
 :Click "Lưu";
 
 |System|
