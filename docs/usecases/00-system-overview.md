@@ -40,8 +40,12 @@ skinparam backgroundColor #FEFEFE
 title Worksphere - Use Case Diagram: System Overview
 
 ' ===== ACTORS =====
-actor "User" as User #3498DB
+actor "Project Member" as Member #3498DB
+actor "Project Manager" as Manager #27AE60
 actor "Administrator" as Admin #E74C3C
+
+' Inheritance: Manager "is a" Member
+Manager -up-|> Member
 
 ' ===== SYSTEM BOUNDARY =====
 rectangle "Worksphere System" as System #F8F9FA {
@@ -146,52 +150,89 @@ rectangle "Worksphere System" as System #F8F9FA {
   }
 }
 
-' ===== ASSOCIATIONS =====
-' User associations
-User --> UC_AUTH
-User --> UC_PROJECT
-User --> UC_MEMBER
-User --> UC_VERSION
-User --> UC_TASK
-User --> UC_COMMENT
-User --> UC_ATTACH
-User --> UC_WATCH
-User --> UC_COPY
-User --> UC_NOTIFY
-User --> UC_SEARCH
-User --> UC_QUERY
-User --> UC_REPORT
-User --> UC_WORKLOAD
-User --> UC_ACTIVITY
-User --> UC_ISSUE_SETTING
-User --> UC_PROJ_TRACKER
 
-' Admin associations (all User associations + Admin-only)
+' ===== ASSOCIATIONS =====
+' 1. Project Member (Quyền cơ bản)
+Member --> UC_AUTH
+Member --> UC_TASK
+Member --> UC_COMMENT
+Member --> UC_ATTACH
+Member --> UC_WATCH
+Member --> UC_COPY
+Member --> UC_NOTIFY
+Member --> UC_SEARCH
+Member --> UC_QUERY
+Member --> UC_REPORT
+Member --> UC_WORKLOAD
+Member --> UC_ACTIVITY
+
+' 2. Project Manager (Kế thừa Member + Quyền quản lý)
+Manager --> UC_PROJECT
+Manager --> UC_MEMBER
+Manager --> UC_VERSION
+Manager --> UC_ISSUE_SETTING
+Manager --> UC_PROJ_TRACKER
+
+' 3. Administrator (Quản trị hệ thống)
 Admin --> UC_AUTH
 Admin --> UC_USER
-Admin --> UC_PROJECT
-Admin --> UC_TASK
-Admin --> UC_REPORT
-Admin --> UC_WORKLOAD
 Admin --> UC_TRACKER
 Admin --> UC_STATUS
 Admin --> UC_PRIORITY
 Admin --> UC_ROLE
 Admin --> UC_WORKFLOW
 
+' ===== INCLUDE RELATIONSHIPS =====
+' All use cases require authentication
+UC_USER ..> UC_AUTH : <<include>>
+UC_PROJECT ..> UC_AUTH : <<include>>
+UC_MEMBER ..> UC_AUTH : <<include>>
+UC_VERSION ..> UC_AUTH : <<include>>
+UC_TASK ..> UC_AUTH : <<include>>
+UC_COMMENT ..> UC_AUTH : <<include>>
+UC_ATTACH ..> UC_AUTH : <<include>>
+UC_WATCH ..> UC_AUTH : <<include>>
+UC_COPY ..> UC_AUTH : <<include>>
+UC_NOTIFY ..> UC_AUTH : <<include>>
+UC_SEARCH ..> UC_AUTH : <<include>>
+UC_QUERY ..> UC_AUTH : <<include>>
+UC_REPORT ..> UC_AUTH : <<include>>
+UC_WORKLOAD ..> UC_AUTH : <<include>>
+UC_ACTIVITY ..> UC_AUTH : <<include>>
+UC_TRACKER ..> UC_AUTH : <<include>>
+UC_STATUS ..> UC_AUTH : <<include>>
+UC_PRIORITY ..> UC_AUTH : <<include>>
+UC_ROLE ..> UC_AUTH : <<include>>
+UC_WORKFLOW ..> UC_AUTH : <<include>>
+UC_ISSUE_SETTING ..> UC_AUTH : <<include>>
+UC_PROJ_TRACKER ..> UC_AUTH : <<include>>
+
 ' ===== NOTES =====
 note right of Admin
-  Administrator có:
-  - Toàn quyền hệ thống
-  - Bypass permission checks
-  - isAdministrator = true
+  Administrator:
+  - Quản trị cấu hình hệ thống
+  - Quản lý User
 end note
 
-note right of User
-  User có quyền dựa trên:
-  - Role được gán trong Project
-  - Permissions của Role
-  - Quyền đặc biệt (Creator)
+note right of Manager
+  Project Manager:
+  - Quản lý Dự án & Thành viên
+  - Cấu hình Dự án
+  - Có đầy đủ quyền của Member
+end note
+
+note left of Member
+  Project Member:
+  - Làm việc với Task
+  - Giao tiếp & Báo cáo
+end note
+
+note bottom of UC_AUTH
+  Tất cả chức năng đều
+  yêu cầu xác thực trước
+  <<include>>
+  (Mũi tên code ẩn đi có thể vẽ 
+  hoặc ẩn tùy ý thích)
 end note
 
 @enduml
@@ -203,59 +244,59 @@ end note
 
 | # | Package | Tên Tiếng Việt | Số UC | Actors | Mô tả |
 |---|---------|----------------|-------|--------|-------|
-| 1 | Authentication | Xác thực | 3 | User | Đăng nhập, đăng xuất, xem thông tin tài khoản |
+| 1 | Authentication | Xác thực | 3 | Member | Đăng nhập, đăng xuất, xem thông tin tài khoản |
 | 2 | User Management | Quản lý Người dùng | 4 | Admin | CRUD người dùng hệ thống |
-| 3 | Project Management | Quản lý Dự án | 5 | User, Admin | CRUD dự án |
-| 4 | Project Members | Quản lý Thành viên | 4 | User | Thêm/xóa/sửa thành viên dự án |
-| 5 | Versions | Quản lý Phiên bản | 5 | User | CRUD phiên bản, xem Roadmap |
-| 6 | Task Management | Quản lý Công việc | 7 | User | CRUD công việc, gán, đổi trạng thái |
-| 7 | Comments | Bình luận | 4 | User | CRUD bình luận trên task |
-| 8 | Attachments | File đính kèm | 4 | User | Upload/download/xóa file |
-| 9 | Watchers | Theo dõi | 4 | User | Đăng ký/hủy theo dõi task |
-| 10 | Task Copy | Sao chép | 1 | User | Sao chép task sang dự án khác |
-| 11 | Notifications | Thông báo | 2 | User | Xem và đánh dấu thông báo |
-| 12 | Global Search | Tìm kiếm | 1 | User | Tìm kiếm toàn hệ thống |
-| 13 | Saved Queries | Bộ lọc đã lưu | 4 | User | Lưu/chia sẻ bộ lọc |
-| 14 | Dashboard & Reports | Báo cáo | 5 | User, Admin | Dashboard, thống kê, xuất CSV |
+| 3 | Project Management | Quản lý Dự án | 5 | Manager | CRUD dự án |
+| 4 | Project Members | Quản lý Thành viên | 4 | Manager | Thêm/xóa/sửa thành viên dự án |
+| 5 | Versions | Quản lý Phiên bản | 5 | Manager | CRUD phiên bản, xem Roadmap |
+| 6 | Task Management | Quản lý Công việc | 7 | Member | CRUD công việc, gán, đổi trạng thái |
+| 7 | Comments | Bình luận | 4 | Member | CRUD bình luận trên task |
+| 8 | Attachments | File đính kèm | 4 | Member | Upload/download/xóa file |
+| 9 | Watchers | Theo dõi | 4 | Member | Đăng ký/hủy theo dõi task |
+| 10 | Task Copy | Sao chép | 1 | Member | Sao chép task sang dự án khác |
+| 11 | Notifications | Thông báo | 2 | Member | Xem và đánh dấu thông báo |
+| 12 | Global Search | Tìm kiếm | 1 | Member | Tìm kiếm toàn hệ thống |
+| 13 | Saved Queries | Bộ lọc đã lưu | 4 | Member | Lưu/chia sẻ bộ lọc |
+| 14 | Dashboard & Reports | Báo cáo | 5 | Member, Admin | Dashboard, thống kê, xuất CSV |
 | 15 | Trackers Config | Cấu hình Trackers | 4 | Admin | CRUD loại công việc |
-| 16 | Workload | Phân bổ Công việc | 4 | User, Admin | Xem phân bổ giờ làm |
+| 16 | Workload | Phân bổ Công việc | 4 | Member | Xem phân bổ giờ làm |
 | 17 | Statuses Config | Cấu hình Statuses | 4 | Admin | CRUD trạng thái |
 | 18 | Priorities Config | Cấu hình Priorities | 4 | Admin | CRUD độ ưu tiên |
 | 19 | Roles Config | Cấu hình Roles | 4 | Admin | CRUD vai trò |
 | 20 | Workflow Config | Cấu hình Workflow | 2 | Admin | Định nghĩa chuyển đổi trạng thái |
-| 21 | Project Issue Settings | Cấu hình Issue | 1 | User (PM) | Cấu hình quy tắc task trong dự án |
-| 22 | Project Trackers | Trackers Dự án | 2 | User (PM) | Chọn loại công việc cho dự án |
-| 23 | Activity Log | Nhật ký | 1 | User | Xem lịch sử hoạt động |
+| 21 | Project Issue Settings | Cấu hình Issue | 1 | Manager | Cấu hình quy tắc task trong dự án |
+| 22 | Project Trackers | Trackers Dự án | 2 | Manager | Chọn loại công việc cho dự án |
+| 23 | Activity Log | Nhật ký | 1 | Member | Xem lịch sử hoạt động |
 
 ---
 
 ## 5. Ma trận Actor - Subsystem
 
-| Subsystem | User | Administrator |
-|-----------|:----:|:-------------:|
-| Authentication | ✅ | ✅ |
-| User Management | ❌ | ✅ |
-| Project Management | ✅ | ✅ |
-| Project Members | ✅ | ✅ |
-| Versions | ✅ | ✅ |
-| Task Management | ✅ | ✅ |
-| Comments | ✅ | ✅ |
-| Attachments | ✅ | ✅ |
-| Watchers | ✅ | ✅ |
-| Task Copy | ✅ | ✅ |
-| Notifications | ✅ | ✅ |
-| Global Search | ✅ | ✅ |
-| Saved Queries | ✅ | ✅ |
-| Dashboard & Reports | ✅ | ✅ |
-| Trackers Config | ❌ | ✅ |
-| Workload | ✅ | ✅ |
-| Statuses Config | ❌ | ✅ |
-| Priorities Config | ❌ | ✅ |
-| Roles Config | ❌ | ✅ |
-| Workflow Config | ❌ | ✅ |
-| Project Issue Settings | ✅ | ✅ |
-| Project Trackers | ✅ | ✅ |
-| Activity Log | ✅ | ✅ |
+| Subsystem | Member | Manager | Administrator |
+|-----------|:------:|:-------:|:-------------:|
+| Authentication | ✅ | ✅ | ✅ |
+| User Management | ❌ | ❌ | ✅ |
+| Project Management | ❌ | ✅ | ✅ |
+| Project Members | ❌ | ✅ | ✅ |
+| Versions | ❌ | ✅ | ✅ |
+| Task Management | ✅ | ✅ | ✅ |
+| Comments | ✅ | ✅ | ✅ |
+| Attachments | ✅ | ✅ | ✅ |
+| Watchers | ✅ | ✅ | ✅ |
+| Task Copy | ✅ | ✅ | ✅ |
+| Notifications | ✅ | ✅ | ✅ |
+| Global Search | ✅ | ✅ | ✅ |
+| Saved Queries | ✅ | ✅ | ✅ |
+| Dashboard & Reports | ✅ | ✅ | ✅ |
+| Trackers Config | ❌ | ❌ | ✅ |
+| Workload | ✅ | ✅ | ✅ |
+| Statuses Config | ❌ | ❌ | ✅ |
+| Priorities Config | ❌ | ❌ | ✅ |
+| Roles Config | ❌ | ❌ | ✅ |
+| Workflow Config | ❌ | ❌ | ✅ |
+| Project Issue Settings | ❌ | ✅ | ✅ |
+| Project Trackers | ❌ | ✅ | ✅ |
+| Activity Log | ✅ | ✅ | ✅ |
 
 ---
 
