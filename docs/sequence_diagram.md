@@ -1,8 +1,26 @@
-# Worksphere - Danh sách Sequence Diagram cần vẽ
+# Worksphere - Sequence Diagrams
 
 > **Tài liệu phân tích thiết kế hệ thống**  
 > Dự án: Worksphere - Hệ thống Quản lý Công việc & Dự án  
-> Ngày cập nhật: 2026-01-15
+> Ngày cập nhật: 2026-01-16  
+> **Status**: ✅ **COMPLETED** - 14/14 diagrams
+
+---
+
+## 📋 Code Review Notes
+
+Tất cả Sequence Diagrams đã được cập nhật dựa trên **code review thực tế** của các file:
+
+| File | Key Findings |
+|------|--------------|
+| `src/lib/auth.ts` | NextAuth v5, Credentials, bcrypt, JWT với isAdministrator |
+| `src/lib/permissions.ts` | Admin bypass, roleId=NULL trong workflow |
+| `src/app/api/tasks/route.ts` | getAccessibleProjectIds, ProjectTracker validation |
+| `src/app/api/tasks/[id]/route.ts` | lockVersion, 3 edit permissions, canAssignToOther |
+| `src/app/api/projects/route.ts` | checkPermission global, auto Manager role |
+| `src/app/api/projects/[id]/route.ts` | canManageProject = creator OR admin |
+| `src/lib/notifications.ts` | notifyTaskWatchers = watchers + assignee + creator |
+| `src/lib/audit-log.ts` | logCreate, logUpdate với diff, logDelete |
 
 ---
 

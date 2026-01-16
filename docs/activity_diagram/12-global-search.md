@@ -2,7 +2,8 @@
 
 > **Use Case**: UC-44 - Tìm kiếm toàn cục  
 > **Module**: Global Search  
-> **Ngày**: 2026-01-15
+> **Phiên bản**: 1.1  
+> **Ngày cập nhật**: 2026-01-16
 
 ---
 
@@ -13,7 +14,8 @@
 | **Actors** | User |
 | **Độ phức tạp** | Trung bình |
 | **Swimlanes** | User, System, Database |
-| **Đặc điểm** | Parallel search, Permission filter |
+| **Đặc điểm** | Parallel search 4 types, Permission filter |
+| **Use Case tham chiếu** | [UC-44](../usecases/12-global-search.md) |
 
 ---
 
@@ -35,60 +37,59 @@ start
 
 |System|
 if (Keyword < 2 ký tự?) then (Có)
-  :Không search;
+  :Hiển thị lỗi "Query phải có ít nhất 2 ký tự";
   |User|
   stop
 endif
 
+:Xác định projectFilter theo quyền;
+note right
+  Admin: {} (không filter)
+  User: { members: { some: { userId } } }
+end note
+
 |Database|
 fork
-  :Search Tasks;
+  :Search Tasks (limit 20);
   note right
-    WHERE subject LIKE %keyword%
-    OR description LIKE %keyword%
+    WHERE title CONTAINS keyword
+    OR description CONTAINS keyword
+    AND project trong projectFilter
   end note
 fork again
-  :Search Projects;
+  :Search Projects (limit 10);
   note right
-    WHERE name LIKE %keyword%
-    OR identifier LIKE %keyword%
+    WHERE name CONTAINS keyword
+    OR identifier CONTAINS keyword
+    OR description CONTAINS keyword
+    AND trong projectFilter
+    AND isArchived = false
   end note
 fork again
-  :Search Comments;
+  :Search Comments (limit 10);
   note right
-    WHERE content LIKE %keyword%
+    WHERE content CONTAINS keyword
+    AND task.project trong projectFilter
   end note
 fork again
-  :Search Users;
-  note right
-    WHERE name LIKE %keyword%
-    OR email LIKE %keyword%
-    (Admin only)
+  :Search Users (limit 10);
+  note right #AAFFAA
+    **Admin**: tất cả users active
+    **Non-admin**: users trong dự án chung
+    (qua ProjectMember, deduplicated)
   end note
 end fork
 
 |System|
 :Combine results;
-
-if (User là Admin?) then (Không)
-  :Filter: Chỉ projects user là member;
-  :Filter: Chỉ tasks trong allowed projects;
-  :Filter: Chỉ comments trong allowed tasks;
-  :Remove: Users search results;
-endif
-
-:Filter private tasks;
+:Trả về { query, results, counts };
 note right
-  isPrivate = true
-  → Chỉ hiển thị nếu
-  user là creator hoặc assignee
+  results: { tasks, projects, comments, users }
+  counts: { tasks: N, projects: N, ... }
 end note
 
-:Group results by type;
-:Sort by relevance;
-
 |User|
-:Hiển thị kết quả;
+:Hiển thị kết quả phân nhóm;
 :Click vào result để navigate;
 
 stop
@@ -98,42 +99,77 @@ stop
 
 ---
 
-## 3. Parallel Search
+## 3. Parallel Search (Khớp với UC-44 Bước 5)
 
-| Entity | Fields | Permission |
-|--------|--------|------------|
-| Tasks | subject, description | Project member |
-| Projects | name, identifier | Is member |
-| Comments | content | Task accessible |
-| Users | name, email | Admin only |
+| Entity | Fields | Limit | Permission Filter |
+|--------|--------|-------|-------------------|
+| Tasks | title, description | **20** | project trong projectFilter |
+| Projects | name, identifier, description | 10 | trong projectFilter, isArchived=false |
+| Comments | content | 10 | task.project trong projectFilter |
+| Users | name, email | 10 | **Xem chi tiết bên dưới** |
 
 ---
 
-## 4. Permission Filtering
+## 4. User Search Logic (Khớp với UC-44)
 
 ```
-User (non-admin):
-  ├── Get user's projects (as member)
-  ├── Filter tasks by projectId IN userProjects
-  ├── Filter comments by task.projectId IN userProjects
-  ├── Filter private tasks: creator = user OR assignee = user
-  └── Remove users from results
-
 Admin:
-  └── No filtering (see all)
+  ├── Query tất cả users có isActive = true
+  └── No filter
+
+Non-Admin:
+  ├── Query ProjectMember trong các dự án user là thành viên
+  ├── Lấy users qua relation
+  ├── Filter: user.name CONTAINS hoặc user.email CONTAINS
+  └── Deduplicate by userId (Map)
+```
+
+**Lưu ý quan trọng**: Non-admin VẪN search được users, chỉ là giới hạn trong scope dự án chung (KHÔNG phải loại bỏ hoàn toàn kết quả users).
+
+---
+
+## 5. Decision Points (Khớp với UC Exception Flows)
+
+| # | Condition | True | False | UC Ref |
+|---|-----------|------|-------|--------|
+| D1 | Keyword < 2 ký tự? | Error 400 | Tiếp tục | E1 |
+
+---
+
+## 6. Business Rules (Khớp với UC-44)
+
+| Rule | Mô tả | UC Ref |
+|------|-------|--------|
+| BR-01 | Min query length = 2 ký tự | BR-01 |
+| BR-02 | Admin xem tất cả | BR-02 |
+| BR-03 | Non-admin giới hạn trong dự án là member | BR-03 |
+| BR-04 | Tasks limit = 20, others = 10 | BR-04, BR-05 |
+| BR-05 | Non-admin users search = trong dự án chung | BR-06 |
+| BR-06 | Chỉ search users có isActive = true | BR-07 |
+| BR-07 | Chỉ search projects có isArchived = false | BR-08 |
+
+---
+
+## 7. Response Structure
+
+```json
+{
+  "query": "keyword",
+  "results": {
+    "tasks": [...],      // max 20
+    "projects": [...],   // max 10
+    "comments": [...],   // max 10
+    "users": [...]       // max 10
+  },
+  "counts": {
+    "tasks": 5,
+    "projects": 2,
+    "comments": 3,
+    "users": 1
+  }
+}
 ```
 
 ---
 
-## 5. Business Rules
-
-| Rule | Mô tả |
-|------|-------|
-| BR-01 | Minimum 2 characters to search |
-| BR-02 | Non-admin chỉ thấy projects là member |
-| BR-03 | Private tasks chỉ cho creator/assignee |
-| BR-04 | User search chỉ Admin được thấy |
-
----
-
-*Ngày tạo: 2026-01-15*
+*Cập nhật: 2026-01-16 - Đồng bộ hoàn toàn với UC-44*

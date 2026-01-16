@@ -116,148 +116,268 @@ end note
 
 ---
 
-## 6. Luồng sự kiện chi tiết
-
-### 6.1 UC-04: Xem danh sách người dùng
-
-**Tiền điều kiện:**
-- Administrator đã đăng nhập (`isAdministrator = true`)
-
-**Luồng chính (Main Flow):**
-1. Admin truy cập trang Quản lý Người dùng (`/settings/users`)
-2. Hệ thống kiểm tra quyền Admin
-3. Hệ thống query danh sách users từ database với:
-   - Phân trang: page, limit
-   - Tìm kiếm: theo name hoặc email
-   - Sắp xếp: theo createdAt DESC
-4. Hệ thống trả về danh sách users với thông tin:
-   - ID, Name, Email, Avatar
-   - isAdministrator, isActive
-   - createdAt, updatedAt
-5. Hệ thống hiển thị bảng danh sách với pagination
-6. Kết thúc Use Case
-
-**Luồng phụ (Alternative Flow):**
-
-| ID | Điều kiện | Xử lý |
-|----|-----------|-------|
-| A1 | Admin nhập từ khóa tìm kiếm | Filter users theo keyword, quay lại bước 4 |
-
-**Luồng ngoại lệ:**
-
-| ID | Điều kiện | Xử lý |
-|----|-----------|-------|
-| E1 | Không phải Admin | Redirect về 403 Forbidden |
-
-**Hậu điều kiện:**
-- Danh sách users được hiển thị
+## 6. Đặc tả Use Case chi tiết
 
 ---
 
-### 6.2 UC-05: Tạo người dùng mới
+### USE CASE: UC-04 - Xem danh sách người dùng
 
-**Tiền điều kiện:**
-- Administrator đã đăng nhập
+---
 
-**Luồng chính (Main Flow):**
-1. Admin click nút "Thêm người dùng"
-2. Hệ thống hiển thị form với các trường:
-   - Name (bắt buộc)
+#### 1. Mô tả
+Use Case này cho phép Quản trị viên xem danh sách tất cả người dùng trong hệ thống với các thông tin cơ bản, hỗ trợ phân trang và tìm kiếm để quản lý hiệu quả.
+
+#### 2. Tác nhân chính
+- **Administrator**: Quản trị viên hệ thống.
+
+#### 3. Tác nhân phụ
+- *Không có*
+
+#### 4. Tiền điều kiện
+- Quản trị viên đã đăng nhập vào hệ thống.
+- Tài khoản có quyền quản trị (isAdministrator = true).
+
+#### 5. Đảm bảo tối thiểu (Minimal Guarantee)
+- Người dùng không có quyền quản trị sẽ không thể truy cập chức năng này.
+
+#### 6. Đảm bảo thành công (Success Guarantee)
+- Danh sách người dùng được hiển thị đầy đủ với thông tin và phân trang.
+
+#### 7. Chuỗi sự kiện chính (Main Flow)
+1. Quản trị viên truy cập trang quản lý người dùng.
+2. Hệ thống kiểm tra quyền quản trị của người dùng.
+3. Hệ thống truy vấn danh sách người dùng từ cơ sở dữ liệu với phân trang mặc định.
+4. Hệ thống trả về danh sách người dùng bao gồm:
+   - Thông tin cơ bản: ID, tên, email, ảnh đại diện
+   - Trạng thái: quyền quản trị, trạng thái hoạt động
+   - Thống kê: số dự án tham gia, số công việc được gán
+5. Hệ thống hiển thị bảng danh sách với các cột thông tin.
+6. Kết thúc Use Case.
+
+#### 8. Luồng thay thế (Alternative Flow)
+
+**A1: Quản trị viên tìm kiếm người dùng**
+- Rẽ nhánh từ bước 5.
+- Quản trị viên nhập từ khóa vào ô tìm kiếm.
+- Hệ thống lọc danh sách theo tên hoặc email chứa từ khóa.
+- Hệ thống hiển thị kết quả lọc.
+- Tiếp tục từ bước 5.
+
+**A2: Quản trị viên chuyển trang**
+- Rẽ nhánh từ bước 5.
+- Quản trị viên nhấn nút chuyển trang.
+- Hệ thống truy vấn trang dữ liệu mới.
+- Tiếp tục từ bước 4.
+
+#### 9. Luồng ngoại lệ (Exception Flow)
+
+**E1: Không có quyền quản trị**
+- Rẽ nhánh từ bước 2.
+- Hệ thống từ chối truy cập với thông báo lỗi 403.
+- Kết thúc Use Case.
+
+#### 10. Ghi chú
+- Danh sách được sắp xếp mặc định theo ngày tạo giảm dần.
+- Mỗi trang hiển thị tối đa 20 người dùng.
+
+---
+
+### USE CASE: UC-05 - Tạo người dùng mới
+
+---
+
+#### 1. Mô tả
+Use Case này cho phép Quản trị viên tạo tài khoản người dùng mới trong hệ thống với các thông tin cơ bản và phân quyền.
+
+#### 2. Tác nhân chính
+- **Administrator**: Quản trị viên hệ thống.
+
+#### 3. Tác nhân phụ
+- *Không có*
+
+#### 4. Tiền điều kiện
+- Quản trị viên đã đăng nhập vào hệ thống.
+- Tài khoản có quyền quản trị.
+
+#### 5. Đảm bảo tối thiểu (Minimal Guarantee)
+- Nếu tạo thất bại, không có người dùng nào được tạo trong hệ thống.
+- Mật khẩu luôn được mã hóa trước khi lưu.
+
+#### 6. Đảm bảo thành công (Success Guarantee)
+- Người dùng mới được tạo trong hệ thống với mật khẩu đã mã hóa.
+- Người dùng mới có thể đăng nhập ngay lập tức (nếu trạng thái hoạt động).
+
+#### 7. Chuỗi sự kiện chính (Main Flow)
+1. Quản trị viên nhấn nút "Thêm người dùng".
+2. Hệ thống hiển thị biểu mẫu tạo người dùng với các trường:
+   - Tên (bắt buộc)
    - Email (bắt buộc)
-   - Password (bắt buộc)
-   - isAdministrator (checkbox)
-   - isActive (checkbox, mặc định: true)
-3. Admin nhập thông tin
-4. Admin nhấn "Lưu"
-5. <<include>> Validate Email Unique:
-   - Hệ thống kiểm tra email chưa tồn tại trong DB
-6. <<include>> Hash Password:
-   - Hệ thống hash password bằng bcrypt (salt rounds = 10)
-7. Hệ thống tạo user mới trong database
-8. Hệ thống hiển thị thông báo thành công
-9. Hệ thống refresh danh sách users
-10. Kết thúc Use Case
+   - Mật khẩu (bắt buộc)
+   - Quyền quản trị (tùy chọn)
+   - Trạng thái hoạt động (mặc định: hoạt động)
+3. Quản trị viên nhập thông tin người dùng.
+4. Quản trị viên nhấn nút "Lưu".
+5. Hệ thống kiểm tra email chưa tồn tại trong hệ thống.
+6. Hệ thống kiểm tra định dạng email hợp lệ.
+7. Hệ thống mã hóa mật khẩu.
+8. Hệ thống tạo người dùng mới trong cơ sở dữ liệu.
+9. Hệ thống hiển thị thông báo thành công.
+10. Hệ thống cập nhật danh sách người dùng.
+11. Kết thúc Use Case.
 
-**Luồng ngoại lệ:**
+#### 8. Luồng thay thế (Alternative Flow)
+- *Không có*
 
-| ID | Điều kiện | Xử lý |
-|----|-----------|-------|
-| E1 | Email đã tồn tại | Hiển thị lỗi "Email đã được sử dụng", quay lại bước 2 |
-| E2 | Thiếu trường bắt buộc | Hiển thị validation error, quay lại bước 2 |
-| E3 | Email không hợp lệ | Hiển thị lỗi "Email không hợp lệ", quay lại bước 2 |
+#### 9. Luồng ngoại lệ (Exception Flow)
 
-**Hậu điều kiện:**
-- User mới được tạo trong database
-- Password được lưu dạng hash
+**E1: Email đã tồn tại**
+- Rẽ nhánh từ bước 5.
+- Hệ thống hiển thị thông báo lỗi: "Email đã được sử dụng".
+- Quay lại bước 2.
 
----
+**E2: Thiếu thông tin bắt buộc**
+- Rẽ nhánh từ bước 4.
+- Hệ thống hiển thị thông báo lỗi cho các trường thiếu.
+- Quay lại bước 2.
 
-### 6.3 UC-06: Cập nhật thông tin người dùng
+**E3: Email không hợp lệ**
+- Rẽ nhánh từ bước 6.
+- Hệ thống hiển thị thông báo lỗi: "Email không hợp lệ".
+- Quay lại bước 2.
 
-**Tiền điều kiện:**
-- Administrator đã đăng nhập
-- User cần cập nhật tồn tại
+**E4: Mật khẩu không đủ độ dài**
+- Rẽ nhánh từ bước 4.
+- Hệ thống hiển thị thông báo lỗi: "Mật khẩu phải có ít nhất 6 ký tự".
+- Quay lại bước 2.
 
-**Luồng chính (Main Flow):**
-1. Admin click vào nút "Sửa" của user trong danh sách
-2. Hệ thống hiển thị form với thông tin hiện tại:
-   - Name, Email
-   - Password (để trống nếu không đổi)
-   - isAdministrator, isActive
-3. Admin chỉnh sửa thông tin
-4. Admin nhấn "Lưu"
-5. <<include>> Validate Email Unique:
-   - Kiểm tra email mới không trùng với user khác
-6. Nếu password được nhập:
-   - <<include>> Hash Password
-7. Hệ thống cập nhật user trong database
-8. Hệ thống hiển thị thông báo thành công
-9. Kết thúc Use Case
-
-**Luồng ngoại lệ:**
-
-| ID | Điều kiện | Xử lý |
-|----|-----------|-------|
-| E1 | Email trùng với user khác | Hiển thị lỗi, quay lại bước 2 |
-| E2 | User không tồn tại | Hiển thị 404 Not Found |
-
-**Hậu điều kiện:**
-- Thông tin user được cập nhật
+#### 10. Ghi chú
+- Mật khẩu được mã hóa bằng thuật toán mã hóa một chiều với độ phức tạp cao.
 
 ---
 
-### 6.4 UC-07: Xóa người dùng
+### USE CASE: UC-06 - Cập nhật thông tin người dùng
 
-**Tiền điều kiện:**
-- Administrator đã đăng nhập
-- User cần xóa tồn tại
+---
 
-**Luồng chính (Main Flow):**
-1. Admin click nút "Xóa" của user
-2. Hệ thống hiển thị dialog xác nhận
-3. Admin xác nhận xóa
-4. <<include>> Check Dependencies:
-   - Kiểm tra user không có task được gán
-   - Kiểm tra user không phải creator của project đang active
-5. Hệ thống xóa user khỏi database (cascade):
-   - Xóa ProjectMember records
-   - Xóa Notifications
-   - Xóa Comments
-6. Hệ thống hiển thị thông báo thành công
-7. Hệ thống refresh danh sách
-8. Kết thúc Use Case
+#### 1. Mô tả
+Use Case này cho phép Quản trị viên chỉnh sửa thông tin của người dùng trong hệ thống, bao gồm thay đổi tên, email, mật khẩu, quyền và trạng thái.
 
-**Luồng ngoại lệ:**
+#### 2. Tác nhân chính
+- **Administrator**: Quản trị viên hệ thống.
 
-| ID | Điều kiện | Xử lý |
-|----|-----------|-------|
-| E1 | User đang có task được gán | Hiển thị lỗi "Không thể xóa user đang có công việc" |
-| E2 | User là creator của project | Hiển thị lỗi "Không thể xóa, user là người tạo dự án" |
-| E3 | Admin hủy xác nhận | Đóng dialog, không xóa |
+#### 3. Tác nhân phụ
+- *Không có*
 
-**Hậu điều kiện:**
-- User bị xóa khỏi hệ thống
-- Các dữ liệu liên quan được xóa cascade
+#### 4. Tiền điều kiện
+- Quản trị viên đã đăng nhập vào hệ thống.
+- Người dùng cần cập nhật tồn tại trong hệ thống.
+
+#### 5. Đảm bảo tối thiểu (Minimal Guarantee)
+- Nếu cập nhật thất bại, thông tin người dùng không bị thay đổi.
+
+#### 6. Đảm bảo thành công (Success Guarantee)
+- Thông tin người dùng được cập nhật trong hệ thống.
+- Nếu đổi mật khẩu, mật khẩu mới được mã hóa trước khi lưu.
+
+#### 7. Chuỗi sự kiện chính (Main Flow)
+1. Quản trị viên chọn người dùng cần chỉnh sửa từ danh sách.
+2. Hệ thống hiển thị biểu mẫu với thông tin hiện tại:
+   - Tên, Email
+   - Mật khẩu (để trống nếu không thay đổi)
+   - Quyền quản trị, Trạng thái hoạt động
+3. Quản trị viên chỉnh sửa thông tin cần thay đổi.
+4. Quản trị viên nhấn nút "Lưu".
+5. Nếu email được thay đổi, hệ thống kiểm tra email mới không trùng với người dùng khác.
+6. Nếu mật khẩu được nhập, hệ thống mã hóa mật khẩu mới.
+7. Hệ thống cập nhật thông tin người dùng trong cơ sở dữ liệu.
+8. Hệ thống hiển thị thông báo thành công.
+9. Kết thúc Use Case.
+
+#### 8. Luồng thay thế (Alternative Flow)
+- *Không có*
+
+#### 9. Luồng ngoại lệ (Exception Flow)
+
+**E1: Email trùng với người dùng khác**
+- Rẽ nhánh từ bước 5.
+- Hệ thống hiển thị thông báo lỗi: "Email đã được sử dụng".
+- Quay lại bước 2.
+
+**E2: Người dùng không tồn tại**
+- Rẽ nhánh từ bước 1.
+- Hệ thống hiển thị thông báo lỗi 404.
+- Kết thúc Use Case.
+
+#### 10. Ghi chú
+- Người dùng thường có thể tự cập nhật một số thông tin cá nhân của mình (tên, ảnh đại diện).
+- Chỉ quản trị viên mới có thể thay đổi quyền quản trị và trạng thái hoạt động.
+
+---
+
+### USE CASE: UC-07 - Xóa người dùng
+
+---
+
+#### 1. Mô tả
+Use Case này cho phép Quản trị viên xóa người dùng khỏi hệ thống sau khi kiểm tra các ràng buộc dữ liệu liên quan.
+
+#### 2. Tác nhân chính
+- **Administrator**: Quản trị viên hệ thống.
+
+#### 3. Tác nhân phụ
+- *Không có*
+
+#### 4. Tiền điều kiện
+- Quản trị viên đã đăng nhập vào hệ thống.
+- Người dùng cần xóa tồn tại trong hệ thống.
+
+#### 5. Đảm bảo tối thiểu (Minimal Guarantee)
+- Nếu có ràng buộc dữ liệu, người dùng không bị xóa và được thông báo lý do.
+- Quản trị viên không thể tự xóa tài khoản của mình.
+
+#### 6. Đảm bảo thành công (Success Guarantee)
+- Người dùng bị xóa khỏi hệ thống.
+- Các dữ liệu liên quan được xử lý theo quy tắc cascade.
+
+#### 7. Chuỗi sự kiện chính (Main Flow)
+1. Quản trị viên chọn người dùng cần xóa từ danh sách.
+2. Quản trị viên nhấn nút "Xóa".
+3. Hệ thống hiển thị hộp thoại xác nhận.
+4. Quản trị viên xác nhận xóa.
+5. Hệ thống kiểm tra người dùng không phải là người đang đăng nhập.
+6. Hệ thống kiểm tra người dùng không có công việc đang được gán.
+7. Hệ thống xóa các dữ liệu liên quan:
+   - Xóa tư cách thành viên trong các dự án
+   - Xóa danh sách theo dõi công việc
+   - Xóa thông báo
+8. Hệ thống xóa người dùng khỏi cơ sở dữ liệu.
+9. Hệ thống hiển thị thông báo thành công.
+10. Hệ thống cập nhật danh sách người dùng.
+11. Kết thúc Use Case.
+
+#### 8. Luồng thay thế (Alternative Flow)
+
+**A1: Quản trị viên hủy xác nhận**
+- Rẽ nhánh từ bước 4.
+- Quản trị viên nhấn "Hủy".
+- Hệ thống đóng hộp thoại xác nhận.
+- Kết thúc Use Case mà không xóa.
+
+#### 9. Luồng ngoại lệ (Exception Flow)
+
+**E1: Đang cố xóa chính mình**
+- Rẽ nhánh từ bước 5.
+- Hệ thống hiển thị thông báo lỗi: "Không thể tự xóa tài khoản của mình".
+- Kết thúc Use Case.
+
+**E2: Người dùng đang có công việc được gán**
+- Rẽ nhánh từ bước 6.
+- Hệ thống hiển thị thông báo lỗi: "Không thể xóa người dùng đang được gán X công việc. Vui lòng chuyển giao công việc trước."
+- Kết thúc Use Case.
+
+#### 10. Ghi chú
+- Nên chuyển giao công việc trước khi xóa người dùng.
+- Có thể cân nhắc vô hiệu hóa tài khoản thay vì xóa để bảo toàn lịch sử.
 
 ---
 
@@ -265,11 +385,12 @@ end note
 
 | ID | Rule | Mô tả |
 |----|------|-------|
-| BR-01 | Admin Only | Chỉ user có `isAdministrator = true` mới truy cập được module này |
+| BR-01 | Admin Only | Chỉ người có quyền quản trị mới truy cập được module này |
 | BR-02 | Unique Email | Email phải là duy nhất trong hệ thống |
-| BR-03 | Password Policy | Password phải được hash trước khi lưu |
-| BR-04 | No Self Delete | Admin không thể tự xóa chính mình |
-| BR-05 | Dependency Check | Không thể xóa user có task hoặc project liên quan |
+| BR-03 | Password Policy | Mật khẩu phải được mã hóa trước khi lưu |
+| BR-04 | No Self Delete | Quản trị viên không thể tự xóa tài khoản của mình |
+| BR-05 | Dependency Check | Không thể xóa người dùng có công việc được gán |
+| BR-06 | Min Password Length | Mật khẩu phải có ít nhất 6 ký tự |
 
 ---
 
@@ -280,9 +401,11 @@ end note
 - [x] Tên UC là động từ + bổ ngữ
 - [x] Include: Mũi tên từ UC gốc → UC con
 - [x] Không có UC "lơ lửng"
-- [x] Đã mô tả luồng chính và ngoại lệ
+- [x] Đã mô tả đầy đủ luồng chính, thay thế và ngoại lệ
+- [x] Đặc tả theo format chuẩn 10 mục
 
 ---
 
 *Tài liệu được tạo dựa trên phân tích mã nguồn Worksphere*  
-*Ngày tạo: 2026-01-15*
+*Ngày cập nhật: 2026-01-16*
+

@@ -2,7 +2,7 @@
 
 > **Use Case**: UC-22 - Xem danh sách công việc  
 > **Module**: Task Management  
-> **Ngày**: 2026-01-15
+> **Ngày**: 2026-01-16 (Updated from code review)
 
 ---
 
@@ -10,10 +10,9 @@
 
 | Thuộc tính | Giá trị |
 |------------|---------|
-| **Participants** | Browser, API, Task Service, Permission Service, Database |
-| **Trigger** | User access tasks page |
-| **Precondition** | User đã đăng nhập |
-| **Postcondition** | Filtered task list displayed with pagination |
+| **Participants** | Browser, API Route, Permission Service, Prisma |
+| **API Endpoint** | GET /api/tasks |
+| **Source File** | `src/app/api/tasks/route.ts` |
 
 ---
 
@@ -26,153 +25,212 @@ skinparam backgroundColor #FEFEFE
 skinparam sequenceMessageAlign center
 
 title Sequence Diagram: Xem danh sách công việc (UC-22)
+footer Based on: src/app/api/tasks/route.ts
 
 actor "User" as User
 participant "Browser\n(React)" as Browser #LightBlue
-participant "API Route\n(/api/tasks)" as API #Orange
-participant "Task\nService" as TaskService #LightGreen
-participant "Permission\nService" as PermService #Pink
-database "Database\n(Prisma)" as DB #LightGray
+participant "GET /api/tasks" as API #Orange
+participant "getAccessibleProjectIds()" as PermService #Pink
+database "Prisma\n(Database)" as DB #LightGray
 
 == Navigate to Tasks ==
 User -> Browser: Click "Công việc" menu
-Browser -> Browser: Parse URL query params\n(filters, page, sort)
-
-== Fetch Tasks ==
-Browser -> API: GET /api/tasks?projectId=&status=&page=1&...
-note right of API
-    Query params:
-    - projectId (optional)
-    - statusId, priorityId
-    - assigneeId, trackerId
-    - versionId
-    - search (keyword)
-    - startDate, dueDate
-    - page, limit
-    - sortBy, sortOrder
-end note
+Browser -> API: GET /api/tasks?page=1&pageSize=50&sortBy=updatedAt
 
 == Authentication ==
-API -> API: getServerSession()
-API -> API: Get userId, isAdministrator
+API -> API: auth()
+alt !session
+    API --> Browser: 401 "Chưa đăng nhập"
+end
+
+== Parse Query Params ==
+API -> API: Parse filters from searchParams
+note right of API
+  page, pageSize, sortBy, sortOrder
+  projectId, statusId, priorityId
+  trackerId, assigneeId, creatorId
+  versionId, parentId, isClosed
+  search, startDateFrom/To, dueDateFrom/To
+  my, assignedToMe, createdByMe
+end note
 
 == Get Accessible Projects ==
-API -> PermService: getAccessibleProjects(userId)
+API -> PermService: getAccessibleProjectIds(\n  userId, 'tasks.view_project')
+
+PermService -> DB: SELECT isAdministrator FROM User
+DB --> PermService: user
 
 alt isAdministrator
-    PermService --> API: null (all projects)
+    PermService -> DB: SELECT id FROM Project\nWHERE isArchived = false
+    DB --> PermService: allProjectIds[]
+    PermService --> API: allProjectIds
 else Normal user
-    PermService -> DB: SELECT projectId FROM ProjectMember\nWHERE userId = ?
+    PermService -> DB: SELECT roleId FROM Role\nWHERE permissions.some('tasks.view_project')
+    DB --> PermService: rolesWithPermission[]
+    
+    PermService -> DB: SELECT projectId FROM ProjectMember\nWHERE userId = ?\nAND roleId IN rolesWithPermission\nAND project.isArchived = false
     DB --> PermService: projectIds[]
     PermService --> API: projectIds
 end
 
-== Build Query ==
-API -> TaskService: getTasks(filters, pagination, accessibleProjectIds)
+== Check Explicit Project ==
+opt requestedProjectId provided
+    API -> API: Verify projectId in allowedProjectIds
+    alt Not allowed
+        API --> Browser: 403 "Bạn không có quyền xem\ncông việc trong dự án này"
+    end
+end
 
-TaskService -> TaskService: Build WHERE clause
-note right of TaskService
-    WHERE projectId IN (accessibleProjectIds)
-    AND statusId = ? (if provided)
-    AND priorityId = ? (if provided)
-    AND (subject LIKE '%search%' 
-         OR description LIKE '%search%')
-    AND ...other filters
+alt No accessible projects
+    API --> Browser: 200 {tasks: [], pagination: {total: 0}}
+end
+
+== Build WHERE Clause ==
+API -> API: Build Prisma where filter
+note right of API
+  Key filters:
+  1. projectId IN effectiveProjectIds
+  2. Private tasks: OR [
+       {isPrivate: false},
+       {isPrivate: true, creatorId: userId},
+       {isPrivate: true, assigneeId: userId}
+     ]
+  3. Standard filters (statusId, etc.)
+  4. "My" quick filters
+  5. Text search in title/description
+  6. Date range filters
 end note
 
-== Filter Private Tasks ==
-TaskService -> TaskService: Add private filter
-note right of TaskService
-    AND (
-        isPrivate = false
-        OR creatorId = userId
-        OR assigneeId = userId
-    )
-end note
-
-== Execute Query ==
-TaskService -> DB: SELECT t.*, \n  tracker.name, status.name, priority.name,\n  assignee.name, project.name\nFROM Task t\nLEFT JOIN ... (relations)\nWHERE (filters)\nORDER BY (sortBy) (sortOrder)\nLIMIT ? OFFSET ?
-DB --> TaskService: tasks[]
-
-== Get Total Count ==
-TaskService -> DB: SELECT COUNT(*) FROM Task WHERE (same filters)
-DB --> TaskService: totalCount
+== Execute Parallel Queries ==
+API -> DB: Promise.all([\n  findMany(where, orderBy, skip, take),\n  count(where),\n  aggregate(_sum: estimatedHours)\n])
+DB --> API: [tasks[], total, aggregations]
 
 == Response ==
-TaskService --> API: {tasks, total, page, limit}
 API --> Browser: 200 OK
 
-Browser -> Browser: Render task table
-Browser -> Browser: Setup pagination
-Browser --> User: Display task list
-
-== Apply Filter ==
-User -> Browser: Select filter (e.g., Status)
-Browser -> Browser: Update URL query params
-Browser -> API: GET /api/tasks?...updated filters
-note right of Browser
-    Repeat flow above
+note right of API
+  {
+    tasks: [...],
+    pagination: {page, pageSize, total, totalPages},
+    aggregations: {totalHours}
+  }
 end note
+
+Browser -> Browser: Render task table
+Browser --> User: Display tasks
 
 @enduml
 ```
 
 ---
 
-## 3. Filter Parameters
+## 3. Accessible Projects Logic (từ code)
 
-| Param | Type | Description |
-|-------|------|-------------|
-| projectId | UUID | Filter by project |
-| statusId | UUID | Filter by status |
-| priorityId | UUID | Filter by priority |
-| trackerId | UUID | Filter by tracker |
-| assigneeId | UUID | Filter by assignee |
-| versionId | UUID | Filter by version |
-| search | string | Search in subject/description |
-| startDateFrom | date | Start date range |
-| dueDateTo | date | Due date range |
-| isOpen | boolean | Only open tasks |
-| page | number | Page number (default: 1) |
-| limit | number | Items per page (default: 25) |
-| sortBy | string | Sort field (default: createdAt) |
-| sortOrder | asc/desc | Sort direction |
+```typescript
+// src/lib/permissions.ts - getAccessibleProjectIds()
+export async function getAccessibleProjectIds(
+    userId: string,
+    permissionKey: string
+): Promise<string[]> {
+    const user = await prisma.user.findUnique({...});
+
+    // Admin has access to all
+    if (user.isAdministrator) {
+        const projects = await prisma.project.findMany({
+            where: { isArchived: false },
+        });
+        return projects.map(p => p.id);
+    }
+
+    // Get roles that have the permission
+    const rolesWithPermission = await prisma.role.findMany({
+        where: {
+            permissions: {
+                some: { permission: { key: permissionKey } }
+            },
+            isActive: true
+        },
+    });
+
+    // Get user's memberships with those roles
+    const memberships = await prisma.projectMember.findMany({
+        where: {
+            userId,
+            roleId: { in: rolesWithPermission.map(r => r.id) },
+            project: { isArchived: false }
+        },
+    });
+
+    return memberships.map(m => m.projectId);
+}
+```
 
 ---
 
-## 4. Request/Response
+## 4. Private Task Filter (từ code)
+
+```typescript
+// Line 56-63
+if (!session.user.isAdministrator) {
+    where.OR = [
+        { isPrivate: false },
+        { isPrivate: true, creatorId: userId },
+        { isPrivate: true, assigneeId: userId },
+    ];
+}
+```
+
+> **Admin**: Xem được tất cả private tasks
+> **User**: Chỉ xem private tasks mà mình là creator hoặc assignee
+
+---
+
+## 5. Quick Filters
+
+| Param | Filter Logic |
+|-------|--------------|
+| `my=true` | assigneeId = userId OR creatorId = userId |
+| `assignedToMe=true` | assigneeId = userId |
+| `createdByMe=true` | creatorId = userId |
+
+---
+
+## 6. Request/Response
 
 ### Request
 ```http
-GET /api/tasks?projectId=uuid&statusId=uuid&page=1&limit=25&sortBy=dueDate&sortOrder=asc
+GET /api/tasks?projectId=xxx&statusId=yyy&page=1&pageSize=25&sortBy=dueDate&sortOrder=asc
 ```
 
 ### Response
-```http
-HTTP/1.1 200 OK
-
+```json
 {
   "tasks": [
     {
-      "id": "task-uuid",
-      "taskNumber": 42,
-      "subject": "Task title",
-      "tracker": {"name": "Bug"},
-      "status": {"name": "In Progress"},
-      "priority": {"name": "High"},
-      "assignee": {"name": "John"},
-      "dueDate": "2026-01-20"
+      "id": "...",
+      "number": 42,
+      "title": "...",
+      "tracker": {"id": "...", "name": "Bug"},
+      "status": {"id": "...", "name": "In Progress", "isClosed": false},
+      "priority": {"id": "...", "name": "High", "color": "#ff0000"},
+      "project": {"id": "...", "name": "...", "identifier": "..."},
+      "assignee": {"id": "...", "name": "...", "avatar": "..."},
+      "subtasks": [...],
+      "_count": {"subtasks": 2, "comments": 5}
     }
   ],
   "pagination": {
-    "total": 150,
     "page": 1,
-    "limit": 25,
+    "pageSize": 25,
+    "total": 150,
     "totalPages": 6
+  },
+  "aggregations": {
+    "totalHours": 120.5
   }
 }
 ```
 
 ---
 
-*Ngày tạo: 2026-01-15*
+*Ngày cập nhật: 2026-01-16 - Based on actual code review*

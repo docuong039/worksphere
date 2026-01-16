@@ -2,7 +2,7 @@
 
 > **Use Case**: UC-01 - Đăng nhập  
 > **Module**: Authentication  
-> **Ngày**: 2026-01-15
+> **Ngày**: 2026-01-16 (Updated from code review)
 
 ---
 
@@ -10,10 +10,10 @@
 
 | Thuộc tính | Giá trị |
 |------------|---------|
-| **Participants** | Browser, NextAuth, AuthAPI, UserService, Database |
-| **Trigger** | User submit login form |
-| **Precondition** | User có tài khoản trong hệ thống |
-| **Postcondition** | JWT Session được tạo, User được redirect |
+| **Participants** | Browser, NextAuth Client, NextAuth Server, Prisma |
+| **Source Files** | `src/lib/auth.ts`, `src/app/api/auth/[...nextauth]/route.ts` |
+| **Auth Method** | Credentials Provider với bcrypt |
+| **Session** | JWT strategy |
 
 ---
 
@@ -26,136 +26,208 @@ skinparam backgroundColor #FEFEFE
 skinparam sequenceMessageAlign center
 
 title Sequence Diagram: Đăng nhập (UC-01)
+footer Based on: src/lib/auth.ts
 
 actor "User" as User
-participant "Browser\n(React)" as Browser #LightBlue
-participant "NextAuth\n(Client)" as NextAuthClient #LightGreen
-participant "NextAuth\n(Server)" as NextAuthServer #LightGreen
-participant "Auth API\n(/api/auth)" as AuthAPI #Orange
-participant "User Service\n(lib/auth)" as UserService #Pink
-database "Database\n(Prisma)" as DB #LightGray
+participant "Browser\n(LoginPage)" as Browser #LightBlue
+participant "NextAuth\nClient" as NextAuthClient #LightGreen
+participant "NextAuth\nCredentials\nProvider" as AuthProvider #Orange
+database "Prisma\n(Database)" as DB #LightGray
 
-== Khởi tạo ==
-User -> Browser: Truy cập /login
+== Render Login Page ==
+User -> Browser: Navigate to /login
 Browser -> Browser: Render LoginPage
 
-== Submit Form ==
+== Submit Credentials ==
 User -> Browser: Nhập email, password
 User -> Browser: Click "Đăng nhập"
-Browser -> NextAuthClient: signIn("credentials", {email, password})
 
-== NextAuth Processing ==
-NextAuthClient -> NextAuthServer: POST /api/auth/callback/credentials
-NextAuthServer -> AuthAPI: authorize(credentials)
+Browser -> NextAuthClient: signIn("credentials", {\n  email, password,\n  redirect: true,\n  callbackUrl: "/"\n})
 
-== Authentication ==
-AuthAPI -> UserService: validateUser(email, password)
-UserService -> DB: SELECT * FROM User\nWHERE email = ?
-DB --> UserService: user | null
+NextAuthClient -> AuthProvider: POST /api/auth/callback/credentials
+AuthProvider -> AuthProvider: authorize(credentials)
+
+== Validate Input ==
+AuthProvider -> AuthProvider: Check credentials exists
+alt !credentials?.email || !credentials?.password
+    AuthProvider --> NextAuthClient: null (unauthorized)
+    NextAuthClient --> Browser: CredentialsSignin error
+    Browser --> User: "Email hoặc mật khẩu không đúng"
+end
+
+== Find User ==
+AuthProvider -> DB: SELECT * FROM User\nWHERE email = credentials.email
+DB --> AuthProvider: user | null
 
 alt User không tồn tại
-    UserService --> AuthAPI: null
-    AuthAPI --> NextAuthServer: throw Error("Invalid credentials")
-    NextAuthServer --> NextAuthClient: error
-    NextAuthClient --> Browser: Hiển thị lỗi
+    AuthProvider --> NextAuthClient: null
+    NextAuthClient --> Browser: Error
     Browser --> User: "Email hoặc mật khẩu không đúng"
-else User tồn tại
-    UserService -> UserService: bcrypt.compare(password, user.password)
-    
-    alt Password không đúng
-        UserService --> AuthAPI: null
-        AuthAPI --> NextAuthServer: throw Error("Invalid credentials")
-        NextAuthServer --> NextAuthClient: error
-        NextAuthClient --> Browser: Hiển thị lỗi
-        Browser --> User: "Email hoặc mật khẩu không đúng"
-    else Password đúng
-        UserService -> UserService: Check user.isActive
-        
-        alt Account bị khóa
-            UserService --> AuthAPI: throw Error("Account disabled")
-            AuthAPI --> NextAuthServer: error
-            NextAuthServer --> NextAuthClient: error
-            NextAuthClient --> Browser: Hiển thị lỗi
-            Browser --> User: "Tài khoản đã bị khóa"
-        else Account active
-            UserService --> AuthAPI: user object
-            AuthAPI --> NextAuthServer: user object
-            
-            == Create Session ==
-            NextAuthServer -> NextAuthServer: Create JWT Token
-            note right of NextAuthServer
-                JWT payload:
-                - id
-                - email
-                - name
-                - isAdministrator
-            end note
-            
-            NextAuthServer --> NextAuthClient: session + cookie
-            NextAuthClient -> Browser: Set cookie (next-auth.session-token)
-            NextAuthClient --> Browser: redirect to "/"
-            Browser --> User: Hiển thị Dashboard
-        end
-    end
 end
+
+== Check Active ==
+AuthProvider -> AuthProvider: Check user.isActive
+alt !user.isActive
+    AuthProvider --> NextAuthClient: null
+    NextAuthClient --> Browser: Error
+    Browser --> User: "Email hoặc mật khẩu không đúng"
+    note right: Không tiết lộ account bị khóa
+end
+
+== Verify Password ==
+AuthProvider -> AuthProvider: bcrypt.compare(\n  credentials.password,\n  user.password\n)
+alt Password không khớp
+    AuthProvider --> NextAuthClient: null
+    NextAuthClient --> Browser: Error
+    Browser --> User: "Email hoặc mật khẩu không đúng"
+end
+
+== Create Session ==
+AuthProvider --> NextAuthClient: user object
+note right of AuthProvider
+  Return:
+  - id
+  - email
+  - name
+  - isAdministrator
+end note
+
+NextAuthClient -> NextAuthClient: JWT Callback
+note right of NextAuthClient
+  token.id = user.id
+  token.isAdministrator = user.isAdministrator
+end note
+
+NextAuthClient -> NextAuthClient: Session Callback
+note right of NextAuthClient
+  session.user.id = token.id
+  session.user.isAdministrator = token.isAdministrator
+end note
+
+NextAuthClient -> Browser: Set-Cookie: authjs.session-token
+NextAuthClient --> Browser: redirect to callbackUrl
+
+Browser --> User: Hiển thị Dashboard (/)
 
 @enduml
 ```
 
 ---
 
-## 3. Participants Description
+## 3. Auth Configuration (từ code)
 
-| Participant | Công nghệ | Chức năng |
-|-------------|-----------|-----------|
-| Browser | React/Next.js | UI, form handling |
-| NextAuth Client | next-auth/react | signIn(), session management |
-| NextAuth Server | next-auth | JWT creation, callback handling |
-| Auth API | Next.js API Route | Credentials authorization |
-| User Service | lib/auth.ts | User validation, bcrypt |
-| Database | Prisma/SQLite | User storage |
+```typescript
+// src/lib/auth.ts
+export const { handlers, signIn, signOut, auth } = NextAuth({
+    providers: [
+        Credentials({
+            name: 'credentials',
+            credentials: {
+                email: { label: 'Email', type: 'email' },
+                password: { label: 'Password', type: 'password' },
+            },
+            async authorize(credentials) {
+                if (!credentials?.email || !credentials?.password) {
+                    return null;
+                }
+
+                const user = await prisma.user.findUnique({
+                    where: { email: credentials.email as string },
+                });
+
+                if (!user || !user.isActive) {
+                    return null;
+                }
+
+                const isValid = await bcrypt.compare(
+                    credentials.password as string,
+                    user.password
+                );
+
+                if (!isValid) {
+                    return null;
+                }
+
+                return {
+                    id: user.id,
+                    email: user.email,
+                    name: user.name,
+                    isAdministrator: user.isAdministrator,
+                };
+            },
+        }),
+    ],
+    callbacks: {
+        async jwt({ token, user }) {
+            if (user) {
+                token.id = user.id;
+                token.isAdministrator = user.isAdministrator;
+            }
+            return token;
+        },
+        async session({ session, token }) {
+            if (session.user) {
+                session.user.id = token.id as string;
+                session.user.isAdministrator = token.isAdministrator as boolean;
+            }
+            return session;
+        },
+    },
+    pages: {
+        signIn: '/login',
+    },
+    session: {
+        strategy: 'jwt',
+    },
+});
+```
 
 ---
 
-## 4. Messages Detail
-
-| # | From | To | Message | Type |
-|---|------|----|---------|------|
-| 1 | Browser | NextAuthClient | signIn("credentials", {email, password}) | sync call |
-| 2 | NextAuthClient | NextAuthServer | POST /api/auth/callback/credentials | HTTP POST |
-| 3 | NextAuthServer | AuthAPI | authorize(credentials) | callback |
-| 4 | AuthAPI | UserService | validateUser(email, password) | async call |
-| 5 | UserService | DB | SELECT * FROM User WHERE email = ? | query |
-| 6 | UserService | UserService | bcrypt.compare() | internal |
-| 7 | NextAuthServer | NextAuthServer | Create JWT Token | internal |
-| 8 | NextAuthServer | Browser | Set-Cookie | HTTP header |
-
----
-
-## 5. Error Handling
-
-| Error | HTTP Status | Message | Handling |
-|-------|-------------|---------|----------|
-| Email not found | 401 | "Invalid credentials" | Show error, stay on login |
-| Wrong password | 401 | "Invalid credentials" | Show error, stay on login |
-| Account disabled | 401 | "Account disabled" | Show error, stay on login |
-| Server error | 500 | "Server error" | Show error, retry |
-
----
-
-## 6. JWT Token Structure
+## 4. JWT Token Content
 
 ```json
 {
-  "id": "user-uuid",
+  "id": "clxxxxx",
   "email": "user@example.com",
   "name": "User Name",
   "isAdministrator": false,
   "iat": 1705333200,
-  "exp": 1707925200
+  "exp": 1707925200,
+  "jti": "uuid"
 }
 ```
 
 ---
 
-*Ngày tạo: 2026-01-15*
+## 5. Session Object
+
+```typescript
+// Accessible via auth() or useSession()
+{
+  user: {
+    id: "clxxxxx",
+    email: "user@example.com",
+    name: "User Name",
+    isAdministrator: false
+  },
+  expires: "2026-02-15T00:00:00.000Z"
+}
+```
+
+---
+
+## 6. Error Handling
+
+| Scenario | Return | Displayed |
+|----------|--------|-----------|
+| Empty credentials | `null` | "Email hoặc mật khẩu không đúng" |
+| User not found | `null` | "Email hoặc mật khẩu không đúng" |
+| Account disabled | `null` | "Email hoặc mật khẩu không đúng" |
+| Wrong password | `null` | "Email hoặc mật khẩu không đúng" |
+
+> **Security Note**: Không phân biệt lỗi cụ thể để tránh enumeration attacks.
+
+---
+
+*Ngày cập nhật: 2026-01-16 - Based on actual code review*

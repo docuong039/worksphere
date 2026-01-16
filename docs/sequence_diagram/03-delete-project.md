@@ -2,7 +2,7 @@
 
 > **Use Case**: UC-12 - Xóa dự án  
 > **Module**: Project Management  
-> **Ngày**: 2026-01-15
+> **Ngày**: 2026-01-16 (Updated from code review)
 
 ---
 
@@ -10,10 +10,9 @@
 
 | Thuộc tính | Giá trị |
 |------------|---------|
-| **Participants** | Browser, API Route, Permission Service, Project Service, Database |
-| **Trigger** | User confirm delete project |
-| **Precondition** | User là Creator hoặc Admin |
-| **Postcondition** | Project và tất cả related data bị xóa |
+| **Participants** | Browser, API Route, Prisma |
+| **API Endpoint** | DELETE /api/projects/[id] |
+| **Source File** | `src/app/api/projects/[id]/route.ts` |
 
 ---
 
@@ -26,158 +25,179 @@ skinparam backgroundColor #FEFEFE
 skinparam sequenceMessageAlign center
 
 title Sequence Diagram: Xóa dự án (UC-12)
+footer Based on: src/app/api/projects/[id]/route.ts
 
 actor "User" as User
 participant "Browser\n(React)" as Browser #LightBlue
-participant "API Route\n(/api/projects/[id])" as API #Orange
-participant "Permission\nService" as PermService #Pink
-participant "Project\nService" as ProjService #LightGreen
-database "Database\n(Prisma)" as DB #LightGray
+participant "DELETE\n/api/projects/[id]" as API #Orange
+database "Prisma\n(Database)" as DB #LightGray
 
-== Confirmation Dialog ==
+== Confirmation ==
 User -> Browser: Click "Xóa dự án"
-Browser -> Browser: Show DeleteConfirmDialog
-note right of Browser
-    "Hành động này không thể hoàn tác"
-    "Nhập tên dự án để xác nhận"
-end note
+Browser -> Browser: Show confirm dialog
+User -> Browser: Confirm delete
 
-User -> Browser: Nhập tên dự án
-User -> Browser: Click "Xác nhận xóa"
-
-== Validate Confirmation ==
-Browser -> Browser: Validate projectName === inputName
-alt Tên không khớp
-    Browser --> User: "Tên dự án không khớp"
-end
-
-== API Call ==
 Browser -> API: DELETE /api/projects/{id}
 
 == Authentication ==
-API -> API: getServerSession()
-alt Chưa đăng nhập
-    API --> Browser: 401 Unauthorized
+API -> API: auth()
+alt !session
+    API --> Browser: 401 "Chưa đăng nhập"
 end
 
-== Get Project ==
-API -> DB: SELECT * FROM Project WHERE id = ?
-DB --> API: project | null
+== Permission Check: canManageProject ==
+API -> API: canManageProject(userId, projectId, isAdmin)
 
-alt Project không tồn tại
-    API --> Browser: 404 Not Found
-    Browser --> User: "Dự án không tồn tại"
-end
-
-== Permission Check ==
-API -> PermService: isCreatorOrAdmin(userId, project)
-PermService -> PermService: Check userId === project.creatorId
-
-alt Không phải Creator
-    PermService -> DB: SELECT isAdministrator FROM User
-    DB --> PermService: user
+alt isAdmin
+    API -> API: return true
+else !isAdmin
+    API -> DB: SELECT creatorId FROM Project\nWHERE id = ?
+    DB --> API: project
     
-    alt Không phải Admin
-        PermService --> API: false
-        API --> Browser: 403 Forbidden
-        Browser --> User: "Bạn không có quyền xóa dự án này"
+    API -> API: Check project.creatorId === userId
+    
+    alt Không phải Creator
+        API --> Browser: 403 "Không có quyền xóa dự án này"
     end
 end
 
-PermService --> API: true
+== Get Project Info (for log) ==
+API -> DB: SELECT name, identifier FROM Project\nWHERE id = ?
+DB --> API: projectToDelete
 
 == Cascade Delete ==
-API -> ProjService: deleteProject(projectId)
+note over API, DB
+  Xóa theo thứ tự để tránh FK constraint
+  (Không dùng transaction trong code hiện tại)
+end note
 
-group Cascade Delete (Transaction)
-    ProjService -> DB: DELETE FROM Comment\nWHERE taskId IN\n(SELECT id FROM Task WHERE projectId = ?)
-    DB --> ProjService: deleted
-    
-    ProjService -> DB: DELETE FROM Attachment\nWHERE taskId IN\n(SELECT id FROM Task WHERE projectId = ?)
-    note right of DB
-        Also delete physical files
-        from public/uploads
-    end note
-    DB --> ProjService: deleted
-    
-    ProjService -> DB: DELETE FROM Watcher\nWHERE taskId IN\n(SELECT id FROM Task WHERE projectId = ?)
-    DB --> ProjService: deleted
-    
-    ProjService -> DB: DELETE FROM Notification\nWHERE taskId IN\n(SELECT id FROM Task WHERE projectId = ?)
-    DB --> ProjService: deleted
-    
-    ProjService -> DB: DELETE FROM AuditLog\nWHERE entityType = 'Task'\nAND entityId IN (SELECT id FROM Task WHERE projectId = ?)
-    DB --> ProjService: deleted
-    
-    ProjService -> DB: DELETE FROM Task\nWHERE projectId = ?
-    DB --> ProjService: deleted
-    
-    ProjService -> DB: DELETE FROM Version\nWHERE projectId = ?
-    DB --> ProjService: deleted
-    
-    ProjService -> DB: DELETE FROM ProjectMember\nWHERE projectId = ?
-    DB --> ProjService: deleted
-    
-    ProjService -> DB: DELETE FROM Project\nWHERE id = ?
-    DB --> ProjService: deleted
-end
+API -> DB: 1. DELETE FROM Comment\nWHERE task.projectId = ?
+DB --> API: deleted
+
+API -> DB: 2. DELETE FROM Attachment\nWHERE task.projectId = ?
+DB --> API: deleted
+
+API -> DB: 3. DELETE FROM Watcher\nWHERE task.projectId = ?
+DB --> API: deleted
+
+API -> DB: 4. DELETE FROM Task\nWHERE projectId = ?
+DB --> API: deleted
+
+API -> DB: 5. DELETE FROM ProjectMember\nWHERE projectId = ?
+DB --> API: deleted
+
+API -> DB: 6. DELETE FROM Project\nWHERE id = ?
+DB --> API: deleted
+
+== Audit Log ==
+API -> DB: INSERT INTO AuditLog\n(action='deleted', entityType='project',\nchanges={old: {name, identifier}})
+DB --> API: auditLog
 
 == Response ==
-ProjService --> API: success
-API --> Browser: 200 OK
-Browser -> Browser: Redirect to /projects
-Browser --> User: "Đã xóa dự án thành công"
+API --> Browser: 200 OK\n{message: "Đã xóa dự án và tất cả dữ liệu liên quan"}
+
+Browser --> User: Redirect to /projects
 
 @enduml
 ```
 
 ---
 
-## 3. Cascade Delete Order
+## 3. canManageProject Logic (từ code)
 
-| Order | Table | Condition | Notes |
-|-------|-------|-----------|-------|
-| 1 | Comment | taskId IN project tasks | - |
-| 2 | Attachment | taskId IN project tasks | + Delete files |
-| 3 | Watcher | taskId IN project tasks | - |
-| 4 | Notification | taskId IN project tasks | - |
-| 5 | AuditLog | entityType='Task' AND entityId IN tasks | - |
-| 6 | Task | projectId = ? | Includes subtasks |
-| 7 | Version | projectId = ? | - |
-| 8 | ProjectMember | projectId = ? | - |
-| 9 | Project | id = ? | Finally |
+```typescript
+// src/app/api/projects/[id]/route.ts - Line 24-33
+async function canManageProject(userId: string, projectId: string, isAdmin: boolean) {
+    if (isAdmin) return true;
 
----
+    const project = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: { creatorId: true },
+    });
 
-## 4. Request/Response
-
-### Request
-```http
-DELETE /api/projects/uuid-project-id
-Cookie: next-auth.session-token=...
-```
-
-### Response (Success)
-```http
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-{
-  "message": "Project deleted successfully"
+    return project?.creatorId === userId;
 }
 ```
 
----
-
-## 5. Error Responses
-
-| Scenario | Status | Response |
-|----------|--------|----------|
-| Not authenticated | 401 | `{"error": "Unauthorized"}` |
-| Project not found | 404 | `{"error": "Project not found"}` |
-| Not creator/admin | 403 | `{"error": "Forbidden"}` |
-| Database error | 500 | `{"error": "Failed to delete project"}` |
+> **Chú ý**: Chỉ **Creator** hoặc **Admin** mới được xóa project. Không có permission-based check như `projects.delete`.
 
 ---
 
-*Ngày tạo: 2026-01-15*
+## 4. Cascade Delete Order (từ code)
+
+```typescript
+// Line 213-242
+// 1. Xóa comments của tasks
+await prisma.comment.deleteMany({
+    where: { task: { projectId: id } },
+});
+
+// 2. Xóa attachments của tasks
+await prisma.attachment.deleteMany({
+    where: { task: { projectId: id } },
+});
+
+// 4. Xóa watchers của tasks
+await prisma.watcher.deleteMany({
+    where: { task: { projectId: id } },
+});
+
+// 5. Xóa tasks
+await prisma.task.deleteMany({
+    where: { projectId: id },
+});
+
+// 6. Xóa project members
+await prisma.projectMember.deleteMany({
+    where: { projectId: id },
+});
+
+// 7. Xóa project
+await prisma.project.delete({
+    where: { id },
+});
+```
+
+---
+
+## 5. Missing Cascade (Potential Issues)
+
+| Table | Status | Notes |
+|-------|--------|-------|
+| Comment | ✅ Deleted | - |
+| Attachment | ✅ Deleted | Physical files NOT deleted! |
+| Watcher | ✅ Deleted | - |
+| Task | ✅ Deleted | - |
+| ProjectMember | ✅ Deleted | - |
+| Version | ❌ **NOT deleted** | May cause FK constraint error |
+| Notification | ❌ **NOT deleted** | Orphaned notifications |
+| AuditLog | ❌ **NOT deleted** | Intentional - keep history |
+| ProjectTracker | ❌ **NOT deleted** | May cause orphaned records |
+
+---
+
+## 6. Request/Response
+
+### Request
+```http
+DELETE /api/projects/project-uuid
+```
+
+### Success Response (200)
+```json
+{
+  "message": "Đã xóa dự án và tất cả dữ liệu liên quan"
+}
+```
+
+### Error Responses
+
+| Status | Condition |
+|--------|-----------|
+| 401 | Not authenticated |
+| 403 | Not creator and not admin |
+| 404 | Project not found |
+
+---
+
+*Ngày cập nhật: 2026-01-16 - Based on actual code review*

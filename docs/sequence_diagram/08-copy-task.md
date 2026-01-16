@@ -2,7 +2,7 @@
 
 > **Use Case**: UC-41 - Sao chép công việc  
 > **Module**: Task Copy  
-> **Ngày**: 2026-01-15
+> **Ngày**: 2026-01-16 (Updated from code review)
 
 ---
 
@@ -10,10 +10,9 @@
 
 | Thuộc tính | Giá trị |
 |------------|---------|
-| **Participants** | Browser, API, Permission Service, Copy Service, Task Service, Database |
-| **Trigger** | User submit copy task form |
-| **Precondition** | User có quyền `tasks.create` ở project đích |
-| **Postcondition** | New task created, Subtasks copied (optional) |
+| **Participants** | Browser, API Route, Prisma |
+| **API Endpoint** | POST /api/tasks/[id]/copy |
+| **Source File** | `src/app/api/tasks/[id]/copy/route.ts` |
 
 ---
 
@@ -26,153 +25,182 @@ skinparam backgroundColor #FEFEFE
 skinparam sequenceMessageAlign center
 
 title Sequence Diagram: Sao chép công việc (UC-41)
+footer Based on: src/app/api/tasks/[id]/copy/route.ts
 
 actor "User" as User
 participant "Browser\n(React)" as Browser #LightBlue
-participant "API Route\n(/api/tasks/[id]/copy)" as API #Orange
-participant "Permission\nService" as PermService #Pink
-participant "Copy\nService" as CopyService #LightGreen
-participant "Task\nService" as TaskService #Yellow
-database "Database\n(Prisma)" as DB #LightGray
+participant "POST /api/tasks/[id]\n/copy" as API #Orange
+database "Prisma\n(Database)" as DB #LightGray
 
 == Open Copy Dialog ==
 User -> Browser: Click "Sao chép"
-Browser -> API: GET /api/tasks/{id}
-API --> Browser: sourceTask
-
-Browser -> API: GET /api/projects?member=true
-API --> Browser: userProjects[]
-
-Browser -> Browser: Show CopyTaskDialog\n(prefilled with sourceTask data)
+Browser -> Browser: Show CopyTaskDialog\n(prefill với original data)
 
 == Configure Copy ==
-User -> Browser: Select target project
-User -> Browser: Modify fields (optional)
-User -> Browser: Check/Uncheck "Sao chép công việc con"
+User -> Browser: Select target project (optional)
+User -> Browser: Check/uncheck options
 User -> Browser: Click "Sao chép"
 
-Browser -> API: POST /api/tasks/{id}/copy\n{targetProjectId, data, copySubtasks}
+Browser -> API: POST /api/tasks/{id}/copy\n{targetProjectId, copySubtasks, copyWatchers}
 
 == Authentication ==
-API -> API: getServerSession()
-
-== Permission Check ==
-API -> PermService: hasPermission(userId, targetProjectId, "tasks.create")
-PermService -> DB: SELECT permissions
-DB --> PermService: permissions[]
-
-alt Không có quyền ở project đích
-    PermService --> API: false
-    API --> Browser: 403 Forbidden
-    Browser --> User: "Bạn không có quyền tạo công việc trong dự án này"
+API -> API: auth()
+alt !session
+    API --> Browser: 401 "Không được quyền truy cập"
 end
 
-== Get Source Task ==
-API -> CopyService: copyTask(sourceTaskId, targetProjectId, data, options)
-CopyService -> DB: SELECT * FROM Task WHERE id = ?
-DB --> CopyService: sourceTask
+== Get Original Task ==
+API -> DB: SELECT * FROM Task\nWHERE id = ?\nINCLUDE subtasks, watchers, attachments
+DB --> API: originalTask | null
 
-== Generate New Task Number ==
-CopyService -> TaskService: generateTaskNumber(targetProjectId)
-TaskService -> DB: SELECT MAX(taskNumber) FROM Task\nWHERE projectId = ?
-DB --> TaskService: maxNumber
-TaskService --> CopyService: newTaskNumber
+alt Task không tồn tại
+    API --> Browser: 404 "Không tìm thấy công việc"
+end
 
-== Create Copied Task ==
-CopyService -> CopyService: Prepare task data
-note right of CopyService
-    Copy all fields except:
-    - id (generate new)
-    - taskNumber (generate new)
-    - projectId (use target)
-    - parentId (null for main task)
-    - createdAt, updatedAt (new)
-    - version (reset to 1)
-end note
+== Determine Target Project ==
+API -> API: projectId = targetProjectId || originalTask.projectId
 
-CopyService -> DB: INSERT INTO Task (new data)
-DB --> CopyService: newTask
-
-== Copy Subtasks (optional) ==
-opt options.copySubtasks = true
-    CopyService -> DB: SELECT * FROM Task\nWHERE parentId = sourceTaskId
-    DB --> CopyService: subtasks[]
+== Permission Check ==
+alt session.user.isAdministrator
+    API -> API: canCreate = true
+else
+    API -> DB: SELECT * FROM ProjectMember\nWHERE projectId = ? AND userId = ?\nAND role.permissions.some('tasks.create')
+    DB --> API: member | null
     
-    loop For each subtask
-        CopyService -> TaskService: generateTaskNumber(targetProjectId)
-        TaskService --> CopyService: subtaskNumber
-        
-        CopyService -> DB: INSERT INTO Task\n(subtask data with new parentId)
-        DB --> CopyService: newSubtask
+    alt Không có quyền
+        API --> Browser: 403 "Bạn không có quyền tạo\ncông việc trong dự án đích"
     end
 end
 
+== Get Default Status ==
+API -> DB: SELECT * FROM Status\nWHERE isDefault = true
+DB --> API: defaultStatus | null
+
+alt Không có default status
+    API --> Browser: 500 "Hệ thống chưa cấu hình\ntrạng thái mặc định"
+end
+
+== Create Copied Task ==
+API -> DB: INSERT INTO Task (\n  title: originalTask.title + " (Copy)",\n  description: original,\n  trackerId: original,\n  statusId: defaultStatus.id,\n  priorityId: original,\n  projectId: targetProject,\n  creatorId: currentUser,\n  estimatedHours: original,\n  doneRatio: 0,\n  startDate: original,\n  dueDate: original,\n  isPrivate: original\n)
+note right of DB
+  - Title có suffix "(Copy)"
+  - Status reset về default
+  - doneRatio reset về 0
+  - Creator = current user
+end note
+DB --> API: copiedTask
+
+== Copy Watchers (optional) ==
+opt copyWatchers && originalTask.watchers.length > 0
+    API -> DB: INSERT INTO Watcher\n({taskId: copiedTask.id, userId: w.userId})\nFOR EACH watcher
+    DB --> API: watchers
+end
+
+== Copy Subtasks (optional) ==
+opt copySubtasks && originalTask.subtasks.length > 0
+    loop For each subtask
+        API -> DB: INSERT INTO Task (\n  title: subtask.title,\n  description: subtask.description,\n  trackerId: subtask.trackerId,\n  statusId: defaultStatus.id,\n  priorityId: subtask.priorityId,\n  projectId: targetProject,\n  creatorId: currentUser,\n  parentId: copiedTask.id,\n  estimatedHours: subtask.estimatedHours,\n  doneRatio: 0,\n  level: subtask.level\n)
+        DB --> API: copiedSubtask
+    end
+end
+
+== Get Full Result ==
+API -> DB: SELECT * FROM Task\nWHERE id = copiedTask.id\nINCLUDE tracker, status, priority, project
+DB --> API: result with relations
+
 == Response ==
-CopyService --> API: newTask (with subtasks if copied)
-API --> Browser: 201 Created\n{task}
+API --> Browser: 201 Created {result}
 
 Browser -> Browser: Close dialog
-Browser --> User: Redirect to new task
+Browser --> User: Navigate to new task
 
 @enduml
 ```
 
 ---
 
-## 3. Copy Field Mapping
+## 3. Copy Logic (từ code)
 
-| Field | Source | Target | Behavior |
-|-------|--------|--------|----------|
-| id | source.id | UUID.new() | Generate new |
-| taskNumber | source.taskNumber | max+1 | Generate per project |
-| projectId | source.projectId | targetProjectId | Use target |
-| subject | source.subject | copied | Copy |
-| description | source.description | copied | Copy |
-| trackerId | source.trackerId | mapped* | Map if exists in target |
-| statusId | source.statusId | mapped* | Map or use default |
-| priorityId | source.priorityId | copied | Copy |
-| assigneeId | source.assigneeId | null/mapped | Clear or map if member |
-| parentId | source.parentId | null/newParentId | null for main, new for sub |
-| version | any | 1 | Reset |
-| createdAt | any | NOW() | New |
+```typescript
+// Line 68-84 - Main task copy
+const copiedTask = await prisma.task.create({
+    data: {
+        title: `${originalTask.title} (Copy)`,  // Add suffix
+        description: originalTask.description,
+        trackerId: originalTask.trackerId,
+        statusId: defaultStatus.id,              // Reset to default
+        priorityId: originalTask.priorityId,
+        projectId,                               // Target project
+        creatorId: session.user.id,              // Current user
+        estimatedHours: originalTask.estimatedHours,
+        doneRatio: 0,                            // Reset to 0
+        startDate: originalTask.startDate,
+        dueDate: originalTask.dueDate,
+        isPrivate: originalTask.isPrivate,
+    },
+});
+```
 
 ---
 
-## 4. Request/Response
+## 4. What Gets Copied
+
+| Field | Copied? | Notes |
+|-------|---------|-------|
+| title | ✅ + "(Copy)" | Suffix added |
+| description | ✅ | As-is |
+| trackerId | ✅ | As-is |
+| statusId | ❌ Reset | Uses defaultStatus |
+| priorityId | ✅ | As-is |
+| projectId | ⚙️ | Target or original |
+| creatorId | ❌ New | Current user |
+| assigneeId | ❌ | NOT copied |
+| estimatedHours | ✅ | As-is |
+| doneRatio | ❌ Reset | Always 0 |
+| startDate | ✅ | As-is |
+| dueDate | ✅ | As-is |
+| isPrivate | ✅ | As-is |
+| versionId | ❌ | NOT copied |
+| parentId | ❌ | NOT copied (top-level) |
+
+---
+
+## 5. Copy Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| targetProjectId | original | Copy to same or different project |
+| copySubtasks | false | Copy subtasks with new parentId |
+| copyWatchers | false | Copy watcher list |
+| copyAttachments | ❌ N/A | NOT implemented in code |
+
+---
+
+## 6. Request/Response
 
 ### Request
 ```http
-POST /api/tasks/source-task-uuid/copy
+POST /api/tasks/original-task-uuid/copy
 Content-Type: application/json
 
 {
   "targetProjectId": "target-project-uuid",
-  "data": {
-    "subject": "Copied: Original subject",
-    "description": "..."
-  },
-  "options": {
-    "copySubtasks": true
-  }
+  "copySubtasks": true,
+  "copyWatchers": false
 }
 ```
 
-### Response (Success)
-```http
-HTTP/1.1 201 Created
-
+### Success Response (201)
+```json
 {
   "id": "new-task-uuid",
-  "taskNumber": 15,
-  "subject": "Copied: Original subject",
-  "projectId": "target-project-uuid",
-  "subtasks": [
-    {"id": "sub1", "taskNumber": 16},
-    {"id": "sub2", "taskNumber": 17}
-  ]
+  "title": "Original Title (Copy)",
+  "status": {"name": "New", "isDefault": true},
+  "project": {"id": "...", "name": "..."},
+  "_count": {"subtasks": 2}
 }
 ```
 
 ---
 
-*Ngày tạo: 2026-01-15*
+*Ngày cập nhật: 2026-01-16 - Based on actual code review*

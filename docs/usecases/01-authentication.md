@@ -106,95 +106,179 @@ end note
 
 ---
 
-## 6. Luồng sự kiện chi tiết
-
-### 6.1 UC-01: Đăng nhập
-
-**Tiền điều kiện:**
-- User chưa đăng nhập
-- User có tài khoản trong hệ thống
-
-**Luồng chính (Main Flow):**
-1. User truy cập trang đăng nhập (`/login`)
-2. Hệ thống hiển thị form đăng nhập với các trường: Email, Password
-3. User nhập email và mật khẩu
-4. User nhấn nút "Đăng nhập"
-5. Hệ thống gọi NextAuth signIn với credentials
-6. <<include>> Validate Credentials:
-   - Hệ thống tìm user theo email trong database
-   - Hệ thống so sánh password với hash (bcrypt)
-7. <<include>> Create Session:
-   - Hệ thống tạo JWT session chứa userId, email, name, isAdministrator
-8. Hệ thống redirect User đến Dashboard (`/`)
-9. Kết thúc Use Case
-
-**Luồng ngoại lệ (Exception Flow):**
-
-| ID | Điều kiện | Xử lý |
-|----|-----------|-------|
-| E1 | Email không tồn tại | Hiển thị lỗi "Email hoặc mật khẩu không đúng", quay lại bước 2 |
-| E2 | Mật khẩu không đúng | Hiển thị lỗi "Email hoặc mật khẩu không đúng", quay lại bước 2 |
-| E3 | Tài khoản bị khóa (`isActive = false`) | Hiển thị lỗi "Tài khoản đã bị khóa", quay lại bước 2 |
-| E4 | Lỗi kết nối database | Hiển thị lỗi "Không thể kết nối máy chủ", quay lại bước 2 |
-
-**Hậu điều kiện:**
-- User đã đăng nhập thành công
-- JWT session được tạo và lưu trong cookie
-- User được redirect đến Dashboard
+## 6. Đặc tả Use Case chi tiết
 
 ---
 
-### 6.2 UC-02: Đăng xuất
-
-**Tiền điều kiện:**
-- User đã đăng nhập
-
-**Luồng chính (Main Flow):**
-1. User click vào avatar/menu người dùng
-2. Hệ thống hiển thị dropdown menu
-3. User chọn "Đăng xuất"
-4. Hệ thống gọi NextAuth signOut
-5. <<include>> Create Session (destroy):
-   - Hệ thống xóa JWT session khỏi cookie
-6. Hệ thống redirect User về trang Login (`/login`)
-7. Kết thúc Use Case
-
-**Luồng ngoại lệ:**
-
-| ID | Điều kiện | Xử lý |
-|----|-----------|-------|
-| E1 | Session đã hết hạn | Redirect về trang Login |
-
-**Hậu điều kiện:**
-- JWT session bị hủy
-- User được redirect về trang Login
+### USE CASE: UC-01 - Đăng nhập
 
 ---
 
-### 6.3 UC-03: Xem thông tin tài khoản
+#### 1. Mô tả
+Use Case này cho phép người dùng xác thực danh tính bằng email và mật khẩu để truy cập vào hệ thống Worksphere. Sau khi đăng nhập thành công, người dùng có thể sử dụng các chức năng theo quyền được cấp.
 
-**Tiền điều kiện:**
-- User đã đăng nhập
+#### 2. Tác nhân chính
+- **User**: Người dùng chưa đăng nhập muốn truy cập hệ thống.
 
-**Luồng chính (Main Flow):**
-1. User click vào avatar/menu người dùng
-2. User chọn "Thông tin tài khoản" hoặc truy cập `/profile`
-3. Hệ thống lấy thông tin user từ session
-4. Hệ thống query database để lấy thông tin chi tiết:
-   - Thông tin cá nhân: name, email, avatar
+#### 3. Tác nhân phụ
+- *Không có*
+
+#### 4. Tiền điều kiện
+- Người dùng chưa có phiên đăng nhập hợp lệ.
+- Người dùng đã có tài khoản được tạo trong hệ thống.
+- Hệ thống đang hoạt động bình thường.
+
+#### 5. Đảm bảo tối thiểu (Minimal Guarantee)
+- Hệ thống không tiết lộ thông tin về việc email có tồn tại hay không.
+- Không có phiên đăng nhập nào được tạo nếu xác thực thất bại.
+- Số lần đăng nhập thất bại có thể được ghi nhận để bảo mật.
+
+#### 6. Đảm bảo thành công (Success Guarantee)
+- Người dùng được xác thực và có phiên đăng nhập hợp lệ.
+- Phiên làm việc được tạo với các thông tin: ID người dùng, tên, email, quyền quản trị.
+- Người dùng được chuyển đến trang chính của hệ thống.
+
+#### 7. Chuỗi sự kiện chính (Main Flow)
+1. Người dùng truy cập trang đăng nhập.
+2. Hệ thống hiển thị biểu mẫu đăng nhập với hai trường: Email và Mật khẩu.
+3. Người dùng nhập địa chỉ email.
+4. Người dùng nhập mật khẩu.
+5. Người dùng nhấn nút "Đăng nhập".
+6. Hệ thống kiểm tra email tồn tại trong cơ sở dữ liệu.
+7. Hệ thống xác minh mật khẩu nhập vào khớp với mật khẩu đã lưu.
+8. Hệ thống kiểm tra tài khoản đang ở trạng thái hoạt động.
+9. Hệ thống tạo phiên đăng nhập cho người dùng.
+10. Hệ thống chuyển người dùng đến trang Dashboard.
+11. Kết thúc Use Case.
+
+#### 8. Luồng thay thế (Alternative Flow)
+- *Không có*
+
+#### 9. Luồng ngoại lệ (Exception Flow)
+
+**E1: Email không tồn tại trong hệ thống**
+- Rẽ nhánh từ bước 6.
+- Hệ thống hiển thị thông báo lỗi chung: "Email hoặc mật khẩu không đúng".
+- Quay lại bước 2.
+
+**E2: Mật khẩu không chính xác**
+- Rẽ nhánh từ bước 7.
+- Hệ thống hiển thị thông báo lỗi chung: "Email hoặc mật khẩu không đúng".
+- Quay lại bước 2.
+
+**E3: Tài khoản bị khóa**
+- Rẽ nhánh từ bước 8.
+- Hệ thống hiển thị thông báo lỗi chung: "Email hoặc mật khẩu không đúng".
+- Ghi chú: Không tiết lộ việc tài khoản bị khóa để tránh rò rỉ thông tin.
+- Quay lại bước 2.
+
+**E4: Lỗi kết nối hệ thống**
+- Rẽ nhánh từ bất kỳ bước nào.
+- Hệ thống hiển thị thông báo: "Không thể kết nối đến máy chủ, vui lòng thử lại sau".
+- Kết thúc Use Case.
+
+#### 10. Ghi chú
+- Mật khẩu được mã hóa một chiều trước khi lưu trữ.
+- Phiên đăng nhập có thời hạn tối đa 30 ngày.
+- Thông báo lỗi được thiết kế chung chung để ngăn chặn tấn công dò tìm email.
+
+---
+
+### USE CASE: UC-02 - Đăng xuất
+
+---
+
+#### 1. Mô tả
+Use Case này cho phép người dùng kết thúc phiên làm việc hiện tại và thoát khỏi hệ thống một cách an toàn.
+
+#### 2. Tác nhân chính
+- **User**: Người dùng đã đăng nhập muốn kết thúc phiên làm việc.
+
+#### 3. Tác nhân phụ
+- *Không có*
+
+#### 4. Tiền điều kiện
+- Người dùng đang có phiên đăng nhập hợp lệ.
+
+#### 5. Đảm bảo tối thiểu (Minimal Guarantee)
+- Phiên đăng nhập luôn được hủy dù có lỗi xảy ra.
+
+#### 6. Đảm bảo thành công (Success Guarantee)
+- Phiên đăng nhập của người dùng bị hủy.
+- Người dùng không thể truy cập các chức năng yêu cầu xác thực.
+- Người dùng được chuyển về trang đăng nhập.
+
+#### 7. Chuỗi sự kiện chính (Main Flow)
+1. Người dùng nhấn vào biểu tượng avatar/menu người dùng.
+2. Hệ thống hiển thị menu tùy chọn.
+3. Người dùng chọn "Đăng xuất".
+4. Hệ thống hủy phiên đăng nhập hiện tại.
+5. Hệ thống xóa thông tin xác thực khỏi trình duyệt.
+6. Hệ thống chuyển người dùng về trang đăng nhập.
+7. Kết thúc Use Case.
+
+#### 8. Luồng thay thế (Alternative Flow)
+- *Không có*
+
+#### 9. Luồng ngoại lệ (Exception Flow)
+
+**E1: Phiên đăng nhập đã hết hạn**
+- Rẽ nhánh từ bước 4.
+- Hệ thống nhận thấy phiên đã hết hạn.
+- Hệ thống chuyển người dùng về trang đăng nhập.
+- Kết thúc Use Case.
+
+#### 10. Ghi chú
+- *Không có*
+
+---
+
+### USE CASE: UC-03 - Xem thông tin tài khoản
+
+---
+
+#### 1. Mô tả
+Use Case này cho phép người dùng xem thông tin cá nhân của mình bao gồm: tên, email, ảnh đại diện và danh sách các dự án đang tham gia cùng vai trò trong từng dự án.
+
+#### 2. Tác nhân chính
+- **User**: Người dùng đã đăng nhập muốn xem thông tin tài khoản.
+
+#### 3. Tác nhân phụ
+- *Không có*
+
+#### 4. Tiền điều kiện
+- Người dùng đang có phiên đăng nhập hợp lệ.
+
+#### 5. Đảm bảo tối thiểu (Minimal Guarantee)
+- Nếu có lỗi, người dùng được thông báo và không có dữ liệu bị thay đổi.
+
+#### 6. Đảm bảo thành công (Success Guarantee)
+- Thông tin tài khoản được hiển thị đầy đủ và chính xác.
+
+#### 7. Chuỗi sự kiện chính (Main Flow)
+1. Người dùng nhấn vào biểu tượng avatar/menu người dùng.
+2. Người dùng chọn "Thông tin tài khoản" hoặc truy cập trang hồ sơ.
+3. Hệ thống lấy thông tin người dùng từ phiên đăng nhập.
+4. Hệ thống truy vấn thông tin chi tiết từ cơ sở dữ liệu:
+   - Thông tin cá nhân: tên, email, ảnh đại diện
    - Danh sách dự án đang tham gia
-   - Role trong từng dự án
-5. Hệ thống hiển thị trang Profile với thông tin
-6. Kết thúc Use Case
+   - Vai trò trong từng dự án
+   - Số công việc được gán và đã tạo
+5. Hệ thống hiển thị trang thông tin tài khoản.
+6. Kết thúc Use Case.
 
-**Luồng ngoại lệ:**
+#### 8. Luồng thay thế (Alternative Flow)
+- *Không có*
 
-| ID | Điều kiện | Xử lý |
-|----|-----------|-------|
-| E1 | Session hết hạn | Redirect về trang Login |
+#### 9. Luồng ngoại lệ (Exception Flow)
 
-**Hậu điều kiện:**
-- Thông tin profile được hiển thị
+**E1: Phiên đăng nhập hết hạn**
+- Rẽ nhánh từ bước 3.
+- Hệ thống chuyển người dùng về trang đăng nhập.
+- Kết thúc Use Case.
+
+#### 10. Ghi chú
+- Người dùng có thể chỉnh sửa một số thông tin cá nhân từ trang này (tùy thuộc quyền).
 
 ---
 
@@ -202,10 +286,11 @@ end note
 
 | ID | Rule | Mô tả |
 |----|------|-------|
-| BR-01 | Password Hashing | Mật khẩu phải được hash bằng bcrypt trước khi lưu |
-| BR-02 | Session Timeout | JWT session có thời hạn 30 ngày (maxAge) |
+| BR-01 | Password Hashing | Mật khẩu phải được mã hóa một chiều trước khi lưu |
+| BR-02 | Session Timeout | Phiên đăng nhập có thời hạn tối đa 30 ngày |
 | BR-03 | Unique Email | Email phải là duy nhất trong hệ thống |
-| BR-04 | Active Account | Chỉ tài khoản có `isActive = true` mới được đăng nhập |
+| BR-04 | Active Account | Chỉ tài khoản đang hoạt động mới được đăng nhập |
+| BR-05 | Generic Error Message | Thông báo lỗi đăng nhập không phân biệt loại lỗi cụ thể |
 
 ---
 
@@ -216,9 +301,11 @@ end note
 - [x] Tên UC là động từ + bổ ngữ
 - [x] Include: Mũi tên từ UC gốc → UC con
 - [x] Không có UC "lơ lửng"
-- [x] Đã mô tả luồng chính và ngoại lệ
+- [x] Đã mô tả đầy đủ luồng chính, thay thế và ngoại lệ
+- [x] Đặc tả theo format chuẩn 10 mục
 
 ---
 
 *Tài liệu được tạo dựa trên phân tích mã nguồn Worksphere*  
-*Ngày tạo: 2026-01-15*
+*Ngày cập nhật: 2026-01-16*
+

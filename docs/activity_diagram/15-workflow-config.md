@@ -1,8 +1,9 @@
-# Activity Diagram 15: Cấu hình Workflow Transition (UC-75)
+# Activity Diagram 15: Cấu hình Workflow Transition (UC-68)
 
-> **Use Case**: UC-75 - Cấu hình Workflow Transition  
+> **Use Case**: UC-68 - Cập nhật Workflow  
 > **Module**: Workflow Configuration  
-> **Ngày**: 2026-01-15
+> **Phiên bản**: 1.1  
+> **Ngày cập nhật**: 2026-01-16
 
 ---
 
@@ -13,7 +14,8 @@
 | **Actors** | Administrator |
 | **Độ phức tạp** | Cao |
 | **Swimlanes** | Admin, System, Database |
-| **Đặc điểm** | Matrix update, Loop processing |
+| **Đặc điểm** | Delete-then-Create pattern, Matrix UI |
+| **Use Case tham chiếu** | [UC-67](../usecases/19-workflow-management.md), [UC-68](../usecases/19-workflow-management.md) |
 
 ---
 
@@ -21,71 +23,98 @@
 
 ```plantuml
 @startuml
-title Activity Diagram: Cấu hình Workflow Transition (UC-75)
+title Activity Diagram: Cấu hình Workflow Transition (UC-67, UC-68)
 
 |Admin|
 start
 :Truy cập /settings/workflow;
-:Chọn Tracker (Bug, Feature...);
-:Chọn Role (Developer, Tester...);
 
 |System|
-:Load tất cả Statuses;
+|Database|
+fork
+  :Query all Trackers (orderBy position);
+fork again
+  :Query all Statuses (orderBy position);
+fork again
+  :Query all Roles (orderBy name);
+end fork
+
+|System|
+:Hiển thị dropdowns: Tracker, Role;
+
+|Admin|
+:Chọn Tracker (Bug, Feature...);
+:Chọn Role (hoặc "All Roles" = null);
 
 |Database|
 :Query WorkflowTransitions;
 note right
   WHERE trackerId = selected
-  AND roleId = selected
+  AND roleId = selected (hoặc NULL)
 end note
 
 |System|
 :Build matrix NxN (N = số statuses);
-:Check cells có transition = checked;
+:Check cells: transition exists = checked;
 :Hiển thị matrix;
+note right
+  Row = From Status
+  Col = To Status
+  ✓ = Transition allowed
+end note
 
 |Admin|
 :Check/Uncheck các ô trong matrix;
-note right
-  Row = From Status
-  Column = To Status
-  Checked = Cho phép chuyển
-end note
 :Click "Lưu";
 
 |System|
-:Get original state (from DB);
-:Get new state (from UI);
-:Calculate changes;
+if (User là Admin?) then (Không)
+  :Hiển thị lỗi 403 "Không có quyền truy cập";
+  |Admin|
+  stop
+endif
 
+if (trackerId rỗng?) then (Có)
+  :Hiển thị lỗi 400 "Tracker ID là bắt buộc";
+  |Admin|
+  stop
+endif
+
+if (transitions không phải array?) then (Có)
+  :Hiển thị lỗi 400 "Transitions phải là một mảng";
+  |Admin|
+  stop
+endif
+
+' ========== DELETE-CREATE PATTERN ==========
 |Database|
-while (Có cell thay đổi?)
-  |System|
-  if (Checked → Unchecked?) then (Có)
-    |Database|
-    :DELETE WorkflowTransition;
-    note right
-      WHERE trackerId = ?
-      AND roleId = ?
-      AND fromStatusId = row
-      AND toStatusId = col
-    end note
-  else if (Unchecked → Checked?) then (Có)
-    |Database|
-    :INSERT WorkflowTransition;
-    note right
-      trackerId, roleId,
-      fromStatusId, toStatusId
-    end note
-  endif
-endwhile
+:DELETE tất cả transitions cũ;
+note right #FFAAAA
+  DELETE FROM WorkflowTransition
+  WHERE trackerId = input.trackerId
+  AND roleId = input.roleId || NULL
+end note
 
 |System|
-:Trả về success;
+:Filter transitions có allowed = true;
+:Map to new records;
+
+|Database|
+if (Có transitions để tạo?) then (Có)
+  :createMany(newTransitions);
+  note right #AAFFAA
+    INSERT INTO WorkflowTransition
+    (trackerId, roleId, fromStatusId, toStatusId)
+    VALUES ...
+  end note
+endif
+
+|System|
+:Trả về { message, count };
 
 |Admin|
 :Refresh matrix;
-:Hiển thị thông báo thành công;
+:Hiển thị: "Đã cập nhật workflow (N transitions)";
 
 stop
 
@@ -106,41 +135,65 @@ InProgress   │     │   -    │    ✓     │        │
 Resolved     │     │   ✓    │    -     │        │
 Closed       │     │        │          │   -    │
 
-✓ = Transition được phép
+✓ = Transition được phép (record exists)
 (empty) = Không được phép
 - = Same status (N/A)
 ```
 
 ---
 
-## 4. Transition Record
+## 4. Update Pattern (Khớp với UC-68)
 
-| Field | Type | Mô tả |
-|-------|------|-------|
-| trackerId | FK | Bug, Feature, Task... |
-| roleId | FK | Developer, Tester... |
-| fromStatusId | FK | Status bắt đầu |
-| toStatusId | FK | Status đích |
+**Delete-then-Create** (không phải incremental update):
+
+```
+POST /api/workflow
+{
+  "trackerId": "xxx",
+  "roleId": "yyy" (hoặc null = all roles),
+  "transitions": [
+    { "fromStatusId": "s1", "toStatusId": "s2", "allowed": true },
+    { "fromStatusId": "s1", "toStatusId": "s3", "allowed": true },
+    { "fromStatusId": "s2", "toStatusId": "s3", "allowed": false },
+    ...
+  ]
+}
+
+Step 1: DELETE ALL WHERE trackerId=xxx AND roleId=yyy
+Step 2: INSERT only where allowed=true
+```
 
 ---
 
-## 5. Business Rules
+## 5. Decision Points (Khớp với UC Exception Flows)
 
-| Rule | Mô tả |
-|------|-------|
-| BR-01 | Workflow định nghĩa theo cặp (Tracker, Role) |
-| BR-02 | Không thể chuyển sang cùng status |
-| BR-03 | Task chỉ chuyển status theo transition đã định nghĩa |
-| BR-04 | Admin có thể override workflow |
+| # | Condition | True | False | UC Ref |
+|---|-----------|------|-------|--------|
+| D1 | User là Admin? | Tiếp tục | Error 403 | E1 |
+| D2 | trackerId có? | Tiếp tục | Error 400 | E2 |
+| D3 | transitions là array? | Tiếp tục | Error 400 | E3 |
 
 ---
 
-## 6. Impact
+## 6. Business Rules (Khớp với UC-68)
+
+| Rule | Mô tả | UC Ref |
+|------|-------|--------|
+| BR-01 | Chỉ Admin được cập nhật workflow | BR-02 |
+| BR-02 | roleId = NULL áp dụng cho tất cả roles | BR-01 |
+| BR-03 | trackerId là bắt buộc | BR-03 |
+| BR-04 | Delete-Create pattern đảm bảo idempotent | BR-04 |
+| BR-05 | Batch insert với createMany | BR-05 |
+
+---
+
+## 7. Impact
 
 Khi workflow được cấu hình:
-- UC-26 (Thay đổi trạng thái) sẽ validate theo matrix này
+- **UC-26** (Thay đổi trạng thái) validate theo transitions này
 - User chỉ thấy dropdown status dựa trên allowed transitions
+- Admin bypass workflow validation
 
 ---
 
-*Ngày tạo: 2026-01-15*
+*Cập nhật: 2026-01-16 - Đồng bộ hoàn toàn với UC-67, UC-68*

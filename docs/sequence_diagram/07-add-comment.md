@@ -2,7 +2,7 @@
 
 > **Use Case**: UC-30 - Thêm bình luận  
 > **Module**: Comments  
-> **Ngày**: 2026-01-15
+> **Ngày**: 2026-01-16 (Updated from code review)
 
 ---
 
@@ -10,10 +10,9 @@
 
 | Thuộc tính | Giá trị |
 |------------|---------|
-| **Participants** | Browser, API, Comment Service, Notification Service, Database |
-| **Trigger** | User submit comment |
-| **Precondition** | User là member của project |
-| **Postcondition** | Comment created, Task updated, Watchers notified |
+| **Participants** | Browser, API Route, Notification Service, Prisma |
+| **API Endpoint** | POST /api/tasks/[id]/comments |
+| **Source File** | `src/app/api/tasks/[id]/comments/route.ts` |
 
 ---
 
@@ -26,76 +25,84 @@ skinparam backgroundColor #FEFEFE
 skinparam sequenceMessageAlign center
 
 title Sequence Diagram: Thêm bình luận (UC-30)
+footer Based on: src/app/api/tasks/[id]/comments/route.ts
 
 actor "User" as User
 participant "Browser\n(React)" as Browser #LightBlue
-participant "API Route\n(/api/tasks/[id]/comments)" as API #Orange
-participant "Comment\nService" as CommentService #LightGreen
-participant "Notification\nService" as NotifyService #Cyan
-database "Database\n(Prisma)" as DB #LightGray
+participant "POST /api/tasks/[id]\n/comments" as API #Orange
+participant "notifyCommentAdded()" as Notify #Cyan
+database "Prisma\n(Database)" as DB #LightGray
 
-== Enter Comment ==
-User -> Browser: Type comment in textarea
+== Submit Comment ==
+User -> Browser: Nhập nội dung comment
 User -> Browser: Click "Gửi"
-
 Browser -> API: POST /api/tasks/{taskId}/comments\n{content}
 
 == Authentication ==
-API -> API: getServerSession()
-alt Chưa đăng nhập
-    API --> Browser: 401 Unauthorized
+API -> API: auth()
+alt !session
+    API --> Browser: 401 "Chưa đăng nhập"
 end
 
-== Check Membership ==
-API -> DB: SELECT * FROM ProjectMember\nWHERE userId = ? AND projectId = ?
-DB --> API: member | null
+== Validate Input ==
+API -> API: createCommentSchema.parse({content, taskId})
+note right of API
+  content: min 1 char (required)
+  taskId: from URL params
+end note
 
-alt Không phải member
-    API --> Browser: 403 Forbidden
-    Browser --> User: "Bạn không phải thành viên của dự án này"
+alt Validation failed (empty content)
+    API --> Browser: 400 Validation error
 end
 
-== Validate Content ==
-API -> CommentService: createComment(taskId, userId, content)
-CommentService -> CommentService: Validate content not empty
+== Check Task Exists ==
+API -> DB: SELECT projectId, title FROM Task\nWHERE id = taskId
+DB --> API: task | null
 
-alt Content rỗng
-    CommentService --> API: ValidationError
-    API --> Browser: 400 Bad Request
-    Browser --> User: "Nội dung không được để trống"
+alt Task không tồn tại
+    API --> Browser: 404 "Task không tồn tại"
 end
 
-== Create Comment ==
-CommentService -> DB: INSERT INTO Comment\n(taskId, userId, content, createdAt)
-DB --> CommentService: newComment
-
-== Update Task ==
-CommentService -> DB: UPDATE Task SET updatedAt = NOW()\nWHERE id = ?
-DB --> CommentService: updated
-
-== Get Watchers ==
-CommentService -> NotifyService: notifyWatchers(taskId, userId, "comment_added")
-NotifyService -> DB: SELECT userId FROM Watcher\nWHERE taskId = ?
-DB --> NotifyService: watchers[]
-
-== Create Notifications ==
-loop For each watcher (exclude comment author)
-    alt watcher.userId !== commentAuthorId
-        NotifyService -> DB: INSERT INTO Notification\n(userId, type, message, taskId, isRead=false)
-        DB --> NotifyService: notification
+== Check Access ==
+API -> API: Check canAccess
+alt session.user.isAdministrator
+    API -> API: canAccess = true
+else
+    API -> DB: SELECT * FROM ProjectMember\nWHERE userId = ? AND projectId = task.projectId
+    DB --> API: member | null
+    
+    alt Không phải member
+        API --> Browser: 403 "Không có quyền bình luận"
     end
 end
 
-== Load Comment with Author ==
-CommentService -> DB: SELECT c.*, u.name, u.email, u.avatar\nFROM Comment c\nJOIN User u ON c.userId = u.id\nWHERE c.id = ?
-DB --> CommentService: commentWithAuthor
+== Create Comment ==
+API -> DB: INSERT INTO Comment\n(content, taskId, userId)
+DB --> API: comment with user
+
+== Update Task UpdatedAt ==
+API -> DB: UPDATE Task SET updatedAt = NOW()\nWHERE id = taskId
+DB --> API: updated
+
+== Notify Watchers (async) ==
+API -> Notify: notifyCommentAdded(\n  taskId, taskTitle,\n  userId, userName,\n  content, commentId\n)
+
+Notify -> DB: SELECT userId FROM Watcher\nWHERE taskId = ? AND userId != actorId
+DB --> Notify: watchers[]
+
+Notify -> DB: SELECT assigneeId, creatorId FROM Task
+DB --> Notify: task
+
+Notify -> Notify: Collect unique userIds:\n- watchers\n- assignee (if != actor)\n- creator (if != actor)
+
+loop For each userId (không trùng actor)
+    Notify -> DB: INSERT INTO Notification\n(type='task_comment_added',\ntitle, message, userId, metadata)
+end
 
 == Response ==
-CommentService --> API: commentWithAuthor
-API --> Browser: 201 Created\n{comment}
+API --> Browser: 201 Created\n{comment with user}
 
 Browser -> Browser: Add comment to list
-Browser -> Browser: Clear textarea
 Browser --> User: Comment displayed
 
 @enduml
@@ -103,24 +110,61 @@ Browser --> User: Comment displayed
 
 ---
 
-## 3. Notification Creation
+## 3. Access Check Logic (từ code)
 
-```javascript
-// For each watcher (except comment author)
-watchers.filter(w => w.userId !== authorId).forEach(watcher => {
-  createNotification({
-    userId: watcher.userId,
-    type: "comment_added",
-    message: `${authorName} đã bình luận trên công việc #${taskNumber}`,
-    taskId: taskId,
-    isRead: false
-  });
-});
+```typescript
+// Line 65-73
+const canAccess =
+    session.user.isAdministrator ||
+    (await prisma.projectMember.findFirst({
+        where: { userId: session.user.id, projectId: task.projectId },
+    }));
+
+if (!canAccess) {
+    return errorResponse('Không có quyền bình luận', 403);
+}
+```
+
+> **Note**: Chỉ cần là **member của project** (bất kỳ role nào) là có thể comment. Không có permission-based check.
+
+---
+
+## 4. Notification Logic (từ lib/notifications.ts)
+
+```typescript
+// notifyTaskWatchers() - Line 60-106
+export async function notifyTaskWatchers(taskId, actorId, type, title, message, metadata) {
+    // 1. Get watchers (exclude actor)
+    const watchers = await prisma.watcher.findMany({
+        where: { taskId, userId: { not: actorId } },
+    });
+
+    // 2. Get task's assignee and creator
+    const task = await prisma.task.findUnique({
+        where: { id: taskId },
+        select: { assigneeId: true, creatorId: true },
+    });
+
+    // 3. Collect unique userIds
+    const userIds = new Set<string>();
+    watchers.forEach((w) => userIds.add(w.userId));
+    if (task?.assigneeId && task.assigneeId !== actorId) {
+        userIds.add(task.assigneeId);
+    }
+    if (task?.creatorId && task.creatorId !== actorId) {
+        userIds.add(task.creatorId);
+    }
+
+    // 4. Create notifications
+    return createNotifications(
+        Array.from(userIds).map((userId) => ({ type, title, message, userId, metadata }))
+    );
+}
 ```
 
 ---
 
-## 4. Request/Response
+## 5. Request/Response
 
 ### Request
 ```http
@@ -128,19 +172,19 @@ POST /api/tasks/task-uuid/comments
 Content-Type: application/json
 
 {
-  "content": "This is a comment on the task."
+  "content": "This is my comment on the task."
 }
 ```
 
-### Response (Success)
-```http
-HTTP/1.1 201 Created
-
+### Success Response (201)
+```json
 {
   "id": "comment-uuid",
-  "content": "This is a comment on the task.",
-  "createdAt": "2026-01-15T17:00:00Z",
-  "author": {
+  "content": "This is my comment on the task.",
+  "taskId": "task-uuid",
+  "userId": "user-uuid",
+  "createdAt": "2026-01-16T00:00:00Z",
+  "user": {
     "id": "user-uuid",
     "name": "John Doe",
     "avatar": "/uploads/avatar.jpg"
@@ -150,14 +194,25 @@ HTTP/1.1 201 Created
 
 ---
 
-## 5. Side Effects
+## 6. Side Effects
 
 | Action | Description |
 |--------|-------------|
 | Update Task | task.updatedAt = NOW() |
-| Notify Watchers | Create notification for each watcher |
-| Exclude Author | Author không nhận notification về comment của mình |
+| Notify | watchers + assignee + creator (exclude author) |
 
 ---
 
-*Ngày tạo: 2026-01-15*
+## 7. Who Gets Notified
+
+| Role | Gets Notified? |
+|------|---------------|
+| Watchers | ✅ Yes (if not author) |
+| Assignee | ✅ Yes (if not author) |
+| Creator | ✅ Yes (if not author) |
+| Other members | ❌ No |
+| Author | ❌ No (excluded) |
+
+---
+
+*Ngày cập nhật: 2026-01-16 - Based on actual code review*

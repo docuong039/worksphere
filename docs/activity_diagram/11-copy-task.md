@@ -2,7 +2,8 @@
 
 > **Use Case**: UC-41 - Sao chép công việc  
 > **Module**: Task Copy  
-> **Ngày**: 2026-01-15
+> **Phiên bản**: 1.1  
+> **Ngày cập nhật**: 2026-01-16
 
 ---
 
@@ -13,7 +14,8 @@
 | **Actors** | User |
 | **Độ phức tạp** | Cao |
 | **Swimlanes** | User, System, Database |
-| **Đặc điểm** | Recursive copy subtasks, Cross-project |
+| **Đặc điểm** | Cross-project, Copy watchers, Copy subtasks |
+| **Use Case tham chiếu** | [UC-41](../usecases/10-task-copy.md) |
 
 ---
 
@@ -29,58 +31,115 @@ start
 :Click "Sao chép";
 
 |System|
-:Load task data;
-:Hiển thị form với dữ liệu điền sẵn;
-:Load danh sách projects user có quyền;
+:Hiển thị dialog với options;
+note right
+  - targetProjectId (dropdown)
+  - copySubtasks (checkbox)
+  - copyWatchers (checkbox)
+end note
 
 |User|
-:Chọn Project đích;
-:Chỉnh sửa các trường nếu cần;
-:Check/Uncheck "Sao chép công việc con";
+:Chọn Project đích (hoặc giữ nguyên);
+:Check/Uncheck các options;
 :Click "Sao chép";
 
 |System|
-:Check permission tasks.create ở project đích;
+|Database|
+:Query original task with includes;
+note right
+  Include: subtasks, watchers, attachments
+end note
 
+|System|
+if (Task gốc tồn tại?) then (Không)
+  :Hiển thị lỗi 404 "Không tìm thấy công việc";
+  |User|
+  stop
+endif
+
+:Xác định projectId đích;
+note right
+  targetProjectId hoặc 
+  originalTask.projectId
+end note
+
+|Database|
+:Check permission tasks.create trong project đích;
+
+|System|
 if (Có quyền?) then (Không)
-  :Hiển thị lỗi 403 Forbidden;
+  :Hiển thị lỗi 403;
+  :Message: "Bạn không có quyền tạo công việc trong dự án đích";
   |User|
   stop
 endif
 
 |Database|
-:Get max taskNumber trong project đích;
-:newTaskNumber = max + 1;
+:Get default status (isDefault = true);
 
+|System|
+if (Default status tồn tại?) then (Không)
+  :Hiển thị lỗi 500;
+  :Message: "Hệ thống chưa cấu hình trạng thái mặc định";
+  |User|
+  stop
+endif
+
+|Database|
 :INSERT new Task;
-note right
-  Copy tất cả fields
-  Trừ: id, taskNumber, projectId
-  Set: projectId = đích
-  Set: taskNumber = new
-  Set: parentId = null
+note right #AAFFAA
+  **Copy fields:**
+  - title → title + " (Copy)"
+  - description, trackerId, priorityId
+  - estimatedHours, startDate, dueDate
+  - isPrivate
+
+  **Reset fields:**
+  - statusId = **defaultStatus.id**
+  - creatorId = **session.user.id**
+  - doneRatio = **0**
+
+  **NOT copied:**
+  - assigneeId, versionId, parentId
 end note
 
 :Get new task ID;
 
-|System|
-if (Copy subtasks checked?) then (Có)
-  |Database|
-  :SELECT subtasks WHERE parentId = original;
-  
-  |System|
-  while (Còn subtask?)
+if (copyWatchers = true?) then (Có)
+  :Check có watchers trong original;
+  if (Có watchers?) then (Có)
     |Database|
-    :newSubNumber = max + 1;
-    :INSERT subtask copy;
+    :INSERT watchers với skipDuplicates;
     note right
-      Set parentId = new parent task
+      taskId = newTask.id
+      userId = từ original
     end note
-  endwhile
+  endif
+endif
+
+if (copySubtasks = true?) then (Có)
+  :Check có subtasks trong original;
+  if (Có subtasks?) then (Có)
+    while (Còn subtask?)
+      |Database|
+      :INSERT subtask copy;
+      note right
+        parentId = newTask.id
+        statusId = defaultStatus.id
+        creatorId = session.user.id
+        doneRatio = 0
+        level = giữ nguyên
+      end note
+    endwhile
+  endif
 endif
 
 |Database|
-:INSERT AuditLog;
+:SELECT full task với includes;
+note right
+  Include: tracker, status, 
+  priority, project, _count
+end note
 
 |System|
 :Trả về task mới;
@@ -96,46 +155,51 @@ stop
 
 ---
 
-## 3. Mô tả các bước
+## 3. Copy Rules (Khớp với UC-41)
 
-| # | Actor | Hành động | Ghi chú |
-|---|-------|-----------|---------|
-| 1 | User | Click sao chép | Mở form |
-| 2 | System | Load data | Prefill form |
-| 3 | User | Chọn project đích | Dropdown |
-| 4 | User | Chỉnh sửa fields | Optional |
-| 5 | User | Check copy subtasks | Optional |
-| 6 | System | Check permission | tasks.create |
-| 7 | Database | Generate number | New project |
-| 8 | Database | Create task | Copy |
-| 9 | Database | Create subtasks | If checked |
-| 10 | User | View new task | Redirect |
-
----
-
-## 4. Copy Rules
-
-| Field | Behavior |
-|-------|----------|
-| id | Generate new |
-| taskNumber | Generate new (per project) |
-| projectId | Set to target project |
-| parentId | null (for main), new parent ID (for subtask) |
-| createdAt | NOW() |
-| version | 1 (reset) |
-| Other fields | Copy as-is |
+| Field | Behavior | UC Ref |
+|-------|----------|--------|
+| title | + " (Copy)" | Bước 9 |
+| description | Copy as-is | Bước 9 |
+| trackerId | Copy as-is | Bước 9 |
+| **statusId** | **Reset to default** | Bước 9 |
+| priorityId | Copy as-is | Bước 9 |
+| projectId | Target project | Bước 6 |
+| **creatorId** | **session.user.id** | Bước 9 |
+| assigneeId | **NOT copied** | Ghi chú |
+| versionId | **NOT copied** | Ghi chú |
+| estimatedHours | Copy as-is | Bước 9 |
+| **doneRatio** | **Reset to 0** | Bước 9 |
+| startDate, dueDate | Copy as-is | Bước 9 |
+| isPrivate | Copy as-is | Bước 9 |
+| parentId | null (for main task) | Ghi chú |
 
 ---
 
-## 5. Business Rules
+## 4. Decision Points (Khớp với UC Exception Flows)
 
-| Rule | Mô tả |
-|------|-------|
-| BR-01 | Có thể copy sang project khác |
-| BR-02 | Task number mới theo project đích |
-| BR-03 | Subtasks được copy recursive nếu chọn |
-| BR-04 | Cần quyền tasks.create ở project đích |
+| # | Condition | True | False | UC Ref |
+|---|-----------|------|-------|--------|
+| D1 | Task gốc tồn tại? | Tiếp tục | Error 404 | E1 |
+| D2 | Có quyền tasks.create? | Tiếp tục | Error 403 | E2 |
+| D3 | Default status tồn tại? | Tiếp tục | Error 500 | E3 |
+| D4 | copyWatchers = true? | Copy watchers | Skip | Bước 10 |
+| D5 | copySubtasks = true? | Copy subtasks | Skip | Bước 11 |
 
 ---
 
-*Ngày tạo: 2026-01-15*
+## 5. Business Rules (Khớp với UC-41)
+
+| Rule | Mô tả | UC Ref |
+|------|-------|--------|
+| BR-01 | Permission check `tasks.create` ở project đích | BR-01 |
+| BR-02 | Title thêm hậu tố " (Copy)" | BR-02 |
+| BR-03 | Status reset về default | BR-03 |
+| BR-04 | doneRatio reset về 0 | BR-04 |
+| BR-05 | creatorId là người thực hiện copy | BR-05 |
+| BR-06 | assigneeId, versionId KHÔNG copy | BR-06, BR-07 |
+| BR-07 | Subtasks link với parentId = newTask.id | BR-09 |
+
+---
+
+*Cập nhật: 2026-01-16 - Đồng bộ hoàn toàn với UC-41*

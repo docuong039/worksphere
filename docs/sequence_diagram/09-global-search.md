@@ -2,7 +2,7 @@
 
 > **Use Case**: UC-44 - Tìm kiếm toàn cục  
 > **Module**: Global Search  
-> **Ngày**: 2026-01-15
+> **Ngày**: 2026-01-16 (Updated from code review)
 
 ---
 
@@ -10,10 +10,9 @@
 
 | Thuộc tính | Giá trị |
 |------------|---------|
-| **Participants** | Browser, API, Search Service, Permission Service, Database |
-| **Trigger** | User type in global search (Ctrl+K) |
-| **Precondition** | User đã đăng nhập |
-| **Postcondition** | Results filtered by permission, grouped by type |
+| **Participants** | Browser, API Route, Database |
+| **API Endpoint** | GET /api/search |
+| **Source File** | `src/app/api/search/route.ts` |
 
 ---
 
@@ -26,79 +25,104 @@ skinparam backgroundColor #FEFEFE
 skinparam sequenceMessageAlign center
 
 title Sequence Diagram: Tìm kiếm toàn cục (UC-44)
+footer Based on: src/app/api/search/route.ts
 
 actor "User" as User
 participant "Browser\n(React)" as Browser #LightBlue
-participant "API Route\n(/api/search)" as API #Orange
-participant "Search\nService" as SearchService #LightGreen
-participant "Permission\nService" as PermService #Pink
-database "Database\n(Prisma)" as DB #LightGray
+participant "GET /api/search" as API #Orange
+database "Prisma\n(Database)" as DB #LightGray
 
-== Open Global Search ==
+== Open Search ==
 User -> Browser: Press Ctrl+K
 Browser -> Browser: Open SearchModal
 
-== Type Search Query ==
+== Type Query ==
 User -> Browser: Type keyword
-Browser -> Browser: Debounce 300ms
+Browser -> Browser: Debounce
 
-alt keyword.length < 2
+alt query.length < 2
     Browser -> Browser: Show "Nhập ít nhất 2 ký tự"
 end
 
-Browser -> API: GET /api/search?q={keyword}
+Browser -> API: GET /api/search?q={keyword}&type=all
 
 == Authentication ==
-API -> API: getServerSession()
-API -> API: Get userId, isAdministrator
-
-== Get User's Projects ==
-API -> PermService: getAccessibleProjects(userId)
-PermService -> DB: SELECT projectId FROM ProjectMember\nWHERE userId = ?
-DB --> PermService: projectIds[]
-PermService --> API: accessibleProjectIds
-
-== Parallel Search ==
-API -> SearchService: search(keyword, userId, isAdmin)
-
-par Search Tasks
-    SearchService -> DB: SELECT t.*, p.name as projectName\nFROM Task t\nJOIN Project p ON t.projectId = p.id\nWHERE (t.subject ILIKE ? OR t.description ILIKE ?)\nAND t.projectId IN (accessibleProjectIds)
-    DB --> SearchService: tasks[]
-and Search Projects
-    SearchService -> DB: SELECT * FROM Project\nWHERE (name ILIKE ? OR identifier ILIKE ?)\nAND id IN (accessibleProjectIds)
-    DB --> SearchService: projects[]
-and Search Comments
-    SearchService -> DB: SELECT c.*, t.taskNumber\nFROM Comment c\nJOIN Task t ON c.taskId = t.id\nWHERE c.content ILIKE ?\nAND t.projectId IN (accessibleProjectIds)
-    DB --> SearchService: comments[]
+API -> API: auth() - getServerSession()
+alt Chưa đăng nhập
+    API --> Browser: 401 "Chưa đăng nhập"
 end
 
-== Filter Private Tasks ==
-SearchService -> SearchService: Filter private tasks
-note right of SearchService
-    If task.isPrivate = true:
-    Only show if userId = task.creatorId
-    OR userId = task.assigneeId
+== Validate Query ==
+alt query.trim().length < 2
+    API --> Browser: 400 "Query phải có ít nhất 2 ký tự"
+end
+
+== Build Project Filter ==
+API -> API: Determine projectFilter
+note right of API
+  isAdmin: {} (no filter)
+  non-admin: { members: { some: { userId } } }
 end note
 
-== Admin: Search Users ==
-opt isAdministrator = true
-    SearchService -> DB: SELECT * FROM User\nWHERE name ILIKE ? OR email ILIKE ?
-    DB --> SearchService: users[]
+== Search Tasks ==
+API -> DB: SELECT tasks WHERE\n  (title contains query OR description contains query)\n  AND project matches projectFilter
+note right of DB
+  Includes:
+  - title, status, priority
+  - project, assignee
+  LIMIT 20
+end note
+DB --> API: tasks[]
+
+== Search Projects ==
+API -> DB: SELECT projects WHERE\n  (name contains query OR identifier contains query\n   OR description contains query)\n  AND matches projectFilter\n  AND isArchived = false
+note right of DB
+  LIMIT 10
+end note
+DB --> API: projects[]
+
+== Search Comments ==
+API -> DB: SELECT comments WHERE\n  content contains query\n  AND task.project matches projectFilter
+note right of DB
+  Includes: user, task
+  LIMIT 10
+end note
+DB --> API: comments[]
+
+== Search Users ==
+alt isAdministrator
+    API -> DB: SELECT users WHERE\n  (name contains query OR email contains query)\n  AND isActive = true
+    note right of DB
+      Full user search
+      LIMIT 10
+    end note
+    DB --> API: users[]
+else Non-admin
+    API -> DB: SELECT projectMembers WHERE\n  project has current user as member\n  AND user matches query
+    note right of DB
+      Only users in same projects
+      Deduplicated
+      LIMIT 10
+    end note
+    DB --> API: users[]
 end
 
-== Group & Sort Results ==
-SearchService -> SearchService: Group by type
-SearchService -> SearchService: Sort by relevance/date
+== Aggregate Response ==
+API -> API: Build response with counts
 
-SearchService --> API: {tasks, projects, comments, users?}
-
-== Response ==
-API --> Browser: 200 OK\n{results}
+API --> Browser: 200 OK
+note right of API
+  {
+    query: "keyword",
+    results: {tasks, projects, comments, users},
+    counts: {tasks: 5, projects: 2, ...}
+  }
+end note
 
 Browser -> Browser: Render grouped results
-Browser --> User: Display search results
+Browser --> User: Display results
 
-== Navigate to Result ==
+== Navigate ==
 User -> Browser: Click on result
 Browser -> Browser: Navigate to entity
 
@@ -107,37 +131,57 @@ Browser -> Browser: Navigate to entity
 
 ---
 
-## 3. Search Query Building
+## 3. Project Filter Logic (từ code)
 
-```sql
--- Tasks (with permission filter)
-SELECT t.*, p.name as projectName
-FROM Task t
-JOIN Project p ON t.projectId = p.id
-WHERE (
-    t.subject ILIKE '%keyword%' 
-    OR t.description ILIKE '%keyword%'
-)
-AND t.projectId IN (user_project_ids)
-AND (
-    t.isPrivate = false 
-    OR t.creatorId = userId 
-    OR t.assigneeId = userId
-)
-ORDER BY t.updatedAt DESC
-LIMIT 10;
+```typescript
+// Line 28-30
+const projectFilter = isAdmin
+    ? {}  // Admin sees all
+    : { members: { some: { userId } } };  // Only member projects
 ```
 
 ---
 
-## 4. Permission Filtering
+## 4. User Search Logic (từ code)
 
-| Entity | Filter Rule |
-|--------|-------------|
-| Tasks | projectId IN user's projects + private check |
-| Projects | id IN user's projects |
-| Comments | task.projectId IN user's projects |
-| Users | Admin only |
+```typescript
+// Admin: Full search
+if (isAdmin) {
+    results.users = await prisma.user.findMany({
+        where: {
+            OR: [
+                { name: { contains: searchQuery } },
+                { email: { contains: searchQuery } },
+            ],
+            isActive: true,
+        },
+        take: 10,
+    });
+} else {
+    // Non-admin: Only users in same projects
+    const projectMembers = await prisma.projectMember.findMany({
+        where: {
+            project: { members: { some: { userId } } },
+            user: {
+                OR: [
+                    { name: { contains: searchQuery } },
+                    { email: { contains: searchQuery } },
+                ],
+                isActive: true,
+            },
+        },
+        ...
+    });
+    // Deduplicate users
+    const uniqueUsers = new Map();
+    projectMembers.forEach((pm) => {
+        if (!uniqueUsers.has(pm.user.id)) {
+            uniqueUsers.set(pm.user.id, pm.user);
+        }
+    });
+    results.users = Array.from(uniqueUsers.values());
+}
+```
 
 ---
 
@@ -145,41 +189,48 @@ LIMIT 10;
 
 ### Request
 ```http
-GET /api/search?q=login&limit=20
+GET /api/search?q=login&type=all
 ```
 
 ### Response
-```http
-HTTP/1.1 200 OK
-
+```json
 {
-  "tasks": [
-    {
-      "id": "task-uuid",
-      "taskNumber": 42,
-      "subject": "Implement login feature",
-      "projectName": "My Project",
-      "status": "In Progress"
-    }
-  ],
-  "projects": [
-    {
-      "id": "project-uuid",
-      "name": "Login System",
-      "identifier": "login-system"
-    }
-  ],
-  "comments": [
-    {
-      "id": "comment-uuid",
-      "content": "...login button should...",
-      "taskNumber": 15
-    }
-  ],
-  "users": []
+  "query": "login",
+  "results": {
+    "tasks": [
+      {
+        "id": "task-uuid",
+        "title": "Implement login feature",
+        "status": {"name": "In Progress", "isClosed": false},
+        "priority": {"name": "High", "color": "#ff0000"},
+        "project": {"id": "...", "name": "My Project"},
+        "assignee": {"id": "...", "name": "John"}
+      }
+    ],
+    "projects": [...],
+    "comments": [...],
+    "users": [...]
+  },
+  "counts": {
+    "tasks": 5,
+    "projects": 2,
+    "comments": 3,
+    "users": 1
+  }
 }
 ```
 
 ---
 
-*Ngày tạo: 2026-01-15*
+## 6. Key Differences from Generic Design
+
+| Aspect | Generic | Actual Code |
+|--------|---------|-------------|
+| User search | Admin only | Non-admin CAN search users in same projects |
+| Query method | ILIKE | `contains` (Prisma) |
+| Private task filter | Explicit | NOT implemented in search (potential issue) |
+| Type filter | All | Supports `?type=tasks\|projects\|comments\|users\|all` |
+
+---
+
+*Ngày cập nhật: 2026-01-16 - Based on actual code review*

@@ -2,7 +2,7 @@
 
 > **Use Case**: UC-10 - Tạo dự án mới  
 > **Module**: Project Management  
-> **Ngày**: 2026-01-15
+> **Ngày**: 2026-01-16 (Updated from code review)
 
 ---
 
@@ -10,10 +10,9 @@
 
 | Thuộc tính | Giá trị |
 |------------|---------|
-| **Participants** | Browser, API Route, Permission Service, Project Service, Database |
-| **Trigger** | User submit create project form |
-| **Precondition** | User có quyền `projects.create` |
-| **Postcondition** | Project được tạo, Creator thành member với role Manager |
+| **Participants** | Browser, API Route, Prisma |
+| **API Endpoint** | POST /api/projects |
+| **Source File** | `src/app/api/projects/route.ts` |
 
 ---
 
@@ -26,91 +25,93 @@ skinparam backgroundColor #FEFEFE
 skinparam sequenceMessageAlign center
 
 title Sequence Diagram: Tạo dự án mới (UC-10)
+footer Based on: src/app/api/projects/route.ts
 
 actor "User" as User
 participant "Browser\n(React)" as Browser #LightBlue
-participant "API Route\n(/api/projects)" as API #Orange
-participant "Permission\nService" as PermService #Pink
-participant "Project\nService" as ProjService #LightGreen
-database "Database\n(Prisma)" as DB #LightGray
-
-== Khởi tạo Form ==
-User -> Browser: Click "Tạo dự án mới"
-Browser -> Browser: Mở CreateProjectModal
+participant "POST /api/projects" as API #Orange
+database "Prisma\n(Database)" as DB #LightGray
 
 == Submit Form ==
 User -> Browser: Nhập: name, identifier, description, dates
-User -> Browser: Click "Tạo"
+User -> Browser: Click "Tạo dự án"
 Browser -> API: POST /api/projects\n{name, identifier, description, startDate, endDate}
 
-== Authentication Check ==
-API -> API: getServerSession()
-alt Chưa đăng nhập
-    API --> Browser: 401 Unauthorized
-    Browser --> User: Redirect to /login
+== Authentication ==
+API -> API: auth() - getServerSession()
+alt !session
+    API --> Browser: 401 "Chưa đăng nhập"
 end
 
 == Permission Check ==
-API -> PermService: hasPermission(userId, null, "projects.create")
-PermService -> DB: SELECT isAdministrator FROM User WHERE id = ?
-DB --> PermService: user
-
-alt isAdministrator = true
-    PermService --> API: true (bypass)
-else isAdministrator = false
-    PermService -> DB: SELECT p.key FROM Permission p\nJOIN RolePermission rp ON ...\nWHERE key = "projects.create"
-    DB --> PermService: permissions[]
+alt !session.user.isAdministrator
+    API -> API: checkPermission(userId, 'projects.create')
+    
+    API -> DB: SELECT role.permissions FROM ProjectMember\nWHERE userId = ?
+    note right of DB
+      Check nếu bất kỳ role nào
+      có permission 'projects.create'
+    end note
+    DB --> API: permissions[]
+    
+    API -> API: Check 'projects.create' in any role
     
     alt Không có quyền
-        PermService --> API: false
-        API --> Browser: 403 Forbidden
-        Browser --> User: "Bạn không có quyền tạo dự án"
-    else Có quyền
-        PermService --> API: true
+        API --> Browser: 403 "Không có quyền tạo dự án"
     end
 end
 
-== Validation ==
-API -> ProjService: validateProject(data)
-ProjService -> ProjService: Check required fields (name, identifier)
-ProjService -> ProjService: Validate identifier format\n(lowercase, alphanumeric, dashes)
+== Validate Input ==
+API -> API: createProjectSchema.parse(body)
+note right of API
+  - name: required, max 100
+  - identifier: required, lowercase + numbers + dashes
+  - description: optional
+  - startDate, endDate: optional
+end note
 
 alt Validation failed
-    ProjService --> API: ValidationError
-    API --> Browser: 400 Bad Request
-    Browser --> User: Hiển thị validation errors
+    API --> Browser: 400 Validation errors
 end
 
 == Check Unique Identifier ==
-ProjService -> DB: SELECT id FROM Project\nWHERE identifier = ?
-DB --> ProjService: existingProject | null
+API -> DB: SELECT * FROM Project\nWHERE identifier = ?
+DB --> API: existing | null
 
 alt Identifier đã tồn tại
-    ProjService --> API: Error("Identifier already exists")
-    API --> Browser: 409 Conflict
-    Browser --> User: "Mã dự án đã tồn tại"
+    API --> Browser: 400 "Định danh dự án đã tồn tại"
 end
 
-== Create Project ==
-ProjService -> DB: INSERT INTO Project\n(name, identifier, description, startDate, endDate, creatorId)
-DB --> ProjService: newProject
+== Get Manager Role ==
+API -> DB: SELECT * FROM Role\nWHERE name = 'Manager'
+DB --> API: managerRole | null
 
-== Auto-assign Creator as Manager ==
-ProjService -> DB: SELECT id FROM Role WHERE name = 'Manager'
-DB --> ProjService: managerRoleId
-
-ProjService -> DB: INSERT INTO ProjectMember\n(projectId, userId, roleId)
+== Create Project + Add Creator as Member ==
+API -> DB: INSERT INTO Project (\n  name, description, identifier,\n  startDate, endDate, creatorId\n)\n+ INSERT INTO ProjectMember (\n  projectId, userId, roleId = Manager\n)
 note right of DB
-    userId = creator
-    roleId = Manager
+  Nested create:
+  Creator tự động làm member
+  với role Manager
 end note
-DB --> ProjService: projectMember
+DB --> API: project with members
+
+== Enable All Trackers ==
+API -> DB: SELECT id FROM Tracker
+DB --> API: allTrackers[]
+
+API -> DB: INSERT INTO ProjectTracker\n(projectId, trackerId) FOR EACH tracker
+note right of DB
+  Mặc định enable tất cả
+  trackers cho project mới
+end note
+DB --> API: projectTrackers[]
+
+== Audit Log ==
+API -> DB: INSERT INTO AuditLog\n(action='created', entityType='project', ...)
+DB --> API: auditLog
 
 == Response ==
-ProjService --> API: project with member
-API --> Browser: 201 Created\n{project}
-Browser -> Browser: Close modal
-Browser -> Browser: Refresh project list
+API --> Browser: 201 Created {project}
 Browser --> User: Redirect to /projects/{identifier}
 
 @enduml
@@ -118,63 +119,120 @@ Browser --> User: Redirect to /projects/{identifier}
 
 ---
 
-## 3. Participants Description
+## 3. Permission Check Logic (từ code)
 
-| Participant | File/Module | Chức năng |
-|-------------|-------------|-----------|
-| Browser | React Components | UI, form handling |
-| API Route | /api/projects/route.ts | HTTP endpoint |
-| Permission Service | lib/permissions.ts | RBAC check |
-| Project Service | lib/services/project.ts | Business logic |
-| Database | Prisma | Data persistence |
+```typescript
+// src/app/api/projects/route.ts - Line 88-93
+if (!session.user.isAdministrator) {
+    const hasPermission = await checkPermission(session.user.id, 'projects.create');
+    if (!hasPermission) {
+        return errorResponse('Không có quyền tạo dự án', 403);
+    }
+}
+
+// Helper function - Line 170-192
+async function checkPermission(userId: string, permissionKey: string): Promise<boolean> {
+    const memberships = await prisma.projectMember.findMany({
+        where: { userId },
+        include: {
+            role: {
+                include: {
+                    permissions: {
+                        include: { permission: true },
+                    },
+                },
+            },
+        },
+    });
+
+    for (const membership of memberships) {
+        const hasPermission = membership.role.permissions.some(
+            (rp) => rp.permission.key === permissionKey
+        );
+        if (hasPermission) return true;
+    }
+
+    return false;
+}
+```
+
+> **Note**: `projects.create` được check xem user có permission này trong **bất kỳ project nào** (không phải project-specific).
 
 ---
 
-## 4. Request/Response
+## 4. Auto-enable Trackers (từ code)
+
+```typescript
+// Line 146-155
+const allTrackers = await prisma.tracker.findMany({ select: { id: true } });
+if (allTrackers.length > 0) {
+    await prisma.projectTracker.createMany({
+        data: allTrackers.map(t => ({
+            projectId: project.id,
+            trackerId: t.id
+        }))
+    });
+}
+```
+
+---
+
+## 5. Request/Response
 
 ### Request
 ```http
 POST /api/projects
 Content-Type: application/json
-Cookie: next-auth.session-token=...
 
 {
-  "name": "My Project",
-  "identifier": "my-project",
+  "name": "My New Project",
+  "identifier": "my-new-project",
   "description": "Project description",
   "startDate": "2026-01-15",
   "endDate": "2026-06-30"
 }
 ```
 
-### Response (Success)
-```http
-HTTP/1.1 201 Created
-Content-Type: application/json
+### Validation Rules (từ validations.ts)
+```typescript
+createProjectSchema = z.object({
+    name: z.string().min(1).max(100),
+    description: z.string().optional(),
+    identifier: z.string().min(1).max(50)
+        .regex(/^[a-z0-9-]+$/, 'chỉ chữ thường, số và dấu gạch ngang'),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+});
+```
 
+### Success Response (201)
+```json
 {
-  "id": "uuid",
-  "name": "My Project",
-  "identifier": "my-project",
-  "description": "Project description",
-  "startDate": "2026-01-15T00:00:00Z",
-  "endDate": "2026-06-30T00:00:00Z",
-  "creatorId": "user-uuid",
-  "createdAt": "2026-01-15T16:50:00Z"
+  "id": "project-uuid",
+  "name": "My New Project",
+  "identifier": "my-new-project",
+  "description": "...",
+  "creator": {"id": "...", "name": "..."},
+  "members": [
+    {
+      "user": {"id": "...", "name": "..."},
+      "role": {"id": "...", "name": "Manager"}
+    }
+  ],
+  "_count": {"tasks": 0, "members": 1}
 }
 ```
 
 ---
 
-## 5. Error Responses
+## 6. Side Effects
 
-| Scenario | Status | Response |
-|----------|--------|----------|
-| Not authenticated | 401 | `{"error": "Unauthorized"}` |
-| No permission | 403 | `{"error": "Forbidden"}` |
-| Validation error | 400 | `{"error": "Name is required"}` |
-| Duplicate identifier | 409 | `{"error": "Identifier already exists"}` |
+| Action | Description |
+|--------|-------------|
+| Creator as Manager | Auto-add creator to ProjectMember with Manager role |
+| Enable Trackers | Enable ALL system trackers for the new project |
+| Audit Log | logCreate('project', ...) |
 
 ---
 
-*Ngày tạo: 2026-01-15*
+*Ngày cập nhật: 2026-01-16 - Based on actual code review*

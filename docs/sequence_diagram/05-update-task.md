@@ -2,7 +2,7 @@
 
 > **Use Case**: UC-25 - Cập nhật công việc  
 > **Module**: Task Management  
-> **Ngày**: 2026-01-15
+> **Ngày**: 2026-01-16 (Updated from code review)
 
 ---
 
@@ -10,10 +10,9 @@
 
 | Thuộc tính | Giá trị |
 |------------|---------|
-| **Participants** | Browser, API, Permission Service, Task Service, Audit Service, Notification Service, Database |
-| **Trigger** | User save task changes |
-| **Precondition** | User có quyền edit task |
-| **Postcondition** | Task updated, Version incremented, Audit logged, Watchers notified |
+| **Participants** | Browser, API Route, Permission Check, Task Service, Audit Log, Notification Service, Database |
+| **API Endpoint** | PUT /api/tasks/[id] |
+| **Source File** | `src/app/api/tasks/[id]/route.ts` |
 
 ---
 
@@ -26,113 +25,146 @@ skinparam backgroundColor #FEFEFE
 skinparam sequenceMessageAlign center
 
 title Sequence Diagram: Cập nhật công việc (UC-25)
+footer Based on: src/app/api/tasks/[id]/route.ts
 
 actor "User" as User
 participant "Browser\n(React)" as Browser #LightBlue
-participant "API Route\n(/api/tasks/[id])" as API #Orange
-participant "Permission\nService" as PermService #Pink
-participant "Task\nService" as TaskService #LightGreen
-participant "Audit\nService" as AuditService #Yellow
-participant "Notification\nService" as NotifyService #Cyan
-database "Database\n(Prisma)" as DB #LightGray
+participant "PUT /api/tasks/[id]" as API #Orange
+participant "canEditTask()" as CanEdit #Pink
+participant "canTransitionStatus()" as WorkflowCheck #Pink
+participant "updateParentAttributes()" as ParentUpdate #LightGreen
+participant "logUpdate()" as AuditLog #Yellow
+participant "notifyTaskAssigned()" as Notify #Cyan
+database "Prisma\n(Database)" as DB #LightGray
 
-== Load Task ==
-User -> Browser: Open task detail
-Browser -> API: GET /api/tasks/{id}
-API -> DB: SELECT task with relations
-DB --> API: task
-API --> Browser: task (including version)
-Browser -> Browser: Store currentVersion
-
-== Edit Task ==
-User -> Browser: Modify fields
+== Load & Edit ==
+User -> Browser: Edit task fields
 User -> Browser: Click "Lưu"
-
-Browser -> API: PATCH /api/tasks/{id}\n{changes, version: currentVersion}
+Browser -> API: PUT /api/tasks/{id}\n{title, statusId, lockVersion, ...}
 
 == Authentication ==
-API -> API: getServerSession()
+API -> API: auth() - getServerSession()
+alt Chưa đăng nhập
+    API --> Browser: 401 "Chưa đăng nhập"
+end
+
+== Resolve Task ID ==
+API -> API: resolveTaskId(rawId)
+note right: Support both CUID and number (#42)
+
+== Permission Check ==
+API -> CanEdit: canEditTask(userId, taskId, isAdmin)
+CanEdit -> DB: SELECT creatorId, assigneeId, projectId FROM Task
+
+CanEdit -> DB: SELECT role.permissions FROM ProjectMember\nWHERE userId = ? AND projectId = ?
+DB --> CanEdit: permissions[]
+
+alt Has 'tasks.edit_any'
+    CanEdit --> API: true
+else Is creator AND has 'tasks.edit_own'
+    CanEdit --> API: true
+else Is assignee AND has 'tasks.edit_assigned'
+    CanEdit --> API: true
+else
+    CanEdit --> API: false
+    API --> Browser: 403 "Không có quyền sửa task này"
+end
 
 == Get Current Task ==
 API -> DB: SELECT * FROM Task WHERE id = ?
-DB --> API: task
+DB --> API: currentTask (with lockVersion, parentId, etc.)
 
-== Permission Check ==
-API -> PermService: canEditTask(userId, task)
-
-PermService -> DB: SELECT role, permissions FROM ProjectMember
-DB --> PermService: userRole, permissions[]
-
-alt Has tasks.edit_any
-    PermService --> API: true
-else Has tasks.edit_own AND is creator
-    PermService -> PermService: Check task.creatorId === userId
-    PermService --> API: true/false
-else No permission
-    PermService --> API: false
-    API --> Browser: 403 Forbidden
-    Browser --> User: "Bạn không có quyền sửa công việc này"
+== Workflow Validation (if status change) ==
+opt statusId changed
+    API -> WorkflowCheck: canTransitionStatus(user, taskId, newStatusId)
+    WorkflowCheck -> DB: SELECT * FROM WorkflowTransition\nWHERE trackerId = ? AND fromStatusId = ?\nAND toStatusId = ?\nAND (roleId IS NULL OR roleId IN userRoles)
+    DB --> WorkflowCheck: transition | null
+    
+    alt Transition NOT allowed
+        WorkflowCheck --> API: false
+        API --> Browser: 403 "Không được phép chuyển\ntrạng thái này theo Workflow"
+    end
 end
 
 == Optimistic Locking ==
-API -> TaskService: updateTask(id, changes, clientVersion)
-TaskService -> DB: SELECT version FROM Task WHERE id = ?
-DB --> TaskService: dbVersion
-
-TaskService -> TaskService: Compare versions
-
-alt clientVersion !== dbVersion
-    TaskService --> API: ConflictError
-    API --> Browser: 409 Conflict
-    note right of Browser
-        "Dữ liệu đã bị thay đổi bởi người khác"
-        "Vui lòng refresh và thử lại"
-    end note
-    Browser --> User: Show conflict dialog
+API -> API: Compare lockVersion
+alt body.lockVersion !== currentTask.lockVersion
+    API --> Browser: 409 "Dữ liệu đã bị thay đổi\nbởi người khác"
 end
 
-== Validation ==
-TaskService -> TaskService: Validate changes
-alt Validation failed
-    TaskService --> API: ValidationError
-    API --> Browser: 400 Bad Request
+== Tracker Validation (if tracker change) ==
+opt trackerId changed
+    API -> DB: SELECT FROM ProjectTracker\nWHERE projectId = ? AND trackerId = ?
+    alt Not enabled for project
+        API --> Browser: 400 "Tracker không được kích hoạt"
+    end
+    
+    API -> DB: SELECT FROM RoleTracker\nWHERE roleId = ? AND trackerId = ?
+    alt Not allowed for role
+        API --> Browser: 403 "Role không cho phép Tracker này"
+    end
 end
 
-== Store Old Values ==
-TaskService -> TaskService: oldValues = {...currentTask}
+== Assignee Validation (if assignee change) ==
+opt assigneeId changed
+    API -> DB: SELECT FROM ProjectMember\nWHERE projectId = ? AND userId = newAssignee
+    alt Not a member
+        API --> Browser: 400 "Người thực hiện không phải thành viên"
+    end
+    
+    alt Assigning to OTHER (not self)
+        API -> DB: SELECT role.canAssignToOther FROM ProjectMember
+        alt canAssignToOther !== true
+            API --> Browser: 403 "Bạn không có quyền giao việc cho người khác"
+        end
+    end
+end
+
+== Handle Status Change ==
+opt statusId changed
+    API -> DB: SELECT isClosed, defaultDoneRatio FROM Status
+    
+    alt newStatus.isClosed = true
+        API -> API: doneRatio = 100
+        note right: FORCE 100% for closed
+    else oldStatus.isClosed AND !newStatus.isClosed
+        API -> API: doneRatio = defaultDoneRatio || 0
+        note right: Reset when reopening
+    end
+end
 
 == Update Task ==
-TaskService -> DB: UPDATE Task SET\n...changes,\nversion = version + 1,\nupdatedAt = NOW()\nWHERE id = ? AND version = clientVersion
-DB --> TaskService: updatedTask
-
-== Audit Log ==
-TaskService -> AuditService: logChanges(userId, "Task", taskId, oldValues, newValues)
-
-loop For each changed field
-    AuditService -> DB: INSERT INTO AuditLog\n(userId, action="updated", entityType, entityId,\nfieldName, oldValue, newValue)
-end
-DB --> AuditService: auditLogs[]
+API -> DB: UPDATE Task SET\n..., lockVersion = lockVersion + 1
+DB --> API: updatedTask
 
 == Update Parent (if subtask) ==
-opt task.parentId exists
-    TaskService -> TaskService: updateParentAttributes(parentId)
-    TaskService -> DB: Calculate and UPDATE parent
-    DB --> TaskService: updated
+opt task.parentId exists OR parentId changed
+    API -> ParentUpdate: updateParentAttributes(parentId)
+    ParentUpdate -> DB: SELECT subtasks
+    ParentUpdate -> ParentUpdate: Calculate:\n- startDate = MIN\n- dueDate = MAX\n- doneRatio = weighted AVG
+    ParentUpdate -> DB: UPDATE parent task
+    
+    opt parent has grandparent
+        ParentUpdate -> ParentUpdate: Recursive call
+    end
 end
 
-== Notify Watchers ==
-TaskService -> NotifyService: notifyWatchers(taskId, changes)
-NotifyService -> DB: SELECT userId FROM Watcher\nWHERE taskId = ?
-DB --> NotifyService: watchers[]
-
-loop For each watcher (except editor)
-    NotifyService -> DB: INSERT INTO Notification\n(userId, type, taskId, message)
+== Notifications ==
+opt assigneeId changed AND newAssignee !== currentUser
+    API -> Notify: notifyTaskAssigned(taskId, title, newAssignee, actorName)
+    Notify -> DB: INSERT Notification
 end
+
+opt statusId changed
+    API -> API: notifyTaskStatusChanged(...)
+end
+
+== Audit Log ==
+API -> AuditLog: logUpdate('task', id, userId, oldValues, newValues)
+AuditLog -> DB: INSERT AuditLog for each changed field
 
 == Response ==
-TaskService --> API: updatedTask (with new version)
-API --> Browser: 200 OK\n{task}
-Browser -> Browser: Update local state
+API --> Browser: 200 OK {task}
 Browser --> User: "Đã cập nhật công việc"
 
 @enduml
@@ -140,85 +172,87 @@ Browser --> User: "Đã cập nhật công việc"
 
 ---
 
-## 3. Optimistic Locking Flow
+## 3. Permission Check Logic (từ code)
 
-```
-Timeline:
-─────────────────────────────────────────────────────────────►
-
-User A                                      User B
-   │                                           │
-   ├─► Load task (version=5)                   │
-   │                                           ├─► Load task (version=5)
-   │                                           │
-   ├─► Edit & Save (version=5)                 │
-   │   └─► DB: version becomes 6              │
-   │                                           │
-   │                                           ├─► Edit & Save (version=5)
-   │                                           │   └─► CONFLICT! DB version=6
-   │                                           │       Client version=5
-   │                                           │       Return 409
-```
-
----
-
-## 4. Audit Log Structure
-
-```json
-{
-  "id": "audit-uuid",
-  "userId": "user-uuid",
-  "action": "updated",
-  "entityType": "Task",
-  "entityId": "task-uuid",
-  "fieldName": "status",
-  "oldValue": "New",
-  "newValue": "In Progress",
-  "createdAt": "2026-01-15T16:50:00Z"
+```typescript
+// src/app/api/tasks/[id]/route.ts - canEditTask()
+async function canEditTask(userId, taskId, isAdmin) {
+    if (isAdmin) return true;
+    
+    const task = await prisma.task.findUnique({...});
+    const membership = await prisma.projectMember.findFirst({...});
+    const permissions = membership.role.permissions.map(p => p.permission.key);
+    
+    // Priority order:
+    if (permissions.includes('tasks.edit_any')) return true;
+    if (task.creatorId === userId && permissions.includes('tasks.edit_own')) return true;
+    if (task.assigneeId === userId && permissions.includes('tasks.edit_assigned')) return true;
+    
+    return false;
 }
 ```
 
 ---
 
-## 5. Request/Response
+## 4. Optimistic Locking (từ code)
+
+```typescript
+// Line 276-279
+if (validatedData.lockVersion !== undefined && 
+    validatedData.lockVersion !== currentTask.lockVersion) {
+    return errorResponse('Dữ liệu đã bị thay đổi bởi người khác...', 409);
+}
+
+// Line 342 - Increment on update
+lockVersion: { increment: 1 }
+```
+
+---
+
+## 5. Status Change + Done Ratio Logic (từ code)
+
+```typescript
+// Line 410-421
+if (newStatus.isClosed) {
+    updateData.doneRatio = 100;  // FORCE 100%
+} else if (oldStatus?.isClosed && !newStatus.isClosed) {
+    updateData.doneRatio = newStatus.defaultDoneRatio ?? 0;  // Reset
+} else if (validatedData.doneRatio === undefined && 
+           newStatus.defaultDoneRatio !== null) {
+    updateData.doneRatio = newStatus.defaultDoneRatio;
+}
+```
+
+---
+
+## 6. Request/Response (từ validation schema)
 
 ### Request
 ```http
-PATCH /api/tasks/task-uuid
+PUT /api/tasks/task-uuid
 Content-Type: application/json
 
 {
-  "subject": "Updated title",
+  "title": "Updated title",
   "statusId": "status-uuid",
   "assigneeId": "user-uuid",
-  "version": 5
+  "lockVersion": 5,
+  "doneRatio": 50
 }
 ```
 
-### Response (Success)
-```http
-HTTP/1.1 200 OK
+### Responses
 
-{
-  "id": "task-uuid",
-  "subject": "Updated title",
-  "version": 6,
-  "updatedAt": "2026-01-15T17:00:00Z"
-}
-```
-
-### Response (Conflict)
-```http
-HTTP/1.1 409 Conflict
-
-{
-  "error": "Conflict",
-  "message": "Task has been modified by another user",
-  "currentVersion": 6,
-  "yourVersion": 5
-}
-```
+| Status | Condition | Body |
+|--------|-----------|------|
+| 200 | Success | `{task object}` |
+| 401 | Not logged in | `{"error": "Chưa đăng nhập"}` |
+| 403 | No edit permission | `{"error": "Không có quyền sửa task này"}` |
+| 403 | Workflow violation | `{"error": "Không được phép chuyển..."}` |
+| 403 | Cannot assign to others | `{"error": "Bạn không có quyền giao việc..."}` |
+| 409 | Version conflict | `{"error": "Dữ liệu đã bị thay đổi..."}` |
+| 400 | Validation error | `{"error": "..."}` |
 
 ---
 
-*Ngày tạo: 2026-01-15*
+*Ngày cập nhật: 2026-01-16 - Based on actual code review*
