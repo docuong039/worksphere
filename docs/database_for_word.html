@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<style>
+    body { font-family: 'Times New Roman', serif; line-height: 1.6; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th, td { border: 1px solid black; padding: 8px; text-align: left; vertical-align: top; }
+    th { background-color: #f2f2f2; font-weight: bold; }
+    h2 { margin-top: 30px; font-size: 16pt; color: #000; }
+</style>
+</head>
+<body>
+
+<h2>1. Bảng Users (users)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã người dùng</td><td>PK, CUID</td></tr>
+        <tr><td>email</td><td>varchar(255)</td><td>Email người dùng</td><td>Not Null, Unique</td></tr>
+        <tr><td>name</td><td>varchar(255)</td><td>Tên người dùng</td><td>Not Null</td></tr>
+        <tr><td>password</td><td>varchar(255)</td><td>Mật khẩu (đã mã hóa)</td><td>Not Null</td></tr>
+        <tr><td>avatar</td><td>varchar(255)</td><td>Đường dẫn ảnh đại diện</td><td>Nullable</td></tr>
+        <tr><td>isAdministrator</td><td>boolean</td><td>Quyền quản trị hệ thống</td><td>Not Null, Default(false)</td></tr>
+        <tr><td>isActive</td><td>boolean</td><td>Trạng thái hoạt động</td><td>Not Null, Default(true)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+        <tr><td>updatedAt</td><td>datetime</td><td>Thời gian cập nhật</td><td>Not Null</td></tr>
+    </tbody>
+</table>
+
+<h2>2. Bảng Roles (roles)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã vai trò</td><td>PK, CUID</td></tr>
+        <tr><td>name</td><td>varchar(255)</td><td>Tên vai trò</td><td>Not Null, Unique</td></tr>
+        <tr><td>description</td><td>text</td><td>Mô tả vai trò</td><td>Nullable</td></tr>
+        <tr><td>isActive</td><td>boolean</td><td>Trạng thái hoạt động</td><td>Not Null, Default(true)</td></tr>
+        <tr><td>assignable</td><td>boolean</td><td>Quyền được gán công việc</td><td>Not Null, Default(true)</td></tr>
+        <tr><td>canAssignToOther</td><td>boolean</td><td>Quyền gán việc cho người khác</td><td>Not Null, Default(true)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+        <tr><td>updatedAt</td><td>datetime</td><td>Thời gian cập nhật</td><td>Not Null</td></tr>
+    </tbody>
+</table>
+
+<h2>3. Bảng RoleTrackers (role_trackers)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã quan hệ vai trò - loại việc</td><td>PK, CUID</td></tr>
+        <tr><td>roleId</td><td>varchar(255)</td><td>Mã vai trò</td><td>Not Null, FK(roles)</td></tr>
+        <tr><td>trackerId</td><td>varchar(255)</td><td>Mã loại công việc</td><td>Not Null, FK(trackers)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+    </tbody>
+</table>
+
+<h2>4. Bảng Permissions (permissions)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã quyền hạn</td><td>PK, CUID</td></tr>
+        <tr><td>key</td><td>varchar(255)</td><td>Khóa quyền hạn</td><td>Not Null, Unique</td></tr>
+        <tr><td>name</td><td>varchar(255)</td><td>Tên quyền hạn</td><td>Not Null</td></tr>
+        <tr><td>description</td><td>text</td><td>Mô tả quyền hạn</td><td>Nullable</td></tr>
+        <tr><td>module</td><td>varchar(255)</td><td>Module chức năng</td><td>Not Null</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+    </tbody>
+</table>
+
+<h2>5. Bảng RolePermissions (role_permissions)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã quan hệ vai trò - quyền hạn</td><td>PK, CUID</td></tr>
+        <tr><td>roleId</td><td>varchar(255)</td><td>Mã vai trò</td><td>Not Null, FK(roles)</td></tr>
+        <tr><td>permissionId</td><td>varchar(255)</td><td>Mã quyền hạn</td><td>Not Null, FK(permissions)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+    </tbody>
+</table>
+
+<h2>6. Bảng Trackers (trackers)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã loại công việc</td><td>PK, CUID</td></tr>
+        <tr><td>name</td><td>varchar(255)</td><td>Tên loại công việc</td><td>Not Null, Unique</td></tr>
+        <tr><td>description</td><td>text</td><td>Mô tả</td><td>Nullable</td></tr>
+        <tr><td>position</td><td>int</td><td>Vị trí sắp xếp</td><td>Not Null, Default(0)</td></tr>
+        <tr><td>isDefault</td><td>boolean</td><td>Là loại mặc định</td><td>Not Null, Default(false)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+        <tr><td>updatedAt</td><td>datetime</td><td>Thời gian cập nhật</td><td>Not Null</td></tr>
+    </tbody>
+</table>
+
+<h2>7. Bảng ProjectTrackers (project_trackers)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã quan hệ dự án - loại việc</td><td>PK, CUID</td></tr>
+        <tr><td>projectId</td><td>varchar(255)</td><td>Mã dự án</td><td>Not Null, FK(projects)</td></tr>
+        <tr><td>trackerId</td><td>varchar(255)</td><td>Mã loại công việc</td><td>Not Null, FK(trackers)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+    </tbody>
+</table>
+
+<h2>8. Bảng Statuses (statuses)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã trạng thái</td><td>PK, CUID</td></tr>
+        <tr><td>name</td><td>varchar(255)</td><td>Tên trạng thái</td><td>Not Null, Unique</td></tr>
+        <tr><td>description</td><td>text</td><td>Mô tả</td><td>Nullable</td></tr>
+        <tr><td>position</td><td>int</td><td>Vị trí sắp xếp</td><td>Not Null, Default(0)</td></tr>
+        <tr><td>isClosed</td><td>boolean</td><td>Là trạng thái đóng</td><td>Not Null, Default(false)</td></tr>
+        <tr><td>isDefault</td><td>boolean</td><td>Là trạng thái mặc định</td><td>Not Null, Default(false)</td></tr>
+        <tr><td>defaultDoneRatio</td><td>int</td><td>Tỷ lệ hoàn thành mặc định</td><td>Nullable</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+        <tr><td>updatedAt</td><td>datetime</td><td>Thời gian cập nhật</td><td>Not Null</td></tr>
+    </tbody>
+</table>
+
+<h2>9. Bảng Priorities (priorities)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã độ ưu tiên</td><td>PK, CUID</td></tr>
+        <tr><td>name</td><td>varchar(255)</td><td>Tên độ ưu tiên</td><td>Not Null, Unique</td></tr>
+        <tr><td>position</td><td>int</td><td>Vị trí sắp xếp</td><td>Not Null, Default(0)</td></tr>
+        <tr><td>color</td><td>varchar(255)</td><td>Mã màu</td><td>Nullable</td></tr>
+        <tr><td>isDefault</td><td>boolean</td><td>Là độ ưu tiên mặc định</td><td>Not Null, Default(false)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+        <tr><td>updatedAt</td><td>datetime</td><td>Thời gian cập nhật</td><td>Not Null</td></tr>
+    </tbody>
+</table>
+
+<h2>10. Bảng WorkflowTransitions (workflow_transitions)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã chuyển đổi quy trình</td><td>PK, CUID</td></tr>
+        <tr><td>trackerId</td><td>varchar(255)</td><td>Mã loại công việc</td><td>Not Null, FK(trackers)</td></tr>
+        <tr><td>roleId</td><td>varchar(255)</td><td>Mã vai trò</td><td>Nullable, FK(roles)</td></tr>
+        <tr><td>fromStatusId</td><td>varchar(255)</td><td>Mã trạng thái nguồn</td><td>Not Null, FK(statuses)</td></tr>
+        <tr><td>toStatusId</td><td>varchar(255)</td><td>Mã trạng thái đích</td><td>Not Null, FK(statuses)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+    </tbody>
+</table>
+
+<h2>11. Bảng Projects (projects)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã dự án</td><td>PK, CUID</td></tr>
+        <tr><td>name</td><td>varchar(255)</td><td>Tên dự án</td><td>Not Null</td></tr>
+        <tr><td>description</td><td>text</td><td>Mô tả dự án</td><td>Nullable</td></tr>
+        <tr><td>identifier</td><td>varchar(255)</td><td>Mã định danh dự án</td><td>Not Null, Unique</td></tr>
+        <tr><td>startDate</td><td>datetime</td><td>Ngày bắt đầu</td><td>Nullable</td></tr>
+        <tr><td>endDate</td><td>datetime</td><td>Ngày kết thúc</td><td>Nullable</td></tr>
+        <tr><td>isArchived</td><td>boolean</td><td>Trạng thái lưu trữ</td><td>Not Null, Default(false)</td></tr>
+        <tr><td>isPublic</td><td>boolean</td><td>Trạng thái công khai</td><td>Not Null, Default(false)</td></tr>
+        <tr><td>creatorId</td><td>varchar(255)</td><td>Người tạo dự án</td><td>Not Null, FK(users)</td></tr>
+        <tr><td>parentId</td><td>varchar(255)</td><td>Dự án cha</td><td>Nullable, FK(projects)</td></tr>
+        <tr><td>parentIssueDates</td><td>varchar(255)</td><td>Cài đặt ngày công việc cha</td><td>Not Null, Default("calculated")</td></tr>
+        <tr><td>parentIssuePriority</td><td>varchar(255)</td><td>Cài đặt ưu tiên công việc cha</td><td>Not Null, Default("calculated")</td></tr>
+        <tr><td>parentIssueDoneRatio</td><td>varchar(255)</td><td>Cài đặt tiến độ công việc cha</td><td>Not Null, Default("calculated")</td></tr>
+        <tr><td>parentIssueEstimatedHours</td><td>varchar(255)</td><td>Cài đặt giờ ước tính việc cha</td><td>Not Null, Default("calculated")</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+        <tr><td>updatedAt</td><td>datetime</td><td>Thời gian cập nhật</td><td>Not Null</td></tr>
+    </tbody>
+</table>
+
+<h2>12. Bảng ProjectMembers (project_members)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã thành viên dự án</td><td>PK, CUID</td></tr>
+        <tr><td>projectId</td><td>varchar(255)</td><td>Mã dự án</td><td>Not Null, FK(projects)</td></tr>
+        <tr><td>userId</td><td>varchar(255)</td><td>Mã người dùng</td><td>Not Null, FK(users)</td></tr>
+        <tr><td>roleId</td><td>varchar(255)</td><td>Mã vai trò trong dự án</td><td>Not Null, FK(roles)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+        <tr><td>updatedAt</td><td>datetime</td><td>Thời gian cập nhật</td><td>Not Null</td></tr>
+    </tbody>
+</table>
+
+<h2>13. Bảng MemberNotificationSettings (member_notification_settings)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã cài đặt thông báo</td><td>PK, CUID</td></tr>
+        <tr><td>projectMemberId</td><td>varchar(255)</td><td>Mã thành viên dự án</td><td>Not Null, Unique, FK(project_members)</td></tr>
+        <tr><td>notifyOnNew</td><td>boolean</td><td>Thông báo khi có việc mới</td><td>Not Null, Default(true)</td></tr>
+        <tr><td>notifyOnUpdate</td><td>boolean</td><td>Thông báo khi cập nhật việc</td><td>Not Null, Default(true)</td></tr>
+        <tr><td>notifyOnClose</td><td>boolean</td><td>Thông báo khi đóng việc</td><td>Not Null, Default(true)</td></tr>
+        <tr><td>notifyOnNote</td><td>boolean</td><td>Thông báo khi có ghi chú</td><td>Not Null, Default(true)</td></tr>
+        <tr><td>notifyOnAssign</td><td>boolean</td><td>Thông báo khi được gán việc</td><td>Not Null, Default(true)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+        <tr><td>updatedAt</td><td>datetime</td><td>Thời gian cập nhật</td><td>Not Null</td></tr>
+    </tbody>
+</table>
+
+<h2>14. Bảng Versions (versions)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã phiên bản/chặng</td><td>PK, CUID</td></tr>
+        <tr><td>name</td><td>varchar(255)</td><td>Tên phiên bản</td><td>Not Null</td></tr>
+        <tr><td>description</td><td>text</td><td>Mô tả phiên bản</td><td>Nullable</td></tr>
+        <tr><td>status</td><td>varchar(255)</td><td>Trạng thái (open, locked, closed)</td><td>Not Null, Default("open")</td></tr>
+        <tr><td>dueDate</td><td>datetime</td><td>Ngày đến hạn</td><td>Nullable</td></tr>
+        <tr><td>projectId</td><td>varchar(255)</td><td>Mã dự án</td><td>Not Null, FK(projects)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+        <tr><td>updatedAt</td><td>datetime</td><td>Thời gian cập nhật</td><td>Not Null</td></tr>
+    </tbody>
+</table>
+
+<h2>15. Bảng Tasks (tasks)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã công việc</td><td>PK, CUID</td></tr>
+        <tr><td>number</td><td>int</td><td>Số hiệu công việc</td><td>Not Null, Unique, Auto Increment</td></tr>
+        <tr><td>title</td><td>varchar(255)</td><td>Tiêu đề công việc</td><td>Not Null</td></tr>
+        <tr><td>description</td><td>text</td><td>Mô tả chi tiết</td><td>Nullable</td></tr>
+        <tr><td>trackerId</td><td>varchar(255)</td><td>Mã loại công việc</td><td>Not Null, FK(trackers)</td></tr>
+        <tr><td>statusId</td><td>varchar(255)</td><td>Mã trạng thái</td><td>Not Null, FK(statuses)</td></tr>
+        <tr><td>priorityId</td><td>varchar(255)</td><td>Mã độ ưu tiên</td><td>Not Null, FK(priorities)</td></tr>
+        <tr><td>projectId</td><td>varchar(255)</td><td>Mã dự án</td><td>Not Null, FK(projects)</td></tr>
+        <tr><td>assigneeId</td><td>varchar(255)</td><td>Người được giao việc</td><td>Nullable, FK(users)</td></tr>
+        <tr><td>creatorId</td><td>varchar(255)</td><td>Người tạo việc</td><td>Not Null, FK(users)</td></tr>
+        <tr><td>parentId</td><td>varchar(255)</td><td>Công việc cha</td><td>Nullable, FK(tasks)</td></tr>
+        <tr><td>versionId</td><td>varchar(255)</td><td>Phiên bản liên quan</td><td>Nullable, FK(versions)</td></tr>
+        <tr><td>path</td><td>varchar(255)</td><td>Đường dẫn phân cấp</td><td>Nullable</td></tr>
+        <tr><td>level</td><td>int</td><td>Cấp độ phân cấp</td><td>Not Null, Default(0)</td></tr>
+        <tr><td>estimatedHours</td><td>float</td><td>Số giờ ước tính</td><td>Nullable</td></tr>
+        <tr><td>doneRatio</td><td>int</td><td>Tỷ lệ hoàn thành (%)</td><td>Not Null, Default(0)</td></tr>
+        <tr><td>startDate</td><td>datetime</td><td>Ngày bắt đầu</td><td>Nullable</td></tr>
+        <tr><td>dueDate</td><td>datetime</td><td>Ngày kết thúc</td><td>Nullable</td></tr>
+        <tr><td>isPrivate</td><td>boolean</td><td>Là công việc riêng tư</td><td>Not Null, Default(false)</td></tr>
+        <tr><td>lockVersion</td><td>int</td><td>Phiên bản khóa (optimistic locking)</td><td>Not Null, Default(0)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+        <tr><td>updatedAt</td><td>datetime</td><td>Thời gian cập nhật</td><td>Not Null</td></tr>
+    </tbody>
+</table>
+
+<h2>16. Bảng IssueRelations (issue_relations)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã liên kết công việc</td><td>PK, CUID</td></tr>
+        <tr><td>issueFromId</td><td>varchar(255)</td><td>Mã công việc nguồn</td><td>Not Null, FK(tasks)</td></tr>
+        <tr><td>issueToId</td><td>varchar(255)</td><td>Mã công việc đích</td><td>Not Null, FK(tasks)</td></tr>
+        <tr><td>relationType</td><td>varchar(255)</td><td>Loại liên kết</td><td>Not Null</td></tr>
+        <tr><td>delay</td><td>int</td><td>Độ trễ (ngày)</td><td>Nullable</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+    </tbody>
+</table>
+
+<h2>17. Bảng Watchers (watchers)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã người theo dõi</td><td>PK, CUID</td></tr>
+        <tr><td>taskId</td><td>varchar(255)</td><td>Mã công việc</td><td>Not Null, FK(tasks)</td></tr>
+        <tr><td>userId</td><td>varchar(255)</td><td>Mã người dùng</td><td>Not Null, FK(users)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+    </tbody>
+</table>
+
+<h2>18. Bảng Comments (comments)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã bình luận</td><td>PK, CUID</td></tr>
+        <tr><td>content</td><td>text</td><td>Nội dung bình luận</td><td>Not Null</td></tr>
+        <tr><td>taskId</td><td>varchar(255)</td><td>Mã công việc</td><td>Not Null, FK(tasks)</td></tr>
+        <tr><td>userId</td><td>varchar(255)</td><td>Người bình luận</td><td>Not Null, FK(users)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+        <tr><td>updatedAt</td><td>datetime</td><td>Thời gian cập nhật</td><td>Not Null</td></tr>
+    </tbody>
+</table>
+
+<h2>19. Bảng Attachments (attachments)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã tệp đính kèm</td><td>PK, CUID</td></tr>
+        <tr><td>filename</td><td>varchar(255)</td><td>Tên tệp</td><td>Not Null</td></tr>
+        <tr><td>path</td><td>varchar(255)</td><td>Đường dẫn lưu trữ</td><td>Not Null</td></tr>
+        <tr><td>size</td><td>int</td><td>Kích thước tệp (bytes)</td><td>Not Null</td></tr>
+        <tr><td>mimeType</td><td>varchar(255)</td><td>Định dạng tệp (MIME)</td><td>Not Null</td></tr>
+        <tr><td>taskId</td><td>varchar(255)</td><td>Mã công việc</td><td>Not Null, FK(tasks)</td></tr>
+        <tr><td>userId</td><td>varchar(255)</td><td>Người tải lên</td><td>Not Null, FK(users)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+    </tbody>
+</table>
+
+<h2>20. Bảng Notifications (notifications)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã thông báo</td><td>PK, CUID</td></tr>
+        <tr><td>type</td><td>varchar(255)</td><td>Loại thông báo</td><td>Not Null</td></tr>
+        <tr><td>title</td><td>varchar(255)</td><td>Tiêu đề thông báo</td><td>Not Null</td></tr>
+        <tr><td>message</td><td>text</td><td>Nội dung thông báo</td><td>Not Null</td></tr>
+        <tr><td>isRead</td><td>boolean</td><td>Trạng thái đã đọc</td><td>Not Null, Default(false)</td></tr>
+        <tr><td>userId</td><td>varchar(255)</td><td>Người nhận</td><td>Not Null, FK(users)</td></tr>
+        <tr><td>metadata</td><td>json</td><td>Dữ liệu bổ sung</td><td>Nullable</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+    </tbody>
+</table>
+
+<h2>21. Bảng AuditLogs (audit_logs)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã nhật ký hệ thống</td><td>PK, CUID</td></tr>
+        <tr><td>action</td><td>varchar(255)</td><td>Hành động thực hiện</td><td>Not Null</td></tr>
+        <tr><td>entityType</td><td>varchar(255)</td><td>Loại đối tượng</td><td>Not Null</td></tr>
+        <tr><td>entityId</td><td>varchar(255)</td><td>Mã đối tượng</td><td>Not Null</td></tr>
+        <tr><td>changes</td><td>json</td><td>Chi tiết thay đổi</td><td>Nullable</td></tr>
+        <tr><td>userId</td><td>varchar(255)</td><td>Người thực hiện</td><td>Not Null, FK(users)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+    </tbody>
+</table>
+
+<h2>22. Bảng Queries (queries)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã truy vấn đã lưu</td><td>PK, CUID</td></tr>
+        <tr><td>name</td><td>varchar(255)</td><td>Tên truy vấn</td><td>Not Null</td></tr>
+        <tr><td>projectId</td><td>varchar(255)</td><td>Nhóm dự án</td><td>Nullable, FK(projects)</td></tr>
+        <tr><td>userId</td><td>varchar(255)</td><td>Người tạo</td><td>Not Null, FK(users)</td></tr>
+        <tr><td>isPublic</td><td>boolean</td><td>Chia sẻ công khai</td><td>Not Null, Default(false)</td></tr>
+        <tr><td>filters</td><td>text</td><td>Bộ lọc (JSON)</td><td>Not Null</td></tr>
+        <tr><td>columns</td><td>text</td><td>Cột hiển thị (JSON)</td><td>Nullable</td></tr>
+        <tr><td>sortBy</td><td>varchar(255)</td><td>Sắp xếp theo cột</td><td>Nullable</td></tr>
+        <tr><td>sortOrder</td><td>varchar(255)</td><td>Thứ tự sắp xếp (asc/desc)</td><td>Nullable, Default("asc")</td></tr>
+        <tr><td>groupBy</td><td>varchar(255)</td><td>Nhóm theo cột</td><td>Nullable</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+        <tr><td>updatedAt</td><td>datetime</td><td>Thời gian cập nhật</td><td>Not Null</td></tr>
+    </tbody>
+</table>
+
+<h2>23. Bảng TimeEntryActivities (time_entry_activities)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã loại hoạt động</td><td>PK, CUID</td></tr>
+        <tr><td>name</td><td>varchar(255)</td><td>Tên hoạt động</td><td>Not Null, Unique</td></tr>
+        <tr><td>position</td><td>int</td><td>Vị trí hiển thị</td><td>Not Null, Default(0)</td></tr>
+        <tr><td>isDefault</td><td>boolean</td><td>Mặc định</td><td>Not Null, Default(false)</td></tr>
+        <tr><td>isActive</td><td>boolean</td><td>Trạng thái hoạt động</td><td>Not Null, Default(true)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+        <tr><td>updatedAt</td><td>datetime</td><td>Thời gian cập nhật</td><td>Not Null</td></tr>
+    </tbody>
+</table>
+
+<h2>24. Bảng TimeLogs (time_logs)</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Tên trường</th>
+            <th>Kiểu dữ liệu</th>
+            <th>Mô tả</th>
+            <th>Ràng buộc</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>id</td><td>varchar(255)</td><td>Mã bản ghi thời gian</td><td>PK, CUID</td></tr>
+        <tr><td>hours</td><td>float</td><td>Số giờ</td><td>Not Null</td></tr>
+        <tr><td>comments</td><td>text</td><td>Ghi chú</td><td>Nullable</td></tr>
+        <tr><td>spentOn</td><td>datetime</td><td>Ngày thực hiện</td><td>Not Null</td></tr>
+        <tr><td>userId</td><td>varchar(255)</td><td>Người ghi nhận</td><td>Not Null, FK(users)</td></tr>
+        <tr><td>taskId</td><td>varchar(255)</td><td>Mã công việc</td><td>Nullable, FK(tasks)</td></tr>
+        <tr><td>projectId</td><td>varchar(255)</td><td>Mã dự án</td><td>Not Null, FK(projects)</td></tr>
+        <tr><td>activityId</td><td>varchar(255)</td><td>Mã loại hoạt động</td><td>Not Null, FK(time_entry_activities)</td></tr>
+        <tr><td>createdAt</td><td>datetime</td><td>Thời gian tạo</td><td>Not Null, Default(now())</td></tr>
+        <tr><td>updatedAt</td><td>datetime</td><td>Thời gian cập nhật</td><td>Not Null</td></tr>
+    </tbody>
+</table>
+
+</body>
+</html>

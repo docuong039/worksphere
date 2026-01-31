@@ -7,7 +7,7 @@ import {
     LayoutDashboard,
     FolderKanban,
     ListTodo,
-    Clock,
+    Timer,
     Users,
     Shield,
     Tag,
@@ -30,7 +30,7 @@ const mainMenu = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/projects', label: 'Dự án', icon: FolderKanban },
     { href: '/tasks', label: 'Công việc', icon: ListTodo },
-    { href: '/workload', label: 'Phân bổ việc', icon: Clock },
+    { href: '/spent-time', label: 'Thời gian', icon: Timer },
     { href: '/activity', label: 'Hoạt động', icon: Activity },
     { href: '/reports', label: 'Báo cáo', icon: BarChart3 },
 ];
@@ -40,6 +40,7 @@ const adminMenu = [
     { href: '/settings/statuses', label: 'Statuses', icon: Activity },
     { href: '/settings/priorities', label: 'Priorities', icon: GitBranch },
     { href: '/settings/workflow', label: 'Workflow', icon: GitBranch },
+    { href: '/settings/time-activities', label: 'Hoạt động thời gian', icon: Timer },
     { href: '/settings/roles', label: 'Vai trò', icon: Shield },
     { href: '/settings/users', label: 'Người dùng', icon: Users },
 ];

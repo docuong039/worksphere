@@ -89,6 +89,13 @@ export default async function TaskDetailPage({ params }: Props) {
                 },
                 orderBy: { createdAt: 'asc' },
             },
+            timeLogs: {
+                include: {
+                    user: { select: { id: true, name: true } },
+                    activity: { select: { id: true, name: true } },
+                },
+                orderBy: { spentOn: 'desc' },
+            },
         },
     });
 

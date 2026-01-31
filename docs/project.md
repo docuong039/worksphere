@@ -1,253 +1,138 @@
-# Worksphere - Tài liệu Dự án Toàn diện
+# Worksphere Project Documentation
 
-> **Mục đích:** Tài liệu này cung cấp cái nhìn tổng quan và chi tiết về toàn bộ dự án Worksphere, giúp bất kỳ AI agent hoặc developer nào cũng có thể hiểu và làm việc với dự án mà không cần đọc lại toàn bộ mã nguồn.
+## 1. Project Overview
 
----
+**Worksphere** is a comprehensive Project Management and Issue Tracking system built with modern web technologies. It is designed to help teams organize, track, and manage their work efficiently. The system supports complex workflows, role-based access control (RBAC), time tracking, and detailed reporting.
 
-## 📋 Tổng quan Dự án
+Key capabilities include:
+- **Multi-Project Management**: Support for hierarchical projects and portfolios.
+- **Flexible Task Tracking**: Custom trackers (Bug, Feature, Support, etc.) with configurable workflows.
+- **Powerful RBAC**: Granular permission system based on roles within projects.
+- **Time Tracking**: Log time against tasks and activities.
+- **Reporting**: Generate reports on task progress, time spent, and project health.
+- **Notifications**: Real-time updates for assignment changes, comments, and status updates.
 
-**Worksphere** là một hệ thống quản lý dự án và công việc (Project & Task Management System) chuyên nghiệp, lấy cảm hứng từ Redmine. Hệ thống hỗ trợ:
+## 2. Technology Stack
 
-- Quản lý dự án với phân cấp (project hierarchy)
-- Quản lý công việc (tasks/issues) với workflow linh hoạt
-- Phân quyền chi tiết theo vai trò (RBAC - Role-Based Access Control)
-- Quản lý phân bổ công việc (Workload Management)
-- Báo cáo và xuất dữ liệu
-- Thông báo và audit log
+### Core Framework
+- **Frontend/Backend**: Next.js 16 (App Router)
+- **Language**: TypeScript
+- **Runtime**: Node.js
 
----
+### Database & Storage
+- **ORM**: Prisma
+- **Database**: MySQL
+- **Schema Management**: Prisma Migrate
 
-## 🛠 Công nghệ sử dụng
+### UI & Styling
+- **Styling Engine**: Tailwind CSS v4
+- **Component Library**: Radix UI (Headless primitives)
+- **Icons**: Lucide React
+- **Drag & Drop**: @dnd-kit
 
-| Thành phần | Công nghệ |
-|------------|-----------|
-| **Framework** | Next.js 16 (App Router) |
-| **Frontend** | React 19, TypeScript |
-| **Styling** | Tailwind CSS 4 |
-| **Database** | MySQL |
-| **ORM** | Prisma |
-| **Authentication** | NextAuth.js v5 (Beta) |
-| **UI Components** | Radix UI, Lucide Icons |
-| **Validation** | Zod |
-| **PDF Export** | jsPDF, pdfmake |
-| **Drag & Drop** | @dnd-kit |
+### Authentication & Security
+- **Auth Provider**: NextAuth.js v5 (beta)
+- **Encryption**: bcryptjs
+- **Validation**: Zod
 
----
+### Utilities
+- **Date Handling**: date-fns
+- **PDF Generation**: jspdf, pdfmake
 
-## 📁 Cấu trúc Thư mục
+## 3. Directory Structure
 
 ```
 worksphere/
-├── prisma/                     # Database schema và seed data
-│   ├── schema.prisma          # Prisma schema định nghĩa database
-│   └── seed.ts                # Script khởi tạo dữ liệu mẫu
-├── public/                     # Static assets
-├── scripts/                    # Utility scripts
 ├── src/
-│   ├── app/                   # Next.js App Router
-│   │   ├── (dashboard)/       # Protected routes (cần đăng nhập)
-│   │   ├── api/               # API Routes
-│   │   ├── login/             # Trang đăng nhập
-│   │   ├── globals.css        # Global styles
-│   │   ├── layout.tsx         # Root layout
-│   │   └── page.tsx           # Home page (redirect)
-│   ├── components/            # React components
-│   │   ├── layout/            # Layout components (Sidebar, Header)
-│   │   ├── projects/          # Project-related components
-│   │   ├── tasks/             # Task-related components
-│   │   ├── workload/          # Workload-related components
-│   │   ├── ui/                # Reusable UI components
-│   │   └── ...                # Other feature components
-│   ├── config/                # Configuration files
-│   ├── lib/                   # Shared utilities và services
-│   │   ├── services/          # Business logic services
-│   │   ├── auth.ts            # NextAuth configuration
-│   │   ├── prisma.ts          # Prisma client instance
-│   │   ├── permissions.ts     # Permission checking utilities
-│   │   ├── validations.ts     # Zod schemas
-│   │   ├── notifications.ts   # Notification service
-│   │   ├── audit-log.ts       # Audit logging service
+│   ├── app/                 # Next.js App Router root
+│   │   ├── (dashboard)/     # Protected app routes (with sidebar layout)
+│   │   ├── api/             # API Endpoints
+│   │   └── login/           # Public login page
+│   ├── components/          # React components
+│   │   ├── ui/              # Reusable UI atoms (Button, Input, etc.)
+│   │   ├── projects/        # Project-specific components
+│   │   ├── tasks/           # Task-specific components
 │   │   └── ...
-│   ├── styles/                # Additional styles
-│   └── types/                 # TypeScript type definitions
-├── docs/                       # Documentation
-├── .env                        # Environment variables
-├── package.json               # Dependencies
-└── tsconfig.json              # TypeScript config
+│   ├── lib/                 # Core logic and utilities
+│   │   ├── auth.ts          # Authentication configuration
+│   │   ├── permissions.ts   # RBAC logic engine
+│   │   ├── prisma.ts        # Database client instance
+│   │   └── validations.ts   # Zod schemas
+│   └── styles/              # Global styles
+├── prisma/                  # Database schema and seed scripts
+└── public/                  # Static assets
 ```
 
----
+## 4. Functionality & Modules
 
-## 🗄 Database Schema (Prisma)
+### 4.1. Authentication & Authorization (RBAC)
+The system uses a robust Role-Based Access Control model:
+- **Users**: Can be regular users or **Administrators**. Administrators have full access to the system.
+- **Projects**: Users are added to projects as **Members**.
+- **Roles**: Each member has a `Role` (e.g., Manager, Developer, Reporter) within a project.
+- **Permissions**: Roles are composed of granular `Permissions` (e.g., `tasks.create`, `time_logs.view`).
+- **Role-Trackers**: Controls which roles can create tasks of specific types (Trackers).
 
-### 1. User Management
+### 4.2. Workflows & State Machine
+Tasks follow a lifecycle defined by **Workflows**:
+- **Tracker**: Defines the type of work (e.g., Bug, Feature).
+- **Status**: The current state (e.g., New, In Progress, Closed).
+- **Workflow Transitions**: Defines allowed state changes (e.g., New -> In Progress).
+- **Transition Permissions**: Transitions can be restricted by Role (e.g., only Managers can move to "Closed").
 
-#### `User`
-```prisma
-model User {
-  id              String   @id @default(cuid())
-  email           String   @unique
-  name            String
-  password        String
-  avatar          String?
-  isAdministrator Boolean  @default(false)  // Quyền admin hệ thống
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-}
-```
+### 4.3. Project Management
+- **Hierarchy**: Projects can have parent/child relationships.
+- **Settings**: Per-project settings for enabled Trackers and Members.
+- **Versions**: Milestones for grouping tasks (e.g., "Sprint 1", "Release 1.0").
 
-**Quan hệ:**
-- `projectMemberships`, `createdProjects`
-- `assignedTasks`, `createdTasks`
-- `watchedTasks`, `comments`, `notifications`, `auditLogs`
+### 4.4. Task Management
+- **Task Hierarchy**: Tasks can have subtasks (unlimited depth).
+- **Attributes**: Priority, Due Date, Start Date, % Done, Estimated Hours.
+- **Relations**: Tasks can relate to others (Blocks, Duplicates, Relates To, etc.).
+- **Watchers**: Users can "watch" tasks to receive notifications.
+- **Attachements**: File uploads for tasks.
 
----
+### 4.5. Time Tracking
+- **Time Logs**: Users log hours spent on a task or project.
+- **Activities**: Time is categorized by activity (e.g., Development, Design).
+- **Validation**: Logs are tied to projects and optionally tasks.
 
-### 2. RBAC (Role-Based Access Control)
+### 4.6. Saved Queries
+- Users can save complex filter configurations as "Queries".
+- Queries can be private or shared publicly with other project members.
 
-#### `Role`
-```prisma
-model Role {
-  id               String  @id @default(cuid())
-  name             String  @unique
-  description      String?
-  isActive         Boolean @default(true)
-  assignable       Boolean @default(true)   // Có thể được gán task?
-  canAssignToOther Boolean @default(true)   // Có thể gán task cho người khác?
-}
-```
+## 5. Database Schema Overview
 
-#### `Permission` & `RolePermission`
-Định nghĩa quyền và bảng liên kết Many-to-Many với Role.
+The database is normalized and relational. Key tables:
 
----
+- **`users`**: System users.
+- **`projects`**: Core container for all work.
+- **`tasks`**: The central entity. Links to statuses, trackers, priorities, and users.
+- **`roles` / `permissions`**: Store the RBAC configuration.
+- **`workflow_transitions`**: Stores the allowed status changes matrix.
+- **`time_logs`**: Stores spent time entries.
+- **`versions`**: Project milestones.
 
-### 3. Task Configuration
-
-#### `Tracker`, `Status`, `Priority`, `WorkflowTransition`
-Các bảng cấu hình dữ liệu nền cho task (Loại, Trạng thái, Ưu tiên, Quy trình).
-
----
-
-### 4. Project Management
-
-#### `Project`
-```prisma
-model Project {
-  id          String    @id @default(cuid())
-  name        String
-  identifier  String    @unique
-  // ...
-  // Issue Tracking Settings (per-project customization)
-  parentIssueDates          String @default("calculated")
-  parentIssuePriority       String @default("calculated")
-  parentIssueDoneRatio      String @default("calculated")
-  parentIssueEstimatedHours String @default("calculated")
-}
-```
-
----
-
-### 5. Task Management
-
-#### `Task`
-```prisma
-model Task {
-  id             String    @id @default(cuid())
-  number         Int       @unique @default(autoincrement())
-  title          String
-  // ...
-  estimatedHours Float?    // Giờ dự kiến (dùng cho Workload)
-  doneRatio      Int       @default(0)  // 0-100%
-  // ...
-}
-```
-
-**Models liên quan:** `Watcher`, `Comment`, `Attachment`, `IssueRelation`, `Version`
-
----
-
-## 🔐 Hệ thống Phân quyền (RBAC)
-
-### File: `src/lib/permissions.ts`
-
-**Các Permissions chính:**
-
-*   **Projects**: `projects.view_all`, `projects.create`, `projects.edit_any`, `projects.manage_members`...
-*   **Tasks**: `tasks.view_all`, `tasks.create`, `tasks.edit_own`, `tasks.edit_any`...
-*   **Workload (Time Logs)**:
-    *   `timelogs.view_own`: Xem workload cá nhân.
-    *   `timelogs.view_all`: Xem workload của người khác/toàn dự án.
-*   **System**: `system.manage_roles`, `system.manage_config`...
-
----
-
-## 📡 API Routes
+## 6. Key API Routes
 
 ### Projects
-- `GET/POST /api/projects`: CRUD Project
-- `GET /api/projects/[id]/issue-settings`: Cài đặt Issue Tracking
+- `GET /api/projects`: List projects.
+- `POST /api/projects`: Create project.
+- `GET /api/projects/[id]`: Get details.
+- `GET /api/projects/[id]/statistics`: Dashboard stats.
 
 ### Tasks
-- `GET/POST /api/tasks`: CRUD Task
-- `POST /api/tasks/[id]/copy`: Copy Task
+- `GET /api/tasks`: Global task search/list.
+- `POST /api/tasks`: Create task.
+- `PATCH /api/tasks/[id]`: Update task.
+- `POST /api/tasks/[id]/time-logs`: Log time.
 
-### Workload (Phân bổ công việc)
-- `GET /api/workload`: Lấy dữ liệu thống kê workload (theo `userId` hoặc `projectId`).
+### Configuration
+- `GET /api/trackers`: List available trackers.
+- `GET /api/statuses`: List available statuses.
+- `GET /api/workflow/transitions`: Check allowed transitions.
 
-### Configuration (Admin)
-- `/api/trackers`, `/api/statuses`, `/api/roles`, `/api/workflow`
-
----
-
-## 🖥 Pages (Frontend Routes)
-
-### Workspace
-- `/dashboard`: Dashboard tổng quan
-- `/projects`: Danh sách dự án
-- `/tasks`: Danh sách công việc toàn cục
-- `/workload`: (Trang này có thể truy cập qua `/reports` hoặc tab Workload trong project)
-- `/reports`: Báo cáo & Workload
-
-### Project Context
-- `/projects/[id]`: Chi tiết dự án
-- `/projects/[id]/tasks`: Danh sách task dự án
-- `/projects/[id]/workload`: Phân bổ công việc dự án
-- `/projects/[id]/settings`: Cài đặt dự án
-
-### Admin Settings
-- `/settings/trackers`, `/settings/statuses`, `/settings/roles`, `/settings/workflow`...
-
----
-
-## 🧩 Components chính
-
-### Layout (`src/components/layout/`)
-- `Sidebar`, `Header`, `GlobalSearch`
-
-### Workload (`src/components/workload/`)
-- `WorkloadContent`: Component hiển thị bảng phân bổ thời gian (Summary & Detail).
-
-### Tasks (`src/components/tasks/`)
-- `TaskList`, `TaskDetail`, `KanbanBoard`, `TaskCard`
-
----
-
-## 🔄 Luồng xử lý chính
-
-### 1. Workload Calculation
-- **Input**: Danh sách Task có `estimatedHours`.
-- **Logic**: 
-  - Group by `assigneeId`.
-  - Nếu view project: Lấy list Project Member để hiện cả user 0h.
-  - Nếu view global: Chỉ lấy user có task.
-- **Output**: Bảng thống kê (User, Total Hours, Task Count).
-
-### 2. Task Permission Check
-- **View**: Kiểm tra `isPrivate`, `tasks.view_all`, `tasks.view_project` (member), `tasks.view_assigned`.
-- **Edit**: Kiểm tra `tasks.edit_any`, `tasks.edit_assigned`, `tasks.edit_own`.
-
----
-
-*Tài liệu này được cập nhật tự động để phản ánh trạng thái hiện tại của mã nguồn Worksphere.*
+### Users & Roles
+- `GET /api/users`: User management.
+- `GET /api/roles`: Role customization.
+- `GET /api/permissions`: List all system permissions.

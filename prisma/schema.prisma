@@ -36,6 +36,7 @@ model User {
   auditLogs              AuditLog[]
   attachments            Attachment[]
   queries                Query[]           @relation("QueryOwner")
+  timeLogs               TimeLog[]
 
   @@index([email])
   @@index([isAdministrator])
@@ -253,6 +254,7 @@ model Project {
   versions     Version[]
   trackers     ProjectTracker[]
   queries      Query[]
+  timeLogs     TimeLog[]
 
   @@index([identifier])
   @@index([creatorId])
@@ -368,6 +370,7 @@ model Task {
   attachments   Attachment[]
   relationsFrom IssueRelation[] @relation("RelationFrom")
   relationsTo   IssueRelation[] @relation("RelationTo")
+  timeLogs      TimeLog[]
 
   @@index([projectId])
   @@index([assigneeId])
@@ -523,4 +526,50 @@ model Query {
   @@index([userId])
   @@index([isPublic])
   @@map("queries")
+}
+
+// ============================================
+// TIME TRACKING (Spent Time)
+// ============================================
+
+model TimeEntryActivity {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  position    Int      @default(0)
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  timeLogs TimeLog[]
+
+  @@index([position])
+  @@map("time_entry_activities")
+}
+
+model TimeLog {
+  id         String   @id @default(cuid())
+  hours      Float
+  comments   String?  @db.Text
+  spentOn    DateTime
+  userId     String
+  taskId     String?
+  projectId  String
+  activityId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task     Task?             @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  project  Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  activity TimeEntryActivity @relation(fields: [activityId], references: [id])
+
+  @@index([userId])
+  @@index([taskId])
+  @@index([projectId])
+  @@index([activityId])
+  @@index([spentOn])
+  @@map("time_logs")
 }

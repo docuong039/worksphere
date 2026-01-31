@@ -58,8 +58,13 @@ async function main() {
         { key: 'queries.manage_public', name: 'Manage Public Queries', module: 'Bộ lọc' },
 
         // Time Logs (Thời gian)
+        { key: 'timelogs.log_time', name: 'Log Time', module: 'Thời gian' },
         { key: 'timelogs.view_own', name: 'View Own Time Logs', module: 'Thời gian' },
         { key: 'timelogs.view_all', name: 'View All Time Logs', module: 'Thời gian' },
+        { key: 'timelogs.edit_own', name: 'Edit Own Time Logs', module: 'Thời gian' },
+        { key: 'timelogs.edit_all', name: 'Edit All Time Logs', module: 'Thời gian' },
+        { key: 'timelogs.delete_own', name: 'Delete Own Time Logs', module: 'Thời gian' },
+        { key: 'timelogs.delete_all', name: 'Delete All Time Logs', module: 'Thời gian' },
 
         // System (Hệ thống)
         { key: 'system.manage_roles', name: 'Manage Roles', module: 'Hệ thống' },
@@ -165,6 +170,27 @@ async function main() {
                 password: hashedPassword,
                 isAdministrator: true,
             },
+        });
+    }
+
+    // ============================================
+    // TIME ENTRY ACTIVITIES
+    // ============================================
+    console.log('Seeding time entry activities...');
+    const activitiesData = [
+        { name: 'Phát triển', position: 1, isDefault: true },
+        { name: 'Thiết kế', position: 2, isDefault: false },
+        { name: 'Kiểm thử', position: 3, isDefault: false },
+        { name: 'Họp', position: 4, isDefault: false },
+        { name: 'Nghiên cứu', position: 5, isDefault: false },
+        { name: 'Hỗ trợ', position: 6, isDefault: false },
+    ];
+
+    for (const activity of activitiesData) {
+        await prisma.timeEntryActivity.upsert({
+            where: { name: activity.name },
+            update: {},
+            create: activity,
         });
     }
 

@@ -139,6 +139,73 @@ export async function GET(req: NextRequest) {
                 });
             }
 
+            case 'by-time': {
+                // Time Tracking Report
+                // Aggregate time logs by Project (and User details within)
+
+                // Base filter
+                let whereClause: any = {};
+
+                if (startDate) whereClause.spentOn = { ...whereClause.spentOn, gte: new Date(startDate) };
+                if (endDate) whereClause.spentOn = { ...whereClause.spentOn, lte: new Date(endDate) };
+                if (projectId) whereClause.projectId = projectId;
+
+                // If not admin, only see own logs or projects member is part of (simplified to own logs for strict privacy, or project based)
+                // Here letting non-admin see logs if they are project members is common, but let's restrict to accessible projects
+                if (!isAdmin) {
+                    whereClause.project = {
+                        members: { some: { userId: session.user.id } }
+                    };
+                }
+
+                const timeLogs = await prisma.timeLog.findMany({
+                    where: whereClause,
+                    include: {
+                        project: { select: { id: true, name: true } },
+                        user: { select: { id: true, name: true, avatar: true } },
+                        activity: { select: { id: true, name: true } }
+                    },
+                    orderBy: { spentOn: 'desc' }
+                });
+
+                // Group by User for the report view
+                const userMap = new Map<string, {
+                    userId: string;
+                    userName: string;
+                    totalHours: number;
+                    projects: Map<string, number>; // ProjectId -> Hours
+                }>();
+
+                for (const log of timeLogs) {
+                    const userId = log.userId;
+                    if (!userMap.has(userId)) {
+                        userMap.set(userId, {
+                            userId: log.user.id,
+                            userName: log.user.name,
+                            totalHours: 0,
+                            projects: new Map()
+                        });
+                    }
+
+                    const userData = userMap.get(userId)!;
+                    userData.totalHours += log.hours;
+
+                    const currentProjHours = userData.projects.get(log.project.name) || 0;
+                    userData.projects.set(log.project.name, currentProjHours + log.hours);
+                }
+
+                // Convert Map to Array
+                const reportData = Array.from(userMap.values()).map(u => ({
+                    ...u,
+                    projects: Object.fromEntries(u.projects) // Convert inner Map to Object for JSON
+                }));
+
+                return successResponse({
+                    type: 'by-time',
+                    data: reportData
+                });
+            }
+
             default:
                 return errorResponse('Loại báo cáo không hợp lệ', 400);
         }

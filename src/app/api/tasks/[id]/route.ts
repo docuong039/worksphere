@@ -172,6 +172,13 @@ export async function GET(req: NextRequest, { params }: Params) {
                         user: { select: { id: true, name: true, avatar: true } },
                     },
                 },
+                timeLogs: {
+                    include: {
+                        activity: { select: { id: true, name: true } },
+                        user: { select: { id: true, name: true } },
+                    },
+                    orderBy: { spentOn: 'desc' },
+                },
                 relationsFrom: {
                     include: {
                         issueTo: {

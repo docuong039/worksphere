@@ -15,11 +15,13 @@ import {
     MoreVertical,
     Trash2,
     Check,
+    Clock,
 } from 'lucide-react';
 import { TaskWatchers } from './task-watchers';
 import { TaskAttachments } from './task-attachments';
 import { CreateTaskModal } from './create-task-modal';
 import { TaskContextMenu } from './task-context-menu';
+import { LogTimeModal } from './log-time-modal';
 
 interface Status {
     id: string;
@@ -69,6 +71,15 @@ interface Version {
     status: string;
 }
 
+interface TimeLog {
+    id: string;
+    hours: number;
+    spentOn: string | Date;
+    comments?: string | null;
+    activity: { id: string; name: string };
+    user: { id: string; name: string };
+}
+
 interface Task {
     id: string;
     number: number;
@@ -106,6 +117,7 @@ interface Task {
         createdAt: string | Date;
         user: { id: string; name: string };
     }>;
+    timeLogs?: TimeLog[];
 }
 
 interface TaskDetailProps {
@@ -169,6 +181,7 @@ export function TaskDetail({
     const [newComment, setNewComment] = useState('');
     const [addingComment, setAddingComment] = useState(false);
     const [showSubtaskModal, setShowSubtaskModal] = useState(false);
+    const [showLogTimeModal, setShowLogTimeModal] = useState(false);
 
     // Comment edit/delete states
     const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -181,6 +194,8 @@ export function TaskDetail({
     const isDateDisabled = hasSubtasks && systemSettings?.parent_issue_dates === 'calculated';
     const isHoursDisabled = hasSubtasks && systemSettings?.parent_issue_estimated_hours === 'calculated';
     const isRatioDisabled = hasSubtasks && systemSettings?.parent_issue_done_ratio === 'calculated';
+
+    const totalSpentTime = task.timeLogs?.reduce((sum, log) => sum + log.hours, 0) || 0;
 
     const formatRelativeTime = (date: string | Date) => {
         const diffDays = Math.floor((new Date().getTime() - new Date(date).getTime()) / (1000 * 60 * 60 * 24));
@@ -328,9 +343,17 @@ export function TaskDetail({
                     </div>
                 </div>
                 {canEdit && !isEditing && (
-                    <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors">
-                        <Pencil className="w-3.5 h-3.5" /> Chỉnh sửa
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowLogTimeModal(true)}
+                            className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                        >
+                            <Clock className="w-3.5 h-3.5 text-blue-600" /> Ghi thời gian
+                        </button>
+                        <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+                            <Pencil className="w-3.5 h-3.5" /> Chỉnh sửa
+                        </button>
+                    </div>
                 )}
             </div>
 
@@ -554,6 +577,19 @@ export function TaskDetail({
                             <PropertyRow label="Ước tính">
                                 <span className="text-sm text-gray-700 font-medium">{task.estimatedHours ? `${task.estimatedHours} giờ` : '-'}</span>
                             </PropertyRow>
+
+                            <PropertyRow label="Thực tế">
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-sm font-bold ${totalSpentTime > (task.estimatedHours || 0) && task.estimatedHours ? 'text-orange-600' : 'text-blue-700'}`}>
+                                        {totalSpentTime.toFixed(1)} giờ
+                                    </span>
+                                    {task.estimatedHours && totalSpentTime > 0 && (
+                                        <span className="text-[10px] text-gray-400">
+                                            ({Math.round((totalSpentTime / task.estimatedHours) * 100)}% dự kiến)
+                                        </span>
+                                    )}
+                                </div>
+                            </PropertyRow>
                         </div>
 
                         {/* Watchers & Attachments */}
@@ -662,7 +698,7 @@ export function TaskDetail({
                 )}
             </div>
 
-            {/* ========== KHỐI 3: BÌNH LUẬN ========== */}
+            {/* ========== KHỐI 4: BÌNH LUẬN ========== */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-pink-50 border-b border-gray-200">
                     <div className="flex items-center gap-3">
@@ -805,6 +841,14 @@ export function TaskDetail({
                     onSuccess={() => { setShowSubtaskModal(false); router.refresh(); }}
                 />
             )}
+
+            <LogTimeModal
+                isOpen={showLogTimeModal}
+                onClose={() => setShowLogTimeModal(false)}
+                taskId={task.id}
+                projectId={task.project.id}
+                onSuccess={() => router.refresh()}
+            />
         </div>
     );
 }

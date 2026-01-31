@@ -85,8 +85,51 @@ export async function GET(req: NextRequest) {
             }
 
             case 'time-logs': {
-                // TimeLog model không tồn tại trong schema hiện tại
-                return errorResponse('Tính năng Time Logs chưa được kích hoạt', 400);
+                // TimeLog export
+                const where: Record<string, unknown> = {};
+
+                // Date filter on spentOn
+                if (startDate || endDate) {
+                    where.spentOn = dateFilter;
+                }
+
+                // Project filter
+                if (projectId) {
+                    where.projectId = projectId;
+                } else if (!isAdmin) {
+                    where.project = { members: { some: { userId: session.user.id } } };
+                }
+
+                // User filter
+                if (userId) {
+                    where.userId = userId;
+                }
+
+                const timeLogs = await prisma.timeLog.findMany({
+                    where,
+                    include: {
+                        project: { select: { name: true } },
+                        task: { select: { title: true, number: true } },
+                        user: { select: { name: true, email: true } },
+                        activity: { select: { name: true } },
+                    },
+                    orderBy: { spentOn: 'desc' },
+                });
+
+                // CSV Header
+                csvContent = 'Ngày,Người thực hiện,Dự án,Tên công việc,Hoạt động,Giờ,Mô tả\n';
+
+                // CSV Rows
+                timeLogs.forEach(log => {
+                    const spentOnStr = formatDateVN(log.spentOn);
+                    const taskTitle = log.task ? `#${log.task.number} ${log.task.title}` : '-';
+                    const comments = log.comments ? log.comments.replace(/"/g, '""') : '';
+
+                    csvContent += `"${spentOnStr}","${log.user.name}","${log.project.name}","${taskTitle.replace(/"/g, '""')}","${log.activity.name}",${log.hours},"${comments}"\n`;
+                });
+
+                filename = `cham-cong_${formatDateForFilename(startDate, endDate)}`;
+                break;
             }
 
             case 'project-summary': {

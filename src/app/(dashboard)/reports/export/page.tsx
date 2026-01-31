@@ -43,12 +43,24 @@ interface TaskData {
     dueDate: string | null;
 }
 
+interface TimeLogData {
+    id: string;
+    hours: number;
+    comments: string | null;
+    spentOn: string;
+    project: { name: string };
+    user: { name: string };
+    activity: { name: string };
+    task: { title: string; number: number } | null;
+}
+
 export default function ExportPage() {
     // Filter states
     const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' });
     const [selectedProjectId, setSelectedProjectId] = useState('');
     const [selectedUserId, setSelectedUserId] = useState('');
     const [quickFilter, setQuickFilter] = useState<'week' | 'month' | 'last-month' | 'quarter' | ''>('');
+    const [exportType, setExportType] = useState<'tasks' | 'time'>('tasks');
 
     // Options
     const [projects, setProjects] = useState<ProjectOption[]>([]);
@@ -131,7 +143,7 @@ export default function ExportPage() {
         setExportSuccess(null);
 
         try {
-            const params = new URLSearchParams({ type: 'tasks' });
+            const params = new URLSearchParams({ type: exportType === 'tasks' ? 'tasks' : 'time-logs' });
             if (dateRange.startDate) params.set('startDate', dateRange.startDate);
             if (dateRange.endDate) params.set('endDate', dateRange.endDate);
             if (selectedProjectId) params.set('projectId', selectedProjectId);
@@ -148,6 +160,8 @@ export default function ExportPage() {
             if (contentDisposition) {
                 const match = contentDisposition.match(/filename="(.+)"/);
                 if (match) filename = match[1];
+            } else {
+                filename = exportType === 'tasks' ? 'cong-viec.csv' : 'cham-cong.csv';
             }
 
             const blob = await res.blob();
@@ -173,16 +187,72 @@ export default function ExportPage() {
         setExportSuccess(null);
 
         try {
-            // Fetch tasks data
+            // Fetch data based on type
             const params = buildParams();
-            const res = await fetch(`/api/tasks?${params.toString()}`);
-            const data = await res.json();
+            let tableHeaders: any[] = [];
+            let tableBody: any[] = [];
+            let title = '';
 
-            if (!data.success) {
-                throw new Error('Failed to fetch tasks');
+            if (exportType === 'tasks') {
+                const res = await fetch(`/api/tasks?${params.toString()}`);
+                const data = await res.json();
+                if (!data.success) throw new Error('Failed to fetch tasks');
+
+                const tasks: TaskData[] = data.data.tasks || data.data || [];
+                title = 'Danh sách Công việc';
+
+                tableHeaders = [
+                    { text: '#', style: 'tableHeader' },
+                    { text: 'Tiêu đề', style: 'tableHeader' },
+                    { text: 'Dự án', style: 'tableHeader' },
+                    { text: 'Loại', style: 'tableHeader' },
+                    { text: 'Trạng thái', style: 'tableHeader' },
+                    { text: 'Ưu tiên', style: 'tableHeader' },
+                    { text: 'Người TH', style: 'tableHeader' },
+                    { text: '%', style: 'tableHeader' },
+                    { text: 'Hết hạn', style: 'tableHeader' }
+                ];
+
+                tableBody = tasks.map(task => [
+                    { text: String(task.number), alignment: 'center' },
+                    task.title.length > 50 ? task.title.substring(0, 50) + '...' : task.title,
+                    task.project.name,
+                    task.tracker.name,
+                    task.status.name,
+                    task.priority.name,
+                    task.assignee?.name || '-',
+                    { text: `${task.doneRatio}%`, alignment: 'center' },
+                    { text: task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : '-', alignment: 'center' }
+                ]);
+
+            } else {
+                const res = await fetch(`/api/time-logs?${params.toString()}`);
+                const data = await res.json();
+                if (!data.success) throw new Error('Failed to fetch time logs');
+
+                const logs: TimeLogData[] = data.data.timeLogs || [];
+                title = 'Báo cáo Chấm công (Logs)';
+
+                tableHeaders = [
+                    { text: 'Ngày', style: 'tableHeader' },
+                    { text: 'Nhân viên', style: 'tableHeader' },
+                    { text: 'Dự án', style: 'tableHeader' },
+                    { text: 'Công việc', style: 'tableHeader' },
+                    { text: 'Hoạt động', style: 'tableHeader' },
+                    { text: 'Giờ', style: 'tableHeader' },
+                    { text: 'Ghi chú', style: 'tableHeader' }
+                ];
+
+                tableBody = logs.map(log => [
+                    { text: new Date(log.spentOn).toLocaleDateString('vi-VN'), alignment: 'center' },
+                    log.user.name,
+                    log.project.name,
+                    log.task ? `#${log.task.number} ${log.task.title}`.substring(0, 40) : '-',
+                    log.activity.name,
+                    { text: String(log.hours), alignment: 'center', bold: true },
+                    log.comments || ''
+                ]);
             }
-
-            const tasks: TaskData[] = data.data.tasks || data.data || [];
 
             // Build subtitle
             let subtitle = 'Xuất ngày: ' + new Date().toLocaleDateString('vi-VN');
@@ -195,22 +265,8 @@ export default function ExportPage() {
             }
             if (selectedUserId) {
                 const userName = users.find(u => u.id === selectedUserId)?.name;
-                subtitle += ` | Người thực hiện: ${userName}`;
+                subtitle += ` | Nhân sự: ${userName}`;
             }
-
-            // Build table body
-            const tableBody = tasks.map(task => [
-                { text: String(task.number), alignment: 'center' as const },
-                task.title.length > 50 ? task.title.substring(0, 50) + '...' : task.title,
-                task.project.name,
-                task.tracker.name,
-                task.status.name,
-                task.priority.name,
-                task.assignee?.name || '-',
-                { text: `${task.doneRatio}%`, alignment: 'center' as const },
-                { text: task.startDate ? new Date(task.startDate).toLocaleDateString('vi-VN') : '-', alignment: 'center' as const },
-                { text: task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : '-', alignment: 'center' as const }
-            ]);
 
             // Create PDF document definition
             const docDefinition = {
@@ -218,27 +274,17 @@ export default function ExportPage() {
                 pageSize: 'A4' as const,
                 pageMargins: [20, 20, 20, 30] as [number, number, number, number],
                 content: [
-                    { text: 'Danh sách Công việc', style: 'header' },
+                    { text: title, style: 'header' },
                     { text: subtitle, style: 'subheader' },
                     { text: ' ', margin: [0, 5, 0, 5] as [number, number, number, number] },
                     {
                         table: {
                             headerRows: 1,
-                            widths: [25, '*', 60, 45, 55, 45, 70, 30, 55, 55],
+                            widths: exportType === 'tasks'
+                                ? [25, '*', 60, 45, 55, 45, 70, 30, 55]
+                                : [60, 80, 80, '*', 70, 30, 100],
                             body: [
-                                // Header row
-                                [
-                                    { text: '#', style: 'tableHeader' },
-                                    { text: 'Tiêu đề', style: 'tableHeader' },
-                                    { text: 'Dự án', style: 'tableHeader' },
-                                    { text: 'Loại', style: 'tableHeader' },
-                                    { text: 'Trạng thái', style: 'tableHeader' },
-                                    { text: 'Ưu tiên', style: 'tableHeader' },
-                                    { text: 'Người TH', style: 'tableHeader' },
-                                    { text: '%', style: 'tableHeader' },
-                                    { text: 'Bắt đầu', style: 'tableHeader' },
-                                    { text: 'Hết hạn', style: 'tableHeader' }
-                                ],
+                                tableHeaders,
                                 ...tableBody
                             ]
                         },
@@ -284,7 +330,7 @@ export default function ExportPage() {
             };
 
             // Generate and download PDF
-            pdfMake.createPdf(docDefinition).download(`cong-viec_${new Date().toISOString().split('T')[0]}.pdf`);
+            pdfMake.createPdf(docDefinition).download(`${exportType === 'tasks' ? 'cong-viec' : 'cham-cong'}_${new Date().toISOString().split('T')[0]}.pdf`);
 
             setExportSuccess('pdf');
             setTimeout(() => setExportSuccess(null), 3000);
@@ -318,14 +364,34 @@ export default function ExportPage() {
                 <div>
                     <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
                         <FileSpreadsheet className="w-6 h-6 text-blue-600" />
-                        Xuất danh sách công việc
+                        Xuất dữ liệu hệ thống
                     </h1>
-                    <p className="text-gray-500 mt-1">Xuất dữ liệu công việc ra file CSV hoặc PDF</p>
+                    <p className="text-gray-500 mt-1">Xuất danh sách công việc hoặc lịch sử chấm công ra file CSV/PDF</p>
                 </div>
             </div>
 
             {/* Main Card */}
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                {/* Export Type Selector */}
+                <div className="p-5 border-b border-gray-100 flex gap-4">
+                    <button
+                        onClick={() => setExportType('tasks')}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 font-medium transition-all ${exportType === 'tasks' ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-blue-300 text-gray-600'
+                            }`}
+                    >
+                        <Briefcase className="w-5 h-5" />
+                        Xuất Công việc
+                    </button>
+                    <button
+                        onClick={() => setExportType('time')}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 font-medium transition-all ${exportType === 'time' ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-blue-300 text-gray-600'
+                            }`}
+                    >
+                        <Calendar className="w-5 h-5" />
+                        Xuất Thời gian (Logs)
+                    </button>
+                </div>
+
                 {/* Quick Date Filters */}
                 <div className="p-5 border-b border-gray-100">
                     <div className="flex items-center gap-2 mb-3">

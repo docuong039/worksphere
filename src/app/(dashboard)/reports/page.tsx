@@ -39,12 +39,20 @@ interface UserReport {
     closedTasks: number;
 }
 
+interface TimeReport {
+    userId: string;
+    userName: string;
+    totalHours: number;
+    projects: Record<string, number>;
+}
+
 export default function ReportsPage() {
-    const [reportType, setReportType] = useState<'summary' | 'by-project' | 'by-user'>('summary');
+    const [reportType, setReportType] = useState<'summary' | 'by-project' | 'by-user' | 'by-time'>('summary');
     const [loading, setLoading] = useState(true);
     const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
     const [projectReports, setProjectReports] = useState<ProjectReport[]>([]);
     const [userReports, setUserReports] = useState<UserReport[]>([]);
+    const [timeReports, setTimeReports] = useState<TimeReport[]>([]);
     const [dateRange, setDateRange] = useState({
         startDate: '',
         endDate: '',
@@ -71,6 +79,9 @@ export default function ReportsPage() {
                         break;
                     case 'by-user':
                         setUserReports(innerData || []);
+                        break;
+                    case 'by-time':
+                        setTimeReports(innerData || []);
                         break;
                 }
             }
@@ -108,6 +119,7 @@ export default function ReportsPage() {
                     { key: 'summary', label: 'Tổng quan', icon: PieChart },
                     { key: 'by-project', label: 'Theo dự án', icon: Briefcase },
                     { key: 'by-user', label: 'Theo người dùng', icon: Users },
+                    { key: 'by-time', label: 'Thời gian', icon: Calendar },
                 ].map(({ key, label, icon: Icon }) => (
                     <button
                         key={key}
@@ -343,6 +355,48 @@ export default function ReportsPage() {
                             </div>
                             {userReports.length === 0 && (
                                 <div className="p-12 text-center text-gray-500 font-medium bg-gray-50/30">Chưa có dữ liệu người dùng</div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Time Report */}
+                    {reportType === 'by-time' && (
+                        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-gray-50/50 border-b border-gray-200">
+                                        <tr>
+                                            <th className="px-6 py-4 text-left font-bold text-gray-500 uppercase tracking-wider">Nhân viên</th>
+                                            <th className="px-6 py-4 text-left font-bold text-gray-500 uppercase tracking-wider">Chi tiết theo dự án</th>
+                                            <th className="px-6 py-4 text-right font-bold text-gray-500 uppercase tracking-wider">Tổng giờ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                        {timeReports.map((t) => (
+                                            <tr key={t.userId} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-6 py-4 font-medium text-gray-900 align-top w-48">
+                                                    {t.userName}
+                                                </td>
+                                                <td className="px-6 py-4 align-top">
+                                                    <div className="space-y-1">
+                                                        {Object.entries(t.projects).map(([projName, hours]) => (
+                                                            <div key={projName} className="flex justify-between text-xs bg-gray-100 px-2 py-1 rounded">
+                                                                <span className="text-gray-600">{projName}</span>
+                                                                <span className="font-bold text-gray-900">{hours}h</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-right font-bold text-blue-600 align-top text-lg">
+                                                    {t.totalHours}h
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {timeReports.length === 0 && (
+                                <div className="p-12 text-center text-gray-500 font-medium bg-gray-50/30">Chưa có dữ liệu chấm công trong khoảng thời gian này</div>
                             )}
                         </div>
                     )}

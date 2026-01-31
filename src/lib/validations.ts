@@ -169,3 +169,26 @@ export const removeWatcherSchema = z.object({
     userId: z.string().min(1, 'User không được để trống'),
 });
 
+// ============================================
+// TIME LOG & ACTIVITY
+// ============================================
+
+export const createTimeLogSchema = z.object({
+    hours: z.number().positive('Số giờ phải lớn hơn 0'),
+    spentOn: z.string().min(1, 'Ngày thực hiện không được để trống'),
+    activityId: z.string().min(1, 'Hoạt động không được để trống'),
+    comments: z.string().optional().nullable(),
+    taskId: z.string().optional().nullable(),
+    projectId: z.string().optional(),
+});
+
+export const updateTimeLogSchema = createTimeLogSchema.partial();
+
+export const createActivitySchema = z.object({
+    name: z.string().min(1, 'Tên hoạt động không được để trống').max(100),
+    position: z.number().int().optional(),
+    isDefault: z.boolean().optional(),
+    isActive: z.boolean().optional(),
+});
+
+export const updateActivitySchema = createActivitySchema.partial();
