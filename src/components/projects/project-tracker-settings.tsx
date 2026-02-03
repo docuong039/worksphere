@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Tag, Check } from 'lucide-react';
+import { projectService } from '@/services/project.service';
 
 interface Tracker {
     id: string;
@@ -47,21 +48,13 @@ export function ProjectTrackerSettings({
     const handleSave = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/projects/${projectId}/trackers`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ trackerIds: enabledIds }),
-            });
-
-            if (res.ok) {
-                toast.success('Đã lưu cấu hình trackers');
-                setSaved(true);
-                router.refresh();
-                setTimeout(() => setSaved(false), 2000);
-            } else {
-                const data = await res.json();
-                toast.error(data.error || 'Có lỗi xảy ra');
-            }
+            await projectService.updateTrackers(projectId, { trackerIds: enabledIds });
+            toast.success('Đã lưu cấu hình trackers');
+            setSaved(true);
+            router.refresh();
+            setTimeout(() => setSaved(false), 2000);
+        } catch (err: any) {
+            toast.error(err.message || 'Có lỗi xảy ra');
         } finally {
             setLoading(false);
         }

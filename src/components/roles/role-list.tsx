@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Shield, ChevronDown, ChevronRight, Copy } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
-import { RoleTrackerPermissions } from './role-tracker-permissions';
+import { RoleTrackerPermissions } from '@/components/roles/role-tracker-permissions';
+import { roleService } from '@/services/role.service';
+import { RoleWithPermissions as Role } from '@/types';
 
 interface Tracker {
     id: string;
@@ -20,23 +22,7 @@ interface Permission {
     module: string;
 }
 
-interface Role {
-    id: string;
-    name: string;
-    description: string | null;
-    isActive: boolean;
-    assignable: boolean;
-    canAssignToOther: boolean;
-    permissions: Array<{
-        permission: Permission;
-    }>;
-    trackers: Array<{
-        trackerId: string;
-    }>;
-    _count: {
-        projectMembers: number;
-    };
-}
+
 
 interface RoleListProps {
     roles: Role[];
@@ -85,30 +71,22 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
         setError('');
 
         try {
-            const res = await fetch('/api/roles', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            });
+            const response = await roleService.create(formData);
 
-            if (res.ok) {
-                const data = await res.json();
+            if (response.success && response.data) {
                 // Update permissions if any selected
                 if (selectedPermissions.size > 0) {
-                    await fetch(`/api/roles/${data.data.id}/permissions`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ permissionIds: Array.from(selectedPermissions) }),
+                    await roleService.updatePermissions(response.data.id, {
+                        permissionIds: Array.from(selectedPermissions),
                     });
                 }
                 setIsAdding(false);
                 setFormData({ name: '', description: '', assignable: true, canAssignToOther: true });
                 setSelectedPermissions(new Set());
                 router.refresh();
-            } else {
-                const data = await res.json();
-                setError(data.error || 'Có lỗi xảy ra');
             }
+        } catch (err: any) {
+            setError(err.message || 'Có lỗi xảy ra');
         } finally {
             setLoading(false);
         }
@@ -122,17 +100,11 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
 
         try {
             // Update role info
-            await fetch(`/api/roles/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            });
+            await roleService.update(id, formData);
 
             // Update permissions
-            await fetch(`/api/roles/${id}/permissions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ permissionIds: Array.from(selectedPermissions) }),
+            await roleService.updatePermissions(id, {
+                permissionIds: Array.from(selectedPermissions),
             });
 
             setEditingId(null);
@@ -156,16 +128,11 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
         if (!confirm(`Bạn có chắc muốn xóa role "${name}"?`)) return;
 
         try {
-            const res = await fetch(`/api/roles/${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                toast.success('Đã xóa vai trò');
-                router.refresh();
-            } else {
-                const data = await res.json();
-                toast.error(data.error || 'Có lỗi xảy ra');
-            }
-        } catch {
-            toast.error('Lỗi kết nối máy chủ');
+            await roleService.delete(id);
+            toast.success('Đã xóa vai trò');
+            router.refresh();
+        } catch (err: any) {
+            toast.error(err.message || 'Có lỗi xảy ra');
         }
     };
 
@@ -173,27 +140,20 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
     const handleClone = async (role: Role) => {
         setLoading(true);
         try {
-            const res = await fetch('/api/roles', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: `${role.name} (Copy)`,
-                    description: role.description,
-                }),
-            });
+            const response = await roleService.clone(role);
 
-            if (res.ok) {
-                const data = await res.json();
+            if (response.success && response.data) {
                 const permIds = role.permissions.map((p) => p.permission.id);
                 if (permIds.length > 0) {
-                    await fetch(`/api/roles/${data.data.id}/permissions`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ permissionIds: permIds }),
+                    await roleService.updatePermissions(response.data.id, {
+                        permissionIds: permIds,
                     });
                 }
                 router.refresh();
             }
+        } catch (err) {
+            console.error(err);
+            toast.error('Có lỗi xảy ra khi sao chép');
         } finally {
             setLoading(false);
         }
@@ -208,26 +168,13 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
         ));
 
         try {
-            const res = await fetch(`/api/roles/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ isActive: newActiveStatus }),
-            });
-
-            if (!res.ok) {
-                // Revert on error
-                setRoles(prev => prev.map(role =>
-                    role.id === id ? { ...role, isActive: currentActive } : role
-                ));
-                const data = await res.json();
-                toast.error(data.error || 'Có lỗi xảy ra');
-            }
-        } catch {
+            await roleService.update(id, { isActive: newActiveStatus });
+        } catch (err: any) {
             // Revert on error
             setRoles(prev => prev.map(role =>
                 role.id === id ? { ...role, isActive: currentActive } : role
             ));
-            toast.error('Lỗi kết nối máy chủ');
+            toast.error(err.message || 'Có lỗi xảy ra');
         }
     };
 

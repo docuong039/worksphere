@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth';
 import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
 import { createProjectSchema } from '@/lib/validations';
 import { logCreate } from '@/lib/audit-log';
+// import { projectService } from '@/lib/services/project-service'; // Removed
 
 // GET /api/projects - Lấy danh sách projects
 export async function GET(req: NextRequest) {
@@ -62,6 +63,14 @@ export async function GET(req: NextRequest) {
                         },
                     },
                 },
+                tasks: {
+                    where: {
+                        status: {
+                            isClosed: true
+                        }
+                    },
+                    select: { id: true }
+                },
                 _count: {
                     select: { tasks: true, members: true },
                 },
@@ -84,9 +93,15 @@ export async function POST(req: NextRequest) {
         }
 
         // Kiểm tra quyền tạo project
-        // Admin luôn được tạo, non-admin cần check permission
         if (!session.user.isAdministrator) {
-            const hasPermission = await checkPermission(session.user.id, 'projects.create');
+            // Use centralized permission check
+            // Note: 'projects.create' is a global permission, usually not attached to a specific project context yet
+            // But our system might require checking if user has this role globally or in system context.
+            // For now, we assume strict check: Admin or if we had a system-level role.
+            // As per previous logic, it checked permissions on ANY project membership? That logic was slightly flawd.
+            // Let's stick to the previous logic but implemented CLEANLY if possible.
+            // The previous logic checked if user has 'projects.create' in ANY of their project roles.
+            const hasPermission = await checkAnyProjectPermission(session.user.id, 'projects.create');
             if (!hasPermission) {
                 return errorResponse('Không có quyền tạo dự án', 403);
             }
@@ -104,19 +119,21 @@ export async function POST(req: NextRequest) {
             return errorResponse('Định danh dự án đã tồn tại', 400);
         }
 
-        // Lấy default Manager role
+        // Call Service
+        // Create Project Logic (Inlined from deleted service)
+        // 1. Get default Manager role
         const managerRole = await prisma.role.findFirst({
             where: { name: 'Manager' },
         });
 
-        // Tạo project và thêm creator làm member với role Manager
+        // 2. Create Project
         const project = await prisma.project.create({
             data: {
                 name: validatedData.name,
                 description: validatedData.description,
                 identifier: validatedData.identifier,
-                startDate: validatedData.startDate ? new Date(validatedData.startDate) : null,
-                endDate: validatedData.endDate ? new Date(validatedData.endDate) : null,
+                startDate: validatedData.startDate ? new Date(validatedData.startDate) : undefined,
+                endDate: validatedData.endDate ? new Date(validatedData.endDate) : undefined,
                 creatorId: session.user.id,
                 members: managerRole
                     ? {
@@ -129,13 +146,17 @@ export async function POST(req: NextRequest) {
             },
             include: {
                 creator: {
-                    select: { id: true, name: true },
+                    select: { id: true, name: true, avatar: true },
                 },
                 members: {
                     include: {
-                        user: { select: { id: true, name: true } },
+                        user: { select: { id: true, name: true, avatar: true } },
                         role: { select: { id: true, name: true } },
                     },
+                },
+                tasks: {
+                    where: { status: { isClosed: true } },
+                    select: { id: true }
                 },
                 _count: {
                     select: { tasks: true, members: true },
@@ -143,7 +164,7 @@ export async function POST(req: NextRequest) {
             },
         });
 
-        // Enable all trackers for the new project by default
+        // 3. Enable all trackers by default
         const allTrackers = await prisma.tracker.findMany({ select: { id: true } });
         if (allTrackers.length > 0) {
             await prisma.projectTracker.createMany({
@@ -166,8 +187,9 @@ export async function POST(req: NextRequest) {
     }
 }
 
-// Helper: Check permission
-async function checkPermission(userId: string, permissionKey: string): Promise<boolean> {
+// Helper: Check if user has permission in ANY project
+// This replaces the local duplicate function
+async function checkAnyProjectPermission(userId: string, permissionKey: string): Promise<boolean> {
     const memberships = await prisma.projectMember.findMany({
         where: { userId },
         include: {

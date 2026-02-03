@@ -5,23 +5,12 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Filter, Save, Trash2, Globe, Lock } from 'lucide-react';
 
-interface Query {
-    id: string;
-    name: string;
-    isPublic: boolean;
-    filters: string;
-    columns: string | null;
-    sortBy: string | null;
-    sortOrder: string | null;
-    groupBy: string | null;
-    user: { id: string; name: string };
-    project: { id: string; name: string; identifier: string } | null;
-}
+import { SavedQueryWithRelations } from '@/types';
 
 interface SavedQueriesListProps {
-    queries: Query[];
+    queries: SavedQueryWithRelations[];
     currentUserId: string;
-    onSelectQuery: (query: Query) => void;
+    onSelectQuery: (query: SavedQueryWithRelations) => void;
 }
 
 export function SavedQueriesList({

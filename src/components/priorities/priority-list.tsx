@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Check, GripVertical } from 'lucide-react';
+import { priorityService } from '@/services/priority.service';
 
 interface Priority {
     id: string;
@@ -51,20 +52,12 @@ export function PriorityList({ priorities: initialPriorities }: PriorityListProp
         setError('');
 
         try {
-            const res = await fetch('/api/priorities', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            });
-
-            if (res.ok) {
-                setIsAdding(false);
-                setFormData({ name: '', color: '#3b82f6' });
-                router.refresh();
-            } else {
-                const data = await res.json();
-                setError(data.error || 'Có lỗi xảy ra');
-            }
+            await priorityService.create(formData);
+            setIsAdding(false);
+            setFormData({ name: '', color: '#3b82f6' });
+            router.refresh();
+        } catch (err: any) {
+            setError(err.message || 'Có lỗi xảy ra');
         } finally {
             setLoading(false);
         }
@@ -77,20 +70,12 @@ export function PriorityList({ priorities: initialPriorities }: PriorityListProp
         setError('');
 
         try {
-            const res = await fetch(`/api/priorities/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            });
-
-            if (res.ok) {
-                setEditingId(null);
-                setFormData({ name: '', color: '#3b82f6' });
-                router.refresh();
-            } else {
-                const data = await res.json();
-                setError(data.error || 'Có lỗi xảy ra');
-            }
+            await priorityService.update(id, formData);
+            setEditingId(null);
+            setFormData({ name: '', color: '#3b82f6' });
+            router.refresh();
+        } catch (err: any) {
+            setError(err.message || 'Có lỗi xảy ra');
         } finally {
             setLoading(false);
         }
@@ -106,30 +91,22 @@ export function PriorityList({ priorities: initialPriorities }: PriorityListProp
         if (!confirm(`Bạn có chắc muốn xóa priority "${name}"?`)) return;
 
         try {
-            const res = await fetch(`/api/priorities/${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                toast.success('Đã xóa priority');
-                router.refresh();
-            } else {
-                const data = await res.json();
-                toast.error(data.error || 'Có lỗi xảy ra');
-            }
-        } catch {
-            toast.error('Lỗi kết nối máy chủ');
+            await priorityService.delete(id);
+            toast.success('Đã xóa priority');
+            router.refresh();
+        } catch (err: any) {
+            toast.error(err.message || 'Có lỗi xảy ra');
         }
     };
 
     // Set default
     const handleSetDefault = async (id: string) => {
         try {
-            await fetch(`/api/priorities/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ isDefault: true }),
-            });
+            await priorityService.setDefault(id);
             router.refresh();
         } catch (err) {
             console.error(err);
+            toast.error('Có lỗi xảy ra');
         }
     };
 

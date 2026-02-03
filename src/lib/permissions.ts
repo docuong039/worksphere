@@ -1,5 +1,6 @@
 import { Role, Permission } from '@prisma/client';
-import prisma from './prisma';
+import prisma from '@/lib/prisma';
+import { PERMISSIONS } from '@/lib/constants';
 
 export interface PermissionUser {
     id: string;
@@ -210,20 +211,20 @@ export async function canViewTask(
     }
 
     // Check if user has view_all permission
-    if (await hasPermission(user, 'tasks.view_all')) {
+    if (await hasPermission(user, PERMISSIONS.TASKS.VIEW_ALL)) {
         return true;
     }
 
     // Check if user is project member with view_project permission
     if (await isProjectMember(user.id, task.projectId)) {
-        if (await hasPermission(user, 'tasks.view_project', task.projectId)) {
+        if (await hasPermission(user, PERMISSIONS.TASKS.VIEW_PROJECT, task.projectId)) {
             return true;
         }
     }
 
     // Check if user is assignee with view_assigned permission
     if (task.assigneeId === user.id) {
-        if (await hasPermission(user, 'tasks.view_assigned', task.projectId)) {
+        if (await hasPermission(user, PERMISSIONS.TASKS.VIEW_ASSIGNED, task.projectId)) {
             return true;
         }
     }
@@ -252,20 +253,20 @@ export async function canEditTask(
     }
 
     // Check if user has edit_any permission
-    if (await hasPermission(user, 'tasks.edit_any', task.projectId)) {
+    if (await hasPermission(user, PERMISSIONS.TASKS.EDIT_ANY, task.projectId)) {
         return true;
     }
 
     // Check if user is assignee with edit_assigned permission
     if (task.assigneeId === user.id) {
-        if (await hasPermission(user, 'tasks.edit_assigned', task.projectId)) {
+        if (await hasPermission(user, PERMISSIONS.TASKS.EDIT_ASSIGNED, task.projectId)) {
             return true;
         }
     }
 
     // Check if user is creator with edit_own permission
     if (task.creatorId === user.id) {
-        if (await hasPermission(user, 'tasks.edit_own', task.projectId)) {
+        if (await hasPermission(user, PERMISSIONS.TASKS.EDIT_OWN, task.projectId)) {
             return true;
         }
     }
@@ -319,6 +320,29 @@ export async function canTransitionStatus(
     });
 
     return !!allowedTransition;
+}
+
+/**
+ * Check if user can manage comments (delete/edit any) in a task
+ */
+export async function canManageComments(
+    user: PermissionUser,
+    taskId: string
+): Promise<boolean> {
+    if (user.isAdministrator) {
+        return true;
+    }
+
+    const task = await prisma.task.findUnique({
+        where: { id: taskId },
+        select: { projectId: true },
+    });
+
+    if (!task) {
+        return false;
+    }
+
+    return hasPermission(user, PERMISSIONS.TASKS.MANAGE_COMMENTS, task.projectId);
 }
 
 /**

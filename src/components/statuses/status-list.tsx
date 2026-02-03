@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Check, GripVertical, Lock } from 'lucide-react';
+import { statusService } from '@/services/status.service';
 
 interface Status {
     id: string;
@@ -43,20 +44,12 @@ export function StatusList({ statuses: initialStatuses }: StatusListProps) {
         setError('');
 
         try {
-            const res = await fetch('/api/statuses', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            });
-
-            if (res.ok) {
-                setIsAdding(false);
-                setFormData({ name: '', description: '', isClosed: false, defaultDoneRatio: null });
-                router.refresh();
-            } else {
-                const data = await res.json();
-                setError(data.error || 'Có lỗi xảy ra');
-            }
+            await statusService.create(formData);
+            setIsAdding(false);
+            setFormData({ name: '', description: '', isClosed: false, defaultDoneRatio: null });
+            router.refresh();
+        } catch (err: any) {
+            setError(err.message || 'Có lỗi xảy ra');
         } finally {
             setLoading(false);
         }
@@ -69,20 +62,12 @@ export function StatusList({ statuses: initialStatuses }: StatusListProps) {
         setError('');
 
         try {
-            const res = await fetch(`/api/statuses/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            });
-
-            if (res.ok) {
-                setEditingId(null);
-                setFormData({ name: '', description: '', isClosed: false, defaultDoneRatio: null });
-                router.refresh();
-            } else {
-                const data = await res.json();
-                setError(data.error || 'Có lỗi xảy ra');
-            }
+            await statusService.update(id, formData);
+            setEditingId(null);
+            setFormData({ name: '', description: '', isClosed: false, defaultDoneRatio: null });
+            router.refresh();
+        } catch (err: any) {
+            setError(err.message || 'Có lỗi xảy ra');
         } finally {
             setLoading(false);
         }
@@ -98,30 +83,22 @@ export function StatusList({ statuses: initialStatuses }: StatusListProps) {
         if (!confirm(`Bạn có chắc muốn xóa status "${name}"?`)) return;
 
         try {
-            const res = await fetch(`/api/statuses/${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                toast.success('Đã xóa status');
-                router.refresh();
-            } else {
-                const data = await res.json();
-                toast.error(data.error || 'Có lỗi xảy ra');
-            }
-        } catch {
-            toast.error('Lỗi kết nối máy chủ');
+            await statusService.delete(id);
+            toast.success('Đã xóa status');
+            router.refresh();
+        } catch (err: any) {
+            toast.error(err.message || 'Có lỗi xảy ra');
         }
     };
 
     // Set default
     const handleSetDefault = async (id: string) => {
         try {
-            await fetch(`/api/statuses/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ isDefault: true }),
-            });
+            await statusService.setDefault(id);
             router.refresh();
         } catch (err) {
             console.error(err);
+            toast.error('Có lỗi xảy ra');
         }
     };
 

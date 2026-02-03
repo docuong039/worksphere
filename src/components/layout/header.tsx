@@ -2,8 +2,8 @@
 
 import { signOut } from 'next-auth/react';
 import { LogOut } from 'lucide-react';
-import { GlobalSearch } from './global-search';
-import { NotificationBell } from './notification-bell';
+import { GlobalSearch } from '@/components/layout/global-search';
+import { NotificationBell } from '@/components/layout/notification-bell';
 
 interface HeaderProps {
     user: {

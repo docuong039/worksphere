@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus, Trash2, User, Crown, Search } from 'lucide-react';
 import Image from 'next/image';
+import { projectService } from '@/services/project.service';
 
 interface Member {
     id: string;
@@ -72,25 +73,18 @@ export function ProjectMembers({
         setError('');
 
         try {
-            const res = await fetch(`/api/projects/${projectId}/members`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userIds: selectedUserIds,
-                    roleId: selectedRoleId,
-                }),
+            await projectService.addMembers(projectId, {
+                userIds: selectedUserIds,
+                roleId: selectedRoleId,
             });
 
-            if (res.ok) {
-                setShowAddModal(false);
-                setSelectedUserIds([]);
-                setSearchUser('');
-                toast.success('Đã thêm thành viên thành công');
-                router.refresh();
-            } else {
-                const data = await res.json();
-                setError(data.error || 'Có lỗi xảy ra');
-            }
+            setShowAddModal(false);
+            setSelectedUserIds([]);
+            setSearchUser('');
+            toast.success('Đã thêm thành viên thành công');
+            router.refresh();
+        } catch (err: any) {
+            setError(err.message || 'Có lỗi xảy ra');
         } finally {
             setLoading(false);
         }
@@ -99,15 +93,9 @@ export function ProjectMembers({
     // Update member role
     const handleUpdateRole = async (memberId: string, roleId: string) => {
         try {
-            const res = await fetch(`/api/projects/${projectId}/members/${memberId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ roleId }),
-            });
-            if (res.ok) {
-                toast.success('Đã cập nhật vai trò');
-                router.refresh();
-            }
+            await projectService.updateMemberRole(projectId, memberId, { roleId });
+            toast.success('Đã cập nhật vai trò');
+            router.refresh();
         } catch {
             toast.error('Lỗi kết nối máy chủ');
         }
@@ -125,19 +113,11 @@ export function ProjectMembers({
         }
 
         try {
-            const res = await fetch(`/api/projects/${projectId}/members/${member.id}`, {
-                method: 'DELETE',
-            });
-
-            if (res.ok) {
-                toast.success('Đã xóa thành viên');
-                router.refresh();
-            } else {
-                const data = await res.json();
-                toast.error(data.error || 'Có lỗi xảy ra');
-            }
-        } catch {
-            toast.error('Lỗi kết nối máy chủ');
+            await projectService.removeMember(projectId, member.id);
+            toast.success('Đã xóa thành viên');
+            router.refresh();
+        } catch (err: any) {
+            toast.error(err.message || 'Có lỗi xảy ra');
         }
     };
 

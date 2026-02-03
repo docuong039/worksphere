@@ -16,49 +16,21 @@ import {
     LayoutGrid,
     List,
 } from 'lucide-react';
-import type { DateLike } from '@/lib/types';
-import { SavedQueriesList, SaveQueryModal } from './saved-queries';
-import { CreateTaskModal } from './create-task-modal';
-import { TaskContextMenu } from './task-context-menu';
-import { KanbanBoard } from './kanban-board';
+import { SavedQueriesList, SaveQueryModal } from '@/components/tasks/saved-queries';
+import { CreateTaskModal } from '@/components/tasks/create-task-modal';
+import { TaskContextMenu } from '@/components/tasks/task-context-menu';
+import { KanbanBoard } from '@/components/tasks/kanban-board';
+import { taskService } from '@/services/task.service';
 
-export interface Query {
-    id: string;
-    name: string;
-    isPublic: boolean;
-    filters: string;
-    columns: string | null;
-    sortBy: string | null;
-    sortOrder: string | null;
-    groupBy: string | null;
-    user: { id: string; name: string };
-    project: { id: string; name: string; identifier: string } | null;
-}
+import type {
+    TaskWithRelations as Task,
+    SavedQueryWithRelations, // Changed from SavedQuery
+    TaskFilters,
+    Tracker,
+    Status,
+    Priority
+} from '@/types';
 
-export interface Task {
-    id: string;
-    number: number;
-    title: string;
-    startDate: DateLike | null;
-    dueDate: DateLike | null;
-    doneRatio: number;
-    estimatedHours: number | null;
-    totalSpentHours?: number;
-    tracker: { id: string; name: string };
-    status: { id: string; name: string; isClosed: boolean };
-    priority: { id: string; name: string; color: string | null };
-    project: { id: string; name: string; identifier: string };
-    assignee: { id: string; name: string; avatar: string | null } | null;
-    parent: { id: string; number: number; title: string } | null;
-    subtasks?: Array<{
-        id: string;
-        number: number;
-        title: string;
-        status: { id: string; name: string; isClosed: boolean };
-        assignee: { id: string; name: string; avatar: string | null } | null;
-    }>;
-    _count: { subtasks: number; comments: number };
-}
 
 
 interface FilterOption {
@@ -70,11 +42,11 @@ interface FilterOption {
 
 interface TaskListProps {
     initialTasks: Task[];
-    trackers: FilterOption[];
-    statuses: FilterOption[];
-    priorities: FilterOption[];
+    trackers: Tracker[];
+    statuses: Status[];
+    priorities: Priority[];
     projects: Array<{ id: string; name: string; identifier: string }>;
-    queries?: Query[];
+    queries?: SavedQueryWithRelations[]; // Changed from SavedQuery[]
     users?: Array<{ id: string; name: string }>;
     currentUserId?: string;
     allowedTrackerIdsByProject?: Record<string, string[]>;
@@ -127,33 +99,43 @@ export function TaskList({
         setLoading(true);
         const activeFilters = filterOverrides || filters;
         try {
-            const params = new URLSearchParams();
+            // Prepare params for taskService
+            const params: TaskFilters = {};
             const effectiveProjectId = propProjectId || activeFilters.projectId;
-            if (effectiveProjectId) params.set('projectId', effectiveProjectId);
+            if (effectiveProjectId) params.projectId = effectiveProjectId;
 
-            if (search) params.set('search', search);
-            if (activeFilters.trackerId) params.set('trackerId', activeFilters.trackerId);
-            if (activeFilters.statusId) params.set('statusId', activeFilters.statusId);
-            if (activeFilters.priorityId) params.set('priorityId', activeFilters.priorityId);
-            if (activeFilters.assigneeId) params.set('assigneeId', activeFilters.assigneeId);
-            if (activeFilters.creatorId) params.set('creatorId', activeFilters.creatorId);
-            if (!activeFilters.showClosed) params.set('isClosed', 'false');
-            if (activeFilters.myTasks) params.set('my', 'true');
-            if (activeFilters.startDateFrom) params.set('startDateFrom', activeFilters.startDateFrom);
-            if (activeFilters.startDateTo) params.set('startDateTo', activeFilters.startDateTo);
-            if (activeFilters.dueDateFrom) params.set('dueDateFrom', activeFilters.dueDateFrom);
-            if (activeFilters.dueDateTo) params.set('dueDateTo', activeFilters.dueDateTo);
+            if (search) params.search = search;
+            if (activeFilters.trackerId) params.trackerId = activeFilters.trackerId;
+            if (activeFilters.statusId) params.statusId = activeFilters.statusId;
+            if (activeFilters.priorityId) params.priorityId = activeFilters.priorityId;
+            if (activeFilters.assigneeId) params.assigneeId = activeFilters.assigneeId;
+            if (activeFilters.creatorId) params.creatorId = activeFilters.creatorId;
+            if (activeFilters.showClosed) params.isClosed = 'true'; // Fixed logic: showClosed usually means filter for closed or include closed? The original code said !showClosed -> isClosed='false'. If showClosed is true, we probably don't filter isClosed? Or we filter isClosed=true?
+            // Original logic: if (!activeFilters.showClosed) params.isClosed = 'false';
+            // This implies: Only show open tasks by default. If showClosed is true, we show ALL tasks (remove isClosed param) OR we show only closed?
+            // "Present closed tasks" checkbox usually means "Include closed tasks" or "Show only closed".
+            // Let's assume "Active Filters" means we want to see closed ones.
+            // Actually, Redmine behavior: Default = Open. Check "Closed" = Include Closed? Or Show Closed?
+            // Let's stick to original behavior found in code:
+            if (!activeFilters.showClosed) params.isClosed = 'false'; // Default hide closed
+
+            if (activeFilters.myTasks) params.my = 'true';
+            if (activeFilters.startDateFrom) params.startDateFrom = activeFilters.startDateFrom as string;
+            if (activeFilters.startDateTo) params.startDateTo = activeFilters.startDateTo as string;
+            if (activeFilters.dueDateFrom) params.dueDateFrom = activeFilters.dueDateFrom as string;
+            if (activeFilters.dueDateTo) params.dueDateTo = activeFilters.dueDateTo as string;
 
             // Jira-style: Board only shows root tasks
             if (viewMode === 'kanban') {
-                params.set('parentId', 'null');
+                params.parentId = 'null';
             }
 
-            const res = await fetch(`/api/tasks?${params.toString()}`);
-            const data = await res.json();
-            setTasks(data.data.tasks);
-            if (data.data.aggregations) {
-                setAggregations(data.data.aggregations);
+            const response = await taskService.getAll(params);
+            if (response.success && response.data) {
+                setTasks(response.data.tasks);
+                if (response.data.aggregations) {
+                    setAggregations(response.data.aggregations);
+                }
             }
         } finally {
             setLoading(false);
@@ -165,7 +147,7 @@ export function TaskList({
         fetchTasks();
     }, [fetchTasks]);
     // Select Query
-    const handleSelectQuery = (query: Query) => {
+    const handleSelectQuery = (query: SavedQueryWithRelations) => { // Changed from SavedQuery
         try {
             const parsedFilters = JSON.parse(query.filters);
             const newFilters = {
@@ -201,20 +183,11 @@ export function TaskList({
     // Quick Status Update for Kanban
     const handleStatusChange = async (taskId: string, newStatusId: string) => {
         try {
-            const res = await fetch(`/api/tasks/${taskId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ statusId: newStatusId }),
-            });
-            if (res.ok) {
-                toast.success('Đã cập nhật trạng thái');
-                fetchTasks();
-            } else {
-                const data = await res.json();
-                toast.error(data.error || 'Không thể chuyển trạng thái');
-            }
-        } catch {
-            toast.error('Lỗi kết nối máy chủ');
+            await taskService.update(taskId, { statusId: newStatusId });
+            toast.success('Đã cập nhật trạng thái');
+            fetchTasks();
+        } catch (err: any) {
+            toast.error(err.message || 'Không thể chuyển trạng thái');
         }
     };
 

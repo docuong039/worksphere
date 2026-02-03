@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
 import { updateCommentSchema } from '@/lib/validations';
+import { checkProjectPermission } from '@/lib/permissions';
 
 interface Params {
     params: Promise<{ id: string; commentId: string }>;
@@ -38,9 +39,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
             return errorResponse('Comment không thuộc task này', 400);
         }
 
-        // Only the owner can edit their own comment
+        // Only the owner can edit their own comment, unless they have manage_comments permission
         if (comment.userId !== session.user.id) {
-            return errorResponse('Bạn chỉ có thể chỉnh sửa comment của mình', 403);
+            // Check if user has explicit permission to manage comments
+            const canManage = await checkProjectPermission(session.user, 'tasks.manage_comments', id ? (await prisma.task.findUnique({ where: { id }, select: { projectId: true } }))?.projectId || '' : '');
+
+            if (!canManage) {
+                return errorResponse('Bạn chỉ có thể chỉnh sửa comment của mình', 403);
+            }
         }
 
         // Update comment
@@ -89,9 +95,14 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
             return errorResponse('Comment không thuộc task này', 400);
         }
 
-        // Only the owner can delete their own comment
+        // Only the owner can delete their own comment, unless they have manage_comments permission
         if (comment.userId !== session.user.id) {
-            return errorResponse('Bạn chỉ có thể xóa comment của mình', 403);
+            // Check if user has explicit permission to manage comments
+            const canManage = await checkProjectPermission(session.user, 'tasks.manage_comments', id ? (await prisma.task.findUnique({ where: { id }, select: { projectId: true } }))?.projectId || '' : '');
+
+            if (!canManage) {
+                return errorResponse('Bạn chỉ có thể xóa comment của mình', 403);
+            }
         }
 
         // Delete comment

@@ -4,11 +4,14 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Shield, User, Eye, EyeOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, Shield, User } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { userService } from '@/services/user.service';
+import { UserForm, UserFormData } from '@/components/users/user-form';
 import type { DateLike } from '@/lib/types';
+import { ApiError } from '@/lib/api-fetch';
 
-interface UserType {
+export interface UserType {
     id: string;
     email: string;
     name: string;
@@ -31,42 +34,33 @@ export function UserList({ users: initialUsers }: UserListProps) {
     const [users, setUsers] = useState(initialUsers);
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [showPassword, setShowPassword] = useState(false);
-    const [formData, setFormData] = useState({
-        name: '',
-        email: '',
-        password: '',
-        isAdministrator: false,
-    });
     const [loading, setLoading] = useState(false);
+
+    // We can use toast for errors instead of local state for cleaner UI, 
+    // but preserving local error state if preferred. 
+    // The previous implementation used a local 'error' state for form feedback.
     const [error, setError] = useState('');
 
     // Create user
-    const handleCreate = async () => {
-        if (!formData.name.trim() || !formData.email.trim() || !formData.password) return;
+    const handleCreate = async (data: UserFormData) => {
         setLoading(true);
         setError('');
 
         try {
-            const res = await fetch('/api/users', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+            await userService.create({
+                ...data,
+                password: data.password || ''
             });
 
-            if (res.ok) {
-                setIsAdding(false);
-                setFormData({ name: '', email: '', password: '', isAdministrator: false });
-                router.refresh();
+            setIsAdding(false);
+            toast.success('Đã tạo người dùng mới');
+            router.refresh();
+        } catch (err) {
+            // Handle ApiError specially if needed
+            if (err instanceof ApiError && err.message) {
+                setError(err.message);
             } else {
-                const data = await res.json();
-                if (data.errors && Array.isArray(data.errors)) {
-                    interface FieldError { field?: string; message: string }
-                    const errorMsg = data.errors.map((e: FieldError) => `${e.field || 'Lỗi'}: ${e.message}`).join(', ');
-                    setError(errorMsg);
-                } else {
-                    setError(data.error || 'Có lỗi xảy ra');
-                }
+                setError('Có lỗi xảy ra khi tạo người dùng');
             }
         } finally {
             setLoading(false);
@@ -74,36 +68,31 @@ export function UserList({ users: initialUsers }: UserListProps) {
     };
 
     // Update user
-    const handleUpdate = async (id: string) => {
+    const handleUpdate = async (id: string, data: UserFormData) => {
         setLoading(true);
         setError('');
 
         try {
             const updateData: Record<string, unknown> = {
-                name: formData.name,
-                email: formData.email,
-                isAdministrator: formData.isAdministrator,
+                name: data.name,
+                email: data.email,
+                isAdministrator: data.isAdministrator,
             };
 
-            // Chỉ gửi password nếu có thay đổi
-            if (formData.password) {
-                updateData.password = formData.password;
+            // Only send password if changed
+            if (data.password) {
+                updateData.password = data.password;
             }
 
-            const res = await fetch(`/api/users/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updateData),
-            });
+            await userService.update(id, updateData);
 
-            if (res.ok) {
-                setEditingId(null);
-                setFormData({ name: '', email: '', password: '', isAdministrator: false });
-                router.refresh();
-            } else {
-                const data = await res.json();
-                setError(data.error || 'Có lỗi xảy ra');
-            }
+            setEditingId(null);
+            toast.success('Cập nhật thành công');
+            router.refresh();
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Có lỗi cập nhật';
+            setError(msg);
+            toast.error(msg);
         } finally {
             setLoading(false);
         }
@@ -119,16 +108,12 @@ export function UserList({ users: initialUsers }: UserListProps) {
         if (!confirm(`Bạn có chắc muốn xóa user "${user.name}"?`)) return;
 
         try {
-            const res = await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
-            if (res.ok) {
-                toast.success('Đã xóa người dùng');
-                router.refresh();
-            } else {
-                const data = await res.json();
-                toast.error(data.error || 'Có lỗi xảy ra');
-            }
-        } catch {
-            toast.error('Lỗi kết nối máy chủ');
+            await userService.delete(user.id);
+            toast.success('Đã xóa người dùng');
+            router.refresh();
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Lỗi kết nối máy chủ';
+            toast.error(msg);
         }
     };
 
@@ -141,39 +126,24 @@ export function UserList({ users: initialUsers }: UserListProps) {
         ));
 
         try {
-            const res = await fetch(`/api/users/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ isActive: newActiveStatus }),
-            });
-
-            if (!res.ok) {
-                // Revert on error
-                setUsers(prev => prev.map(user =>
-                    user.id === id ? { ...user, isActive: currentActive } : user
-                ));
-                const data = await res.json();
-                toast.error(data.error || 'Có lỗi xảy ra');
-            }
-        } catch {
+            await userService.update(id, { isActive: newActiveStatus });
+            toast.success(`Đã ${newActiveStatus ? 'kích hoạt' : 'khóa'} người dùng`);
+        } catch (err) {
             // Revert on error
             setUsers(prev => prev.map(user =>
                 user.id === id ? { ...user, isActive: currentActive } : user
             ));
-            toast.error('Lỗi kết nối máy chủ');
+            const msg = err instanceof Error ? err.message : 'Lỗi kết nối máy chủ';
+            toast.error(msg);
         }
     };
 
     // Start editing
     const startEdit = (user: UserType) => {
         setEditingId(user.id);
-        setFormData({
-            name: user.name,
-            email: user.email,
-            password: '',
-            isAdministrator: user.isAdministrator,
-        });
+        setIsAdding(false);
         setError('');
+        // Form data is now handled by UserForm effect
     };
 
     return (
@@ -184,7 +154,7 @@ export function UserList({ users: initialUsers }: UserListProps) {
                 <button
                     onClick={() => {
                         setIsAdding(true);
-                        setFormData({ name: '', email: '', password: '', isAdministrator: false });
+                        setEditingId(null);
                         setError('');
                     }}
                     className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
@@ -202,72 +172,24 @@ export function UserList({ users: initialUsers }: UserListProps) {
             )}
 
             {/* Add Form */}
-            {isAdding && (
-                <div className="px-6 py-4 bg-blue-50 border-b border-gray-200">
-                    <div className="grid grid-cols-4 gap-4 mb-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Tên</label>
-                            <input
-                                type="text"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                                placeholder="Họ và tên"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                            <input
-                                type="email"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                                placeholder="email@company.com"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu</label>
-                            <div className="relative">
-                                <input
-                                    type={showPassword ? 'text' : 'password'}
-                                    value={formData.password}
-                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm pr-10"
-                                    placeholder="••••••••"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400"
-                                >
-                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                            </div>
-                        </div>
-                        <div className="flex items-end gap-4">
-                            <div className="flex items-center gap-2">
-                                <Switch
-                                    checked={formData.isAdministrator}
-                                    onChange={(checked) => setFormData({ ...formData, isAdministrator: checked })}
-                                />
-                                <span className="text-sm font-medium text-gray-700">Administrator</span>
-                            </div>
-
-                            <button
-                                onClick={handleCreate}
-                                disabled={loading || !formData.name || !formData.email || !formData.password}
-                                className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
-                            >
-                                Tạo
-                            </button>
-                            <button
-                                onClick={() => setIsAdding(false)}
-                                className="px-4 py-2 text-gray-700 border border-gray-300 text-sm rounded-md hover:bg-gray-50"
-                            >
-                                Hủy
-                            </button>
-                        </div>
-                    </div>
+            {/* Add/Edit Form Section */}
+            {(isAdding || editingId) && (
+                <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                    <UserForm
+                        initialData={editingId ? users.find(u => u.id === editingId) : null}
+                        isLoading={loading}
+                        onCancel={() => {
+                            setIsAdding(false);
+                            setEditingId(null);
+                        }}
+                        onSubmit={async (data) => {
+                            if (editingId) {
+                                await handleUpdate(editingId, data);
+                            } else {
+                                await handleCreate(data);
+                            }
+                        }}
+                    />
                 </div>
             )}
 
@@ -300,134 +222,77 @@ export function UserList({ users: initialUsers }: UserListProps) {
                 </thead>
                 <tbody>
                     {users.map((user) => (
-                        <tr key={user.id} className="border-b border-gray-200 hover:bg-gray-50">
-                            {editingId === user.id ? (
-                                <>
-                                    <td className="px-6 py-3">
-                                        <input
-                                            type="text"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm"
-                                        />
-                                    </td>
-                                    <td className="px-6 py-3">
-                                        <input
-                                            type="email"
-                                            value={formData.email}
-                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                            className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm"
-                                        />
-                                    </td>
-                                    <td className="px-6 py-3 text-center">
-                                        <div className="flex items-center justify-center gap-2">
-                                            <Switch
-                                                checked={formData.isAdministrator}
-                                                onChange={(checked) =>
-                                                    setFormData({ ...formData, isAdministrator: checked })
-                                                }
+                        <tr key={user.id} className={`border-b border-gray-200 hover:bg-gray-50 ${editingId === user.id ? 'bg-blue-50' : ''}`}>
+                            {/* Normal Render Only - Edit is now in Top Form */}
+                            <td className="px-6 py-3">
+                                <div className="flex items-center gap-3">
+
+                                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                                        {user.avatar ? (
+                                            <Image
+                                                src={user.avatar}
+                                                alt={user.name}
+                                                width={32}
+                                                height={32}
+                                                className="w-8 h-8 rounded-full"
                                             />
-                                            <span className="text-sm font-medium text-gray-700">Admin</span>
-                                        </div>
-                                    </td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
-                                    <td className="px-6 py-3 text-right">
-                                        <input
-                                            type="password"
-                                            value={formData.password}
-                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                            className="w-24 px-2 py-1 border border-gray-300 rounded-md text-sm mr-2"
-                                            placeholder="Mật khẩu mới"
-                                        />
-                                        <button
-                                            onClick={() => handleUpdate(user.id)}
-                                            disabled={loading}
-                                            className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 mr-2"
-                                        >
-                                            Lưu
-                                        </button>
-                                        <button
-                                            onClick={() => setEditingId(null)}
-                                            className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-md hover:bg-gray-200"
-                                        >
-                                            Hủy
-                                        </button>
-                                    </td>
-                                </>
-                            ) : (
-                                <>
-                                    <td className="px-6 py-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                                                {user.avatar ? (
-                                                    <Image
-                                                        src={user.avatar}
-                                                        alt={user.name}
-                                                        width={32}
-                                                        height={32}
-                                                        className="w-8 h-8 rounded-full"
-                                                    />
-                                                ) : (
-                                                    <User className="w-4 h-4 text-gray-500" />
-                                                )}
-                                            </div>
-                                            <span className={`font-medium ${user.isActive ? 'text-gray-900' : 'text-gray-400'}`}>
-                                                {user.name}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-3 text-gray-500">{user.email}</td>
-                                    <td className="px-6 py-3 text-center">
-                                        {user.isAdministrator ? (
-                                            <span className="inline-flex items-center gap-1 text-red-600">
-                                                <Shield className="w-4 h-4" />
-                                                Admin
-                                            </span>
                                         ) : (
-                                            <span className="text-gray-400">User</span>
+                                            <User className="w-4 h-4 text-gray-500" />
                                         )}
-                                    </td>
-                                    <td className="px-6 py-3 text-center text-gray-500">
-                                        {user._count.projectMemberships}
-                                    </td>
-                                    <td className="px-6 py-3 text-center text-gray-500">
-                                        {user._count.assignedTasks}
-                                    </td>
-                                    <td className="px-6 py-3 text-center">
-                                        {user.isActive ? (
-                                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                                                Hoạt động
-                                            </span>
-                                        ) : (
-                                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                                                Đã khóa
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-3 text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <Switch
-                                                checked={user.isActive}
-                                                onChange={() => handleToggleActive(user.id, user.isActive)}
-                                            />
-                                            <button
-                                                onClick={() => startEdit(user)}
-                                                className="p-1 text-gray-400 hover:text-blue-600"
-                                            >
-                                                <Pencil className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(user)}
-                                                className="p-1 text-gray-400 hover:text-red-600"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </>
-                            )}
+                                    </div>
+                                    <span className={`font-medium ${user.isActive ? 'text-gray-900' : 'text-gray-400'}`}>
+                                        {user.name}
+                                    </span>
+                                </div>
+                            </td>
+                            <td className="px-6 py-3 text-gray-500">{user.email}</td>
+                            <td className="px-6 py-3 text-center">
+                                {user.isAdministrator ? (
+                                    <span className="inline-flex items-center gap-1 text-red-600">
+                                        <Shield className="w-4 h-4" />
+                                        Admin
+                                    </span>
+                                ) : (
+                                    <span className="text-gray-400">User</span>
+                                )}
+                            </td>
+                            <td className="px-6 py-3 text-center text-gray-500">
+                                {user._count.projectMemberships}
+                            </td>
+                            <td className="px-6 py-3 text-center text-gray-500">
+                                {user._count.assignedTasks}
+                            </td>
+                            <td className="px-6 py-3 text-center">
+                                {user.isActive ? (
+                                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                                        Hoạt động
+                                    </span>
+                                ) : (
+                                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                        Đã khóa
+                                    </span>
+                                )}
+                            </td>
+                            <td className="px-6 py-3 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                    <Switch
+                                        checked={user.isActive}
+                                        onChange={() => handleToggleActive(user.id, user.isActive)}
+                                    />
+                                    <button
+                                        onClick={() => startEdit(user)}
+                                        className="p-1 text-gray-400 hover:text-blue-600"
+                                    >
+                                        <Pencil className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(user)}
+                                        className="p-1 text-gray-400 hover:text-red-600"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </td>
                         </tr>
                     ))}
                 </tbody>

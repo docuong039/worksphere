@@ -9,8 +9,63 @@ import {
     Priority,
     Comment,
     Attachment,
-    Notification
+    Notification,
+    Query,
+    Version,
+    TimeLog,
+    TimeEntryActivity
 } from '@prisma/client';
+
+export type SavedQuery = Query;
+
+export type SavedQueryWithRelations = SavedQuery & {
+    user: SafeUser;
+    project: Project | null; // Using full project which is fine since SafeUser/Project are exported
+};
+
+export type {
+    User,
+    Role,
+    Permission,
+    Project,
+    Task,
+    Tracker,
+    Status,
+    Priority,
+    Comment,
+    Attachment,
+    Notification,
+    Query,
+    Version,
+    TimeLog,
+    TimeEntryActivity
+};
+
+import { z } from 'zod';
+import {
+    createProjectSchema,
+    updateProjectSchema,
+    createTaskSchema,
+    updateTaskSchema,
+    createCommentSchema,
+    createTrackerSchema,
+    updateTrackerSchema,
+    createTimeLogSchema,
+    updateTimeLogSchema,
+    createStatusSchema,
+    updateStatusSchema,
+    createPrioritySchema,
+    updatePrioritySchema,
+    createRoleSchema,
+    updateRoleSchema,
+    createUserSchema,
+    updateUserSchema,
+    createVersionSchema,
+    updateVersionSchema,
+    createActivitySchema,
+    updateActivitySchema,
+    updateWorkflowSchema
+} from '@/lib/validations';
 
 // ============================================
 // USER TYPES
@@ -35,6 +90,7 @@ export type ProjectWithMembers = Project & {
         role: Role;
     }>;
     creator: SafeUser;
+    tasks: Array<{ id: string }>;
     _count: {
         tasks: number;
         members: number;
@@ -52,27 +108,54 @@ export type ProjectMemberWithRole = {
 // TASK TYPES
 // ============================================
 
+export type SubtaskWithRelations = Task & {
+    status: Status;
+    assignee: SafeUser | null;
+    priority: Priority;
+    tracker: Tracker;
+};
+
+export type AttachmentWithUser = Attachment & {
+    user: SafeUser;
+};
+
 export type TaskWithRelations = Task & {
     tracker: Tracker;
     status: Status;
     priority: Priority;
-    project: Project;
+    project: Project & {
+        members?: Array<{
+            user: SafeUser;
+        }>;
+    };
     assignee: SafeUser | null;
     creator: SafeUser;
     parent: Task | null;
-    subtasks: Task[];
-    watchers: Array<{
+    subtasks: SubtaskWithRelations[];
+    version: Version | null;
+    watchers?: Array<{
+        userId: string; // Including userId for convenience
         user: SafeUser;
     }>;
-    comments: Array<Comment & {
+    comments?: Array<Comment & {
         user: SafeUser;
     }>;
-    attachments: Attachment[];
+    attachments?: AttachmentWithUser[];
     _count: {
         subtasks: number;
         comments: number;
-        watchers: number;
+        watchers?: number;
     };
+    timeLogs?: Array<{
+        id: string;
+        hours: number;
+        spentOn: Date;
+        comments: string | null;
+        activity: { id: string; name: string };
+        user: { id: string; name: string };
+    }>;
+    relationsFrom?: any[]; // Allow for detailed view relations
+    relationsTo?: any[];
 };
 
 export type TaskListItem = Task & {
@@ -100,6 +183,7 @@ export type RoleWithPermissions = Role & {
     permissions: Array<{
         permission: Permission;
     }>;
+    trackers: Array<{ trackerId: string; roleId: string }>;
     _count: {
         projectMembers: number;
     };
@@ -187,35 +271,168 @@ export type RecentActivity = {
 // FORM TYPES
 // ============================================
 
-export type CreateProjectInput = {
-    name: string;
-    description?: string;
-    identifier: string;
-    startDate?: Date;
-    endDate?: Date;
+export type CreateProjectInput = z.infer<typeof createProjectSchema>;
+export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
+
+export type CreateTaskInput = z.infer<typeof createTaskSchema>;
+export type UpdateTaskInput = z.infer<typeof updateTaskSchema> & { id?: string };
+
+export type CreateCommentInput = z.infer<typeof createCommentSchema>;
+
+// Tracker Types
+export type CreateTrackerInput = z.infer<typeof createTrackerSchema>;
+export type UpdateTrackerInput = z.infer<typeof updateTrackerSchema>;
+
+// Status Types
+export type CreateStatusInput = z.infer<typeof createStatusSchema>;
+export type UpdateStatusInput = z.infer<typeof updateStatusSchema>;
+
+// Priority Types
+export type CreatePriorityInput = z.infer<typeof createPrioritySchema>;
+export type UpdatePriorityInput = z.infer<typeof updatePrioritySchema>;
+
+// Role Types
+export type CreateRoleInput = z.infer<typeof createRoleSchema>;
+export type UpdateRoleInput = z.infer<typeof updateRoleSchema>;
+
+// User Types Inputs
+export type CreateUserInput = z.infer<typeof createUserSchema>;
+export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+
+// Version Types
+export type CreateVersionInput = z.infer<typeof createVersionSchema>;
+export type UpdateVersionInput = z.infer<typeof updateVersionSchema>;
+
+// Activity Types (Time Entry Activity)
+export type CreateActivityInput = z.infer<typeof createActivitySchema>;
+export type UpdateActivityInput = z.infer<typeof updateActivitySchema>;
+// Alias for clarity in services
+export type CreateTimeEntryActivityInput = CreateActivityInput;
+export type UpdateTimeEntryActivityInput = UpdateActivityInput;
+
+
+// Workflow Types
+export type UpdateWorkflowInput = z.infer<typeof updateWorkflowSchema>;
+
+// Time Log Types
+export type CreateTimeLogInput = z.infer<typeof createTimeLogSchema>;
+export type UpdateTimeLogInput = z.infer<typeof updateTimeLogSchema>;
+
+// Service Specific Inputs
+export interface AddProjectMemberInput {
+    userIds: string[];
+    roleId: string;
+}
+
+export interface UpdateProjectMemberRoleInput {
+    roleId: string;
+}
+
+export interface UpdateProjectTrackersInput {
+    trackerIds: string[];
+}
+
+export interface UpdateRolePermissionsInput {
+    permissionIds: string[];
+}
+
+export interface UpdateRoleTrackersInput {
+    trackerIds: string[];
+}
+
+export type VersionWithStats = Version & {
+    totalTasks: number;
+    closedTasks: number;
+    progress: number;
 };
 
-export type CreateTaskInput = {
-    title: string;
-    description?: string;
-    trackerId: string;
-    statusId: string;
-    priorityId: string;
-    projectId: string;
-    assigneeId?: string;
-    parentId?: string;
-    estimatedHours?: number;
-    dueDate?: Date;
+// ============================================
+// SERVICE TYPES (Legacy Consilidation)
+// ============================================
+
+// Workflow
+export type WorkflowTransition = {
+    fromStatusId: string;
+    toStatusId: string;
+    allowed: boolean;
 };
 
-export type UpdateTaskInput = Partial<CreateTaskInput> & {
+// Activity (Audit Log)
+export interface ActivityChanges {
+    old?: Record<string, unknown>;
+    new?: Record<string, unknown>;
+}
+
+export interface ActivityItem {
     id: string;
-};
+    action: string;
+    entityType: string;
+    entityId: string;
+    changes: ActivityChanges | null;
+    createdAt: string;
+    user: {
+        id: string;
+        name: string;
+        avatar: string | null;
+    };
+    entityDetails?: {
+        id: string;
+        name?: string; // For Project
+        title?: string; // For Task
+        number?: number;
+        project?: { id: string; name: string };
+    };
+}
 
-export type CreateCommentInput = {
-    content: string;
-    taskId: string;
-};
+export interface ActivityListResponse {
+    success: boolean;
+    data: {
+        activities: ActivityItem[];
+        pagination: {
+            page: number;
+            limit: number;
+            total: number;
+        };
+    };
+}
+
+// Reports
+export interface ReportSummary {
+    totalProjects: number;
+    totalTasks: number;
+    openTasks: number;
+    closedTasks: number;
+    completionRate: number;
+}
+
+export interface ReportProject {
+    id: string;
+    name: string;
+    totalTasks: number;
+    totalMembers: number;
+    openTasks: number;
+    closedTasks: number;
+    completionRate: number;
+}
+
+export interface ReportUser {
+    id: string;
+    name: string;
+    email: string;
+    totalAssigned: number;
+    openTasks: number;
+    closedTasks: number;
+    completionRate?: number; // Optional as not always present
+}
+
+export interface ReportTime {
+    userId: string;
+    userName: string;
+    totalHours: number;
+    projects: Record<string, number>;
+}
+
+export type ReportType = 'summary' | 'by-project' | 'by-user' | 'by-time';
 
 // ============================================
 // API RESPONSE TYPES
@@ -250,9 +467,16 @@ export type TaskFilters = {
     assigneeId?: string;
     creatorId?: string;
     search?: string;
-    dueDateFrom?: Date;
-    dueDateTo?: Date;
+    dueDateFrom?: string | Date;
+    dueDateTo?: string | Date;
+    startDateFrom?: string | Date;
+    startDateTo?: string | Date;
     isOverdue?: boolean;
+    showClosed?: boolean;
+    myTasks?: boolean;
+    parentId?: string | null;
+    isClosed?: string; // helper for query params
+    my?: string; // helper for query params
 };
 
 export type TaskSortBy =

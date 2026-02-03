@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Layers, Settings } from 'lucide-react';
 
 import { ProjectTrackerSettings } from '@/components/projects/project-tracker-settings';
-import { ProjectIssueSettings } from '@/components/projects/project-issue-settings';
 
 interface Tracker {
     id: string;
@@ -12,21 +11,10 @@ interface Tracker {
     position: number;
     isDefault: boolean;
 }
-
-
-
-
-
 interface ProjectSettingsClientProps {
     projectId: string;
     allTrackers: Tracker[];
     enabledTrackerIds: string[];
-    issueSettings: {
-        parentIssueDates: string;
-        parentIssuePriority: string;
-        parentIssueDoneRatio: string;
-        parentIssueEstimatedHours: string;
-    };
     canManage: boolean;
 }
 
@@ -34,61 +22,27 @@ export function ProjectSettingsClient({
     projectId,
     allTrackers,
     enabledTrackerIds,
-    issueSettings,
     canManage,
 }: ProjectSettingsClientProps) {
-    const [activeTab, setActiveTab] = useState<'trackers' | 'issue-tracking'>('trackers');
+    // Only one tab remains, so we can simplify or keep tabs if we plan to add more.
+    // For now, let's just render the Tracker Settings directly or keep a simplified structure.
+    // Given the user instruction, we should remove the 'issue-tracking' tab.
 
     return (
         <div className="space-y-6">
-            {/* Tabs */}
             <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-8">
-                    <button
-                        onClick={() => setActiveTab('trackers')}
-                        className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeTab === 'trackers'
-                            ? 'border-blue-500 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                    >
-                        <Layers className="w-4 h-4" />
-                        Trackers
-                    </button>
-
-                    <button
-                        onClick={() => setActiveTab('issue-tracking')}
-                        className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeTab === 'issue-tracking'
-                            ? 'border-blue-500 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                    >
-                        <Settings className="w-4 h-4" />
-                        Cấu hình công việc
-                    </button>
-                </nav>
+                <h3 className="text-lg font-medium leading-6 text-gray-900 pb-4">
+                    Cấu hình Trackers
+                </h3>
             </div>
 
-            {/* Content */}
             <div className="min-h-[400px]">
-
-                {activeTab === 'trackers' && (
-                    <ProjectTrackerSettings
-                        projectId={projectId}
-                        allTrackers={allTrackers}
-                        enabledTrackerIds={enabledTrackerIds}
-                        canManage={canManage}
-                    />
-                )}
-
-
-
-                {activeTab === 'issue-tracking' && (
-                    <ProjectIssueSettings
-                        projectId={projectId}
-                        initialSettings={issueSettings}
-                        canManage={canManage}
-                    />
-                )}
+                <ProjectTrackerSettings
+                    projectId={projectId}
+                    allTrackers={allTrackers}
+                    enabledTrackerIds={enabledTrackerIds}
+                    canManage={canManage}
+                />
             </div>
         </div>
     );

@@ -13,49 +13,20 @@ import {
 } from '@dnd-kit/core';
 import { useDroppable } from '@dnd-kit/core';
 import { useState, useEffect } from 'react';
-import { TaskCard } from './task-card';
+import { TaskCard } from '@/components/tasks/task-card';
+import { TaskWithRelations, Status, Tracker, Priority } from '@/types';
 
-interface Tracker {
-    id: string;
-    name: string;
-}
+// Local interfaces removed
+// interface Tracker ... removed
+// interface Priority ... removed
 
-interface Priority {
-    id: string;
-    name: string;
-    color: string | null;
-}
+// Local interfaces removed, using shared types
+// interface Task ... removed
 
-interface Task {
-    id: string;
-    number: number;
-    title: string;
-    doneRatio: number;
-    tracker: { id: string; name: string };
-    status: { id: string; name: string; isClosed: boolean };
-    priority: { id: string; name: string; color: string | null };
-    project: { id: string; name: string; identifier: string };
-    assignee: { id: string; name: string; avatar: string | null } | null;
-    parent: { id: string; number: number; title: string } | null;
-    subtasks?: Array<{
-        id: string;
-        number: number;
-        title: string;
-        status: { id: string; name: string; isClosed: boolean };
-        assignee: { id: string; name: string; avatar: string | null } | null;
-    }>;
-    _count: { subtasks: number; comments: number };
-    dueDate: string | Date | null;
-}
-
-interface Status {
-    id: string;
-    name: string;
-    isClosed: boolean;
-}
+// interface Status ... removed
 
 interface KanbanBoardProps {
-    tasks: Task[];
+    tasks: TaskWithRelations[];
     statuses: Status[];
     trackers: Tracker[];
     priorities: Priority[];
@@ -65,7 +36,7 @@ interface KanbanBoardProps {
 
 function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses }: {
     status: Status,
-    tasks: Task[],
+    tasks: TaskWithRelations[],
     trackers: Tracker[],
     priorities: Priority[],
     onRefresh: () => void,

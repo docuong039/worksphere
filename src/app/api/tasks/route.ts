@@ -6,7 +6,7 @@ import { createTaskSchema } from '@/lib/validations';
 import { notifyTaskAssigned } from '@/lib/notifications';
 import { logCreate } from '@/lib/audit-log';
 import { checkProjectPermission, getAccessibleProjectIds } from '@/lib/permissions';
-import { updateParentAttributes } from '@/lib/services/task-service';
+
 import { Prisma } from '@prisma/client';
 
 // ==========================================
@@ -317,10 +317,7 @@ export async function POST(req: NextRequest) {
             projectId: task.projectId
         });
 
-        // 5. Trigger Roll-up Calculation
-        if (task.parentId) {
-            await updateParentAttributes(task.parentId);
-        }
+
 
         return successResponse(task, 201);
 

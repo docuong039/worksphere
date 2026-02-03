@@ -5,48 +5,15 @@ import { MessageSquare, GitBranch, Clock, User, ChevronDown, ChevronRight, Check
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
-import { TaskContextMenu } from './task-context-menu';
+import { TaskContextMenu } from '@/components/tasks/task-context-menu';
 
-interface Status {
-    id: string;
-    name: string;
-    isClosed: boolean;
-}
-
-interface Tracker {
-    id: string;
-    name: string;
-}
-
-interface Priority {
-    id: string;
-    name: string;
-    color: string | null;
-}
-
-interface Subtask {
-    id: string;
-    number: number;
-    title: string;
-    status: { id: string; name: string; isClosed: boolean };
-    assignee: { id: string; name: string; avatar: string | null } | null;
-}
-
-interface Task {
-    id: string;
-    number: number;
-    title: string;
-    doneRatio: number;
-    tracker: { id: string; name: string };
-    status: { id: string; name: string; isClosed: boolean };
-    priority: { id: string; name: string; color: string | null };
-    project: { id: string; name: string; identifier: string };
-    assignee: { id: string; name: string; avatar: string | null } | null;
-    parent: { id: string; number: number; title: string } | null;
-    subtasks?: Subtask[];
-    _count: { subtasks: number; comments: number };
-    dueDate: string | Date | null;
-}
+import {
+    TaskWithRelations as Task,
+    Status,
+    Tracker,
+    Priority,
+    SubtaskWithRelations as Subtask,
+} from '@/types';
 
 interface TaskCardProps {
     task: Task;

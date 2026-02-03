@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
+import { taskService } from '@/services/task.service';
+import { projectService } from '@/services/project.service';
 
 interface Option {
     id: string;
@@ -123,17 +125,15 @@ export function CreateTaskModal({
             if (!formData.projectId || !isOpen) return;
             try {
                 // Fetch members
-                const memRes = await fetch(`/api/projects/${formData.projectId}/members?assignable=true&t=${Date.now()}`);
-                if (memRes.ok) {
-                    const data = await memRes.json();
-                    setMembers(data.data || []);
+                const memRes = await projectService.getMembers(formData.projectId, { assignable: 'true' });
+                if (memRes.success) {
+                    setMembers(memRes.data || []);
                 }
 
                 // Fetch versions
-                const verRes = await fetch(`/api/projects/${formData.projectId}/versions?t=${Date.now()}`);
-                if (verRes.ok) {
-                    const data = await verRes.json();
-                    setAvailableVersions(data.data || []);
+                const verRes = await projectService.getVersions(formData.projectId);
+                if (verRes.success) {
+                    setAvailableVersions(verRes.data || []);
                 }
             } catch (err) {
                 console.error('Failed to fetch project data', err);
@@ -150,43 +150,37 @@ export function CreateTaskModal({
         setError('');
 
         try {
-            const res = await fetch('/api/tasks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...formData,
-                    estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : null,
-                    startDate: formData.startDate ? new Date(formData.startDate).toISOString() : null,
-                    dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : null,
-                    versionId: formData.versionId || null,
-                    assigneeId: formData.assigneeId || null,
-                }),
+            await taskService.create({
+                ...formData,
+                estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : undefined,
+                startDate: formData.startDate || undefined,
+                dueDate: formData.dueDate || undefined,
+                versionId: formData.versionId || undefined,
+                assigneeId: formData.assigneeId || undefined,
+                parentId: formData.parentId || undefined,
             });
 
-            if (res.ok) {
-                onClose();
-                setFormData({
-                    title: '',
-                    description: '',
-                    projectId: projects[0]?.id || '',
-                    trackerId: trackers[0]?.id || '',
-                    statusId: statuses.find((s) => !s.isClosed)?.id || statuses[0]?.id || '',
-                    priorityId: priorities.find((p) => p.name === 'Normal')?.id || priorities[0]?.id || '',
-                    assigneeId: '',
-                    versionId: '',
-                    estimatedHours: '',
-                    doneRatio: 0,
-                    startDate: '',
-                    dueDate: '',
-                    isPrivate: false,
-                    parentId: null,
-                });
-                router.refresh();
-                if (onSuccess) onSuccess();
-            } else {
-                const data = await res.json();
-                setError(data.error || 'Có lỗi xảy ra');
-            }
+            onClose();
+            setFormData({
+                title: '',
+                description: '',
+                projectId: projects[0]?.id || '',
+                trackerId: trackers[0]?.id || '',
+                statusId: statuses.find((s) => !s.isClosed)?.id || statuses[0]?.id || '',
+                priorityId: priorities.find((p) => p.name === 'Normal')?.id || priorities[0]?.id || '',
+                assigneeId: '',
+                versionId: '',
+                estimatedHours: '',
+                doneRatio: 0,
+                startDate: '',
+                dueDate: '',
+                isPrivate: false,
+                parentId: null,
+            });
+            router.refresh();
+            if (onSuccess) onSuccess();
+        } catch (err: any) {
+            setError(err.message || 'Có lỗi xảy ra');
         } finally {
             setLoading(false);
         }

@@ -3,36 +3,14 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Save, RotateCcw, Info } from 'lucide-react';
-
-interface Tracker {
-    id: string;
-    name: string;
-}
-
-interface Status {
-    id: string;
-    name: string;
-    isClosed: boolean;
-}
-
-interface Role {
-    id: string;
-    name: string;
-}
-
-interface Transition {
-    id: string;
-    trackerId: string;
-    roleId: string | null;
-    fromStatusId: string;
-    toStatusId: string;
-}
+import { workflowService } from '@/services/workflow.service';
+import { WorkflowTransition as Transition, Tracker, Status, Role } from '@/types';
 
 interface WorkflowEditorProps {
     trackers: Tracker[];
     statuses: Status[];
     roles: Role[];
-    transitions: Transition[];
+    transitions: (Transition & { trackerId: string; roleId: string | null })[];
 }
 
 type TransitionMap = Record<string, boolean>;
@@ -61,7 +39,13 @@ export function WorkflowEditor({
                         (roleId === '' ? t.roleId === null : t.roleId === roleId)
                 )
                 .forEach((t) => {
-                    map[`${t.fromStatusId}-${t.toStatusId}`] = true;
+                    // Assuming allowed is true if present in this filtered list for the matrix
+                    // But wait, the shared type is { fromStatusId, toStatusId, allowed }
+                    // We need to map correctly based on how we receive data.
+                    // If transitions array contains all possibilities with 'allowed' flag:
+                    if (t.allowed) { // This property might not exist on the intersection above unless we clarify
+                        map[`${t.fromStatusId}-${t.toStatusId}`] = true;
+                    }
                 });
 
             return map;
@@ -112,20 +96,17 @@ export function WorkflowEditor({
                     }))
             );
 
-            const res = await fetch('/api/workflow', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    trackerId: selectedTracker,
-                    roleId: selectedRole || null,
-                    transitions,
-                }),
+            await workflowService.update({
+                trackerId: selectedTracker,
+                roleId: selectedRole || null,
+                transitions,
             });
 
-            if (res.ok) {
-                setSaved(true);
-                router.refresh();
-            }
+            setSaved(true);
+            router.refresh();
+        } catch (error) {
+            console.error(error);
+            // Optionally handle error toast here
         } finally {
             setLoading(false);
         }
@@ -288,10 +269,10 @@ export function WorkflowEditor({
                                             <td
                                                 key={toStatus.id}
                                                 className={`px-3 py-3 text-center border-b border-r border-gray-200 ${isSame
-                                                        ? 'bg-gray-100'
-                                                        : isAllowed
-                                                            ? 'bg-green-100 cursor-pointer hover:bg-green-200'
-                                                            : 'bg-white cursor-pointer hover:bg-gray-100'
+                                                    ? 'bg-gray-100'
+                                                    : isAllowed
+                                                        ? 'bg-green-100 cursor-pointer hover:bg-green-200'
+                                                        : 'bg-white cursor-pointer hover:bg-gray-100'
                                                     }`}
                                                 onClick={() =>
                                                     !isSame && toggleTransition(fromStatus.id, toStatus.id)

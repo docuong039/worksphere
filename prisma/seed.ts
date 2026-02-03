@@ -22,7 +22,7 @@ async function main() {
 
         // Project Management (Dự án)
         { key: 'projects.view_all', name: 'View All Projects', module: 'Dự án' },
-        { key: 'projects.view_joined', name: 'View Joined Projects', module: 'Dự án' },
+
         { key: 'projects.create', name: 'Create Project', module: 'Dự án' },
         { key: 'projects.edit_own', name: 'Edit Own Project', module: 'Dự án' },
         { key: 'projects.edit_any', name: 'Edit Any Project', module: 'Dự án' },
@@ -47,6 +47,7 @@ async function main() {
         { key: 'tasks.change_status', name: 'Change Status', module: 'Công việc' },
         { key: 'tasks.comment', name: 'Add Comment', module: 'Công việc' },
         { key: 'tasks.upload_files', name: 'Upload Files', module: 'Công việc' },
+        { key: 'tasks.manage_comments', name: 'Manage Comments (Edit/Delete Any)', module: 'Công việc' },
 
         // Reports (Báo cáo)
         { key: 'reports.view_personal', name: 'View Personal Reports', module: 'Báo cáo' },
@@ -62,9 +63,9 @@ async function main() {
         { key: 'timelogs.view_own', name: 'View Own Time Logs', module: 'Thời gian' },
         { key: 'timelogs.view_all', name: 'View All Time Logs', module: 'Thời gian' },
         { key: 'timelogs.edit_own', name: 'Edit Own Time Logs', module: 'Thời gian' },
-        { key: 'timelogs.edit_all', name: 'Edit All Time Logs', module: 'Thời gian' },
+
         { key: 'timelogs.delete_own', name: 'Delete Own Time Logs', module: 'Thời gian' },
-        { key: 'timelogs.delete_all', name: 'Delete All Time Logs', module: 'Thời gian' },
+
 
         // System (Hệ thống)
         { key: 'system.manage_roles', name: 'Manage Roles', module: 'Hệ thống' },
@@ -192,6 +193,156 @@ async function main() {
             update: {},
             create: activity,
         });
+    }
+
+
+    // ============================================
+    // 7. SYNC ROLES & PERMISSIONS
+    // ============================================
+    console.log('👥 Syncing roles...');
+
+    // Define Roles and their Permission Keys
+    const roleDefinitions = [
+        {
+            name: 'Manager',
+            description: 'Project Manager with full access',
+            permissions: permissions.map(p => p.key) // Manager gets all permissions
+        },
+        {
+            name: 'Developer',
+            description: 'Team member who works on tasks',
+            permissions: [
+                'projects.view_all',
+                'tasks.view_all', 'tasks.view_project', 'tasks.view_assigned',
+                'tasks.create', 'tasks.edit_own', 'tasks.edit_assigned',
+                'tasks.assign', 'tasks.change_status', 'tasks.comment', 'tasks.upload_files',
+                'timelogs.log_time', 'timelogs.view_own', 'timelogs.edit_own',
+                'reports.view_project'
+            ]
+        },
+        {
+            name: 'Reporter',
+            description: 'Tester or stakeholder who reports issues',
+            permissions: [
+                'projects.view_all',
+                'tasks.view_all', 'tasks.view_project',
+                'tasks.create', 'tasks.edit_own',
+                'tasks.comment', 'tasks.upload_files',
+                'reports.view_project'
+            ]
+        },
+        {
+            name: 'Viewer',
+            description: 'Read-only access',
+            permissions: [
+                'projects.view_all',
+                'tasks.view_all', 'tasks.view_project',
+                'reports.view_project'
+            ]
+        }
+    ];
+
+    for (const roleDef of roleDefinitions) {
+        // 1. Create/Update Role
+        // Note: 'isSystem' field does not exist in schema, so we omit it.
+        const role = await prisma.role.upsert({
+            where: { name: roleDef.name },
+            update: {
+                description: roleDef.description,
+            },
+            create: {
+                name: roleDef.name,
+                description: roleDef.description,
+            }
+        });
+
+        console.log(`   - Role: ${role.name}`);
+
+        // 2. Sync Permissions for this Role
+        // First get all Permission IDs for the keys
+        const permissionRecs = await prisma.permission.findMany({
+            where: { key: { in: roleDef.permissions } },
+            select: { id: true }
+        });
+
+        // We need to manage RolePermission (table name in schema: role_permissions, model: RolePermission)
+
+        // Find existing relations
+        const existingRelations = await prisma.rolePermission.findMany({
+            where: { roleId: role.id },
+            select: { permissionId: true }
+        });
+
+        const existingPermIds = new Set(existingRelations.map(r => r.permissionId));
+        const newPermIds = new Set(permissionRecs.map(p => p.id));
+
+        // Add missing
+        for (const pId of newPermIds) {
+            if (!existingPermIds.has(pId)) {
+                await prisma.rolePermission.create({
+                    data: { roleId: role.id, permissionId: pId }
+                });
+            }
+        }
+    }
+
+    // ============================================
+    // 8. SYNC DEFAULT WORKFLOW
+    // ============================================
+    console.log('twisted_rightwards_arrows Syncing default workflow...');
+
+    // Get IDs needed for Matrix
+    const trackerBug = await prisma.tracker.findUnique({ where: { name: 'Bug' } });
+    const trackerTask = await prisma.tracker.findUnique({ where: { name: 'Task' } });
+    const trackerFeature = await prisma.tracker.findUnique({ where: { name: 'Feature' } });
+
+    const statusNew = await prisma.status.findUnique({ where: { name: 'New' } });
+    const statusInProgress = await prisma.status.findUnique({ where: { name: 'In Progress' } });
+    const statusResolved = await prisma.status.findUnique({ where: { name: 'Resolved' } });
+    const statusClosed = await prisma.status.findUnique({ where: { name: 'Closed' } });
+
+    const roleManager = await prisma.role.findUnique({ where: { name: 'Manager' } });
+    const roleDev = await prisma.role.findUnique({ where: { name: 'Developer' } });
+
+    if (trackerTask && statusNew && statusInProgress && statusResolved && statusClosed) {
+
+        // Helper to add transition
+        const addTransition = async (trackerId: string, fromId: string, toId: string, roleId: string | null = null) => {
+            const exists = await prisma.workflowTransition.findFirst({
+                where: { trackerId, fromStatusId: fromId, toStatusId: toId, roleId }
+            });
+            if (!exists) {
+                await prisma.workflowTransition.create({
+                    data: { trackerId, fromStatusId: fromId, toStatusId: toId, roleId }
+                });
+            }
+        };
+
+        const trackers = [trackerTask, trackerBug, trackerFeature].filter(Boolean);
+        const statuses = [statusNew, statusInProgress, statusResolved, statusClosed];
+
+        for (const tr of trackers) {
+            if (!tr) continue;
+
+            // 1. Manager Link: Can go from ANY status to ANY status
+            if (roleManager) {
+                for (const s1 of statuses) {
+                    for (const s2 of statuses) {
+                        if (s1.id !== s2.id) {
+                            await addTransition(tr.id, s1.id, s2.id, roleManager.id);
+                        }
+                    }
+                }
+            }
+
+            // 2. Developer Link: Standard Flow
+            if (roleDev) {
+                await addTransition(tr.id, statusNew.id, statusInProgress.id, roleDev.id);
+                await addTransition(tr.id, statusInProgress.id, statusResolved.id, roleDev.id);
+                await addTransition(tr.id, statusResolved.id, statusInProgress.id, roleDev.id);
+                await addTransition(tr.id, statusResolved.id, statusClosed.id, roleDev.id);
+            }
+        }
     }
 
     console.log('✅ Seed completed successfully.');

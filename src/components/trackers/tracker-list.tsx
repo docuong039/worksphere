@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Check, GripVertical } from 'lucide-react';
+import { trackerService } from '@/services/tracker.service';
 
 interface Tracker {
     id: string;
@@ -34,17 +35,13 @@ export function TrackerList({ trackers: initialTrackers }: TrackerListProps) {
         setLoading(true);
 
         try {
-            const res = await fetch('/api/trackers', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            });
-
-            if (res.ok) {
-                setIsAdding(false);
-                setFormData({ name: '', description: '' });
-                router.refresh();
-            }
+            await trackerService.create(formData);
+            setIsAdding(false);
+            setFormData({ name: '', description: '' });
+            router.refresh();
+        } catch (error) {
+            console.error(error);
+            toast.error('Có lỗi xảy ra');
         } finally {
             setLoading(false);
         }
@@ -56,17 +53,13 @@ export function TrackerList({ trackers: initialTrackers }: TrackerListProps) {
         setLoading(true);
 
         try {
-            const res = await fetch(`/api/trackers/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            });
-
-            if (res.ok) {
-                setEditingId(null);
-                setFormData({ name: '', description: '' });
-                router.refresh();
-            }
+            await trackerService.update(id, formData);
+            setEditingId(null);
+            setFormData({ name: '', description: '' });
+            router.refresh();
+        } catch (error) {
+            console.error(error);
+            toast.error('Có lỗi xảy ra');
         } finally {
             setLoading(false);
         }
@@ -82,27 +75,22 @@ export function TrackerList({ trackers: initialTrackers }: TrackerListProps) {
         if (!confirm(`Bạn có chắc muốn xóa tracker "${name}"?`)) return;
 
         try {
-            const res = await fetch(`/api/trackers/${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                toast.success('Đã xóa tracker');
-                router.refresh();
-            }
-        } catch {
-            toast.error('Lỗi kết nối máy chủ');
+            await trackerService.delete(id);
+            toast.success('Đã xóa tracker');
+            router.refresh();
+        } catch (err: any) {
+            toast.error(err.message || 'Lỗi kết nối máy chủ');
         }
     };
 
     // Set default
     const handleSetDefault = async (id: string) => {
         try {
-            await fetch(`/api/trackers/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ isDefault: true }),
-            });
+            await trackerService.setDefault(id);
             router.refresh();
         } catch (error) {
             console.error(error);
+            toast.error('Có lỗi xảy ra');
         }
     };
 

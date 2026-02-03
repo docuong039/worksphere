@@ -6,7 +6,43 @@ import { updateTaskSchema } from '@/lib/validations';
 import { notifyTaskAssigned, notifyTaskStatusChanged } from '@/lib/notifications';
 import { logUpdate, logDelete } from '@/lib/audit-log';
 import { canTransitionStatus } from '@/lib/permissions';
-import { updateParentAttributes, updateSubtasksPathAndLevel } from '@/lib/services/task-service';
+// import { updateSubtasksPathAndLevel } from '@/lib/services/task-service'; // Removed
+
+/**
+ * Recursively update path and level for all subtasks when a parent task is moved.
+ * This ensures data integrity in the task hierarchy.
+ */
+async function updateSubtasksPathAndLevel(
+    taskId: string,
+    newPath: string | null,
+    newLevel: number
+): Promise<void> {
+    // Find all direct children
+    const children = await prisma.task.findMany({
+        where: { parentId: taskId },
+        select: { id: true }
+    });
+
+    if (children.length === 0) return;
+
+    // Calculate the path for children
+    const childPath = newPath ? `${newPath}.${taskId}` : taskId;
+    const childLevel = newLevel + 1;
+
+    // Update all children
+    await prisma.task.updateMany({
+        where: { parentId: taskId },
+        data: {
+            path: childPath,
+            level: childLevel
+        }
+    });
+
+    // Recursively update grandchildren
+    for (const child of children) {
+        await updateSubtasksPathAndLevel(child.id, childPath, childLevel);
+    }
+}
 
 interface Params {
     params: Promise<{ id: string }>;
@@ -149,7 +185,8 @@ export async function GET(req: NextRequest, { params }: Params) {
                         title: true,
                         doneRatio: true,
                         status: { select: { id: true, name: true, isClosed: true } },
-                        priority: { select: { color: true } },
+                        priority: { select: { id: true, name: true, color: true } },
+                        tracker: { select: { id: true, name: true } },
                         assignee: { select: { id: true, name: true, avatar: true } },
                     },
                     orderBy: { createdAt: 'asc' },
@@ -441,16 +478,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
             },
         });
 
-        // 5. Trigger Roll-up Calculation logic
-        // Case A: This task has a parent -> update parent
-        if (task.parentId) {
-            await updateParentAttributes(task.parentId);
-        }
 
-        // Case B: Parent was changed (moved task to another parent) -> update OLD parent
-        if (currentTask.parentId && currentTask.parentId !== task.parentId) {
-            await updateParentAttributes(currentTask.parentId);
-        }
 
         // Case C: If parentId changed, update path/level for all subtasks recursively
         if (validatedData.parentId !== undefined && validatedData.parentId !== currentTask.parentId) {
@@ -581,10 +609,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
             await updateSubtasksPathAndLevel(child.id, null, 0);
         }
 
-        // 4. Trigger rollup for parent after deletion
-        if (task.parentId) {
-            await updateParentAttributes(task.parentId);
-        }
+
 
         // Log delete (async)
         logDelete('task', id, session.user.id, { title: task.title, projectId: task.projectId });

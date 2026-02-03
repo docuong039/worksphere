@@ -1,74 +1,97 @@
 # Worksphere - Hệ thống Quản lý Công việc & Dự án
 
-Worksphere là một nền tảng quản lý dự án và công việc chuyên nghiệp, được xây dựng với các công nghệ hiện đại nhất, cho phép các đội ngũ cộng tác hiệu quả, theo dõi tiến độ và quản lý tài nguyên một cách tập trung.
+Nền tảng quản lý dự án và công việc với Next.js 16, React 19, MySQL và Prisma.
 
-## 🚀 Công nghệ sử dụng
+## 🚀 Tech Stack
 
-- **Frontend:** Next.js 16 (App Router), React 19
-- **Styling:** Tailwind CSS 4
-- **Database:** MySQL
-- **ORM:** Prisma
-- **Icons:** Lucide React
-- **Ngôn ngữ:** TypeScript
+Next.js 16, React 19, TypeScript, Tailwind CSS 4, MySQL, Prisma, NextAuth.js v5
 
-## 🛠 Hướng dẫn cài đặt và Chạy dự án
+## 📋 Yêu cầu
 
-### 1. Yêu cầu hệ 
-- **Node.js:** Phiên bản 20.x trở lên
-- **MySQL:** Đang chạy cục bộ hoặc trên cloud
+- Node.js 20.x+
+- MySQL 8.x+
 
-### 2. Cài đặt các thư viện phụ thuộc
-Mở terminal tại thư mục gốc của dự án và chạy:
+## ⚡ Hướng dẫn chạy nhanh
+
+### 1. Clone và cài đặt
+
 ```bash
+git clone <repository-url>
+cd worksphere
 npm install
 ```
 
-### 3. Cấu hình biến môi trường
-Tạo file `.env` tại thư mục gốc và cấu hình các thông số sau (có thể tham khảo `.env.example` nếu có):
-```env
-# Kết nối cơ sở dữ liệu MySQL
-DATABASE_URL="mysql://username:password@localhost:3306/worksphere"
+### 2. Tạo Database
 
-# Bí mật cho Authentication (NextAuth)
-# Bạn có thể tạo key bằng lệnh: npx auth secret
-AUTH_SECRET="your_secret_key_here"
-```
-*Lưu ý: Thay thế `username`, `password` và `worksphere` bằng thông tin database thực tế của bạn.*
-
-### 4. Thiết lập Cơ sở dữ liệu và Dữ liệu mẫu
-Dự án sử dụng Prisma để quản lý database. Chạy các lệnh sau để khởi tạo:
 ```bash
-# 1. Tạo các bảng trong database dựa trên schema
-npx prisma db push
+mysql -u root -p -e "CREATE DATABASE worksphere CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+```
 
-# 2. Khởi tạo dữ liệu mẫu (Roles, Permissions, Users, Trackers, v.v.)
+### 3. Cấu hình `.env`
+
+Chỉnh sửa file `.env` (đã có sẵn):
+
+```env
+DATABASE_URL="mysql://root:yourpassword@localhost:3306/worksphere"
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="your-secret-key"
+JWT_SECRET="your-jwt-secret"
+```
+
+**Lưu ý:** Nếu dùng XAMPP mặc định (không có password), dùng:
+
+```env
+DATABASE_URL="mysql://root@localhost:3306/worksphere"
+```
+
+### 4. Setup Database
+
+```bash
+npx prisma db push
 npx prisma db seed
 ```
 
-**Tài khoản quản trị mặc định sau khi seed:**
-- **Email:** `admin@worksphere.com`
-- **Mật khẩu:** `admin123`
+### 5. Chạy dự án
 
-### 5. Chạy dự án ở môi trường phát triển
 ```bash
 npm run dev
 ```
-Sau khi chạy thành công, truy cập: [http://localhost:3000](http://localhost:3000)
 
-## 📁 Cấu trúc thư mục chính
+Truy cập: [http://localhost:3000](http://localhost:3000)
 
-- `src/app`: Các route và layout của ứng dụng (Next.js App Router).
-- `src/components`: Các thành phần giao diện dùng chung (Project Cards, Task Detail, Layout, v.v.).
-- `src/lib`: Các cấu hình dùng chung (Prisma Client, Auth, tiện ích xử lý dữ liệu).
-- `prisma`: Schema database và các file seed dữ liệu.
-- `public`: Các tài nguyên tĩnh (hình ảnh, biểu tượng).
+**Đăng nhập:**
 
-## 📝 Script khả dụng
-
-- `npm run dev`: Chạy server chế độ phát triển.
-- `npm run build`: Xây dựng ứng dụng cho môi trường production.
-- `npm run start`: Chạy ứng dụng đã build.
-- `npm run lint`: Kiểm tra lỗi code với ESLint.
+- Email: `admin@worksphere.com`
+- Password: `admin123`
 
 ---
-Phát triển bởi đội ngũ Worksphere.
+
+## 🔧 Lệnh hữu ích
+
+```bash
+npm run dev              # Chạy dev server
+npm run build           # Build production
+npx prisma studio       # Xem database GUI
+npx prisma db seed      # Seed data
+npx prisma db push --force-reset  # Reset database
+```
+
+## 🐛 Xử lý lỗi
+
+**Lỗi kết nối MySQL:** Kiểm tra MySQL đang chạy và thông tin trong `.env`
+
+**Prisma Client error:** Chạy `npx prisma generate`
+
+**Port 3000 bị chiếm:**
+
+```bash
+# Windows
+netstat -ano | findstr :3000
+taskkill /PID <PID> /F
+```
+
+---
+
+## 📝 License
+
+Proprietary and confidential.

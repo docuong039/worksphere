@@ -19,7 +19,9 @@ import {
     Copy,
 } from 'lucide-react';
 
-import { CopyTaskModal } from './copy-task-modal';
+import { taskService } from '@/services/task.service';
+import { projectService } from '@/services/project.service';
+import { CopyTaskModal } from '@/components/tasks/copy-task-modal';
 
 import {
     DropdownMenu,
@@ -122,10 +124,9 @@ export function TaskContextMenu({
     const fetchProjects = async () => {
         if (projects.length > 0) return;
         try {
-            const res = await fetch('/api/projects');
-            if (res.ok) {
-                const data = await res.json();
-                setProjects(data.data || []);
+            const res = await projectService.getAll();
+            if (res.success) {
+                setProjects(res.data || []);
             }
         } catch (err) {
             console.error('Failed to fetch projects', err);
@@ -136,26 +137,26 @@ export function TaskContextMenu({
     const fetchTaskData = async () => {
         setLoadingTask(true);
         try {
-            const res = await fetch(`/api/tasks/${taskId}`);
-            if (res.ok) {
-                const data = await res.json();
-                const task = data.data;
+            const res = await taskService.getById(taskId);
+            if (res.success && res.data) {
+                const task = res.data;
+                const subtasks = (task as any).subtasks;
                 setTaskData({
                     id: task.id,
                     title: task.title,
-                    description: task.description,
+                    description: task.description || null,
                     trackerId: task.tracker.id,
                     statusId: task.status.id,
                     priorityId: task.priority.id,
                     assigneeId: task.assignee?.id || null,
-                    versionId: task.version?.id || null,
+                    versionId: (task as any).version?.id || null,
                     estimatedHours: task.estimatedHours,
                     doneRatio: task.doneRatio,
-                    startDate: task.startDate,
-                    dueDate: task.dueDate,
-                    isPrivate: task.isPrivate || false,
+                    startDate: task.startDate || null,
+                    dueDate: task.dueDate || null,
+                    isPrivate: (task as any).isPrivate || false,
                     projectId: task.project.id,
-                    hasSubtasks: task.subtasks && task.subtasks.length > 0,
+                    hasSubtasks: subtasks && subtasks.length > 0,
                 });
                 setShowCopyModal(true);
             }
@@ -185,10 +186,9 @@ export function TaskContextMenu({
         if (members.length > 0) return; // Already fetched
         setLoadingMembers(true);
         try {
-            const res = await fetch(`/api/projects/${projectId}/members`);
-            if (res.ok) {
-                const data = await res.json();
-                setMembers(data.data || []);
+            const res = await projectService.getMembers(projectId);
+            if (res.success) {
+                setMembers(res.data || []);
             }
         } catch (err) {
             console.error('Failed to fetch members', err);
@@ -198,20 +198,11 @@ export function TaskContextMenu({
 
     const handleQuickUpdate = async (field: string, value: string | number | null) => {
         try {
-            const res = await fetch(`/api/tasks/${taskId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ [field]: value }),
-            });
-            if (res.ok) {
-                toast.success('Đã cập nhật công việc');
-                onRefresh();
-            } else {
-                const data = await res.json();
-                toast.error(data.error || 'Có lỗi xảy ra');
-            }
-        } catch {
-            toast.error('Lỗi kết nối máy chủ');
+            await taskService.update(taskId, { [field]: value });
+            toast.success('Đã cập nhật công việc');
+            onRefresh();
+        } catch (err: any) {
+            toast.error(err.message || 'Có lỗi xảy ra');
         }
     };
 
@@ -219,16 +210,11 @@ export function TaskContextMenu({
         if (!confirm('Bạn có chắc muốn xóa công việc này?')) return;
 
         try {
-            const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
-            if (res.ok) {
-                toast.success('Đã xóa công việc');
-                onRefresh();
-            } else {
-                const data = await res.json();
-                toast.error(data.error || 'Không thể xóa');
-            }
-        } catch {
-            toast.error('Lỗi kết nối máy chủ');
+            await taskService.delete(taskId);
+            toast.success('Đã xóa công việc');
+            onRefresh();
+        } catch (err: any) {
+            toast.error(err.message || 'Không thể xóa');
         }
     };
 

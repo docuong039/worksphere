@@ -16,35 +16,9 @@ import {
     Pencil,
 } from 'lucide-react';
 import Image from 'next/image';
-import type { ApiFieldError } from '@/lib/api-error';
 import type { DateLike } from '@/lib/types';
-
-interface Project {
-    id: string;
-    name: string;
-    identifier: string;
-    description: string | null;
-    isArchived: boolean;
-    createdAt: DateLike;
-    updatedAt: DateLike;
-    creator: {
-        id: string;
-        name: string;
-        avatar: string | null;
-    };
-    members: Array<{
-        user: {
-            id: string;
-            name: string;
-            avatar: string | null;
-        };
-    }>;
-    tasks: { id: string }[];
-    _count: {
-        tasks: number;
-        members: number;
-    };
-}
+import { projectService } from '@/services/project.service';
+import type { ProjectWithMembers as Project } from '@/types';
 
 interface ProjectListProps {
     projects: Project[];
@@ -92,25 +66,12 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
         setError('');
 
         try {
-            const res = await fetch('/api/projects', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            });
-
-            if (res.ok) {
-                setShowCreateModal(false);
-                setFormData({ name: '', identifier: '', description: '' });
-                router.refresh();
-            } else {
-                const data = await res.json();
-                if (data.errors && Array.isArray(data.errors)) {
-                    const errorMsgs = (data.errors as ApiFieldError[]).map((e) => e.message).join(', ');
-                    setError(`${data.error}: ${errorMsgs}`);
-                } else {
-                    setError(data.error || 'Có lỗi xảy ra');
-                }
-            }
+            await projectService.create(formData);
+            setShowCreateModal(false);
+            setFormData({ name: '', identifier: '', description: '' });
+            router.refresh();
+        } catch (err: any) {
+            setError(err.message || 'Có lỗi xảy ra');
         } finally {
             setLoading(false);
         }
@@ -125,28 +86,13 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
         setError('');
 
         try {
-            const res = await fetch(`/api/projects/${editingProject.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
-            });
-
-            if (res.ok) {
-                setEditingProject(null);
-                setFormData({ name: '', identifier: '', description: '' });
-                router.refresh();
-                toast.success('Đã cập nhật dự án thành công');
-            } else {
-                const data = await res.json();
-                if (data.errors && Array.isArray(data.errors)) {
-                    const errorMsgs = (data.errors as ApiFieldError[]).map((e) => e.message).join(', ');
-                    setError(`${data.error}: ${errorMsgs}`);
-                } else {
-                    setError(data.error || 'Có lỗi xảy ra');
-                }
-            }
-        } catch {
-            setError('Lỗi kết nối');
+            await projectService.update(editingProject.id, formData);
+            setEditingProject(null);
+            setFormData({ name: '', identifier: '', description: '' });
+            router.refresh();
+            toast.success('Đã cập nhật dự án thành công');
+        } catch (err: any) {
+            setError(err.message || 'Lỗi kết nối');
         } finally {
             setLoading(false);
         }
@@ -155,10 +101,11 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
     // Archive project
     const handleArchive = async (id: string) => {
         try {
-            await fetch(`/api/projects/${id}/archive`, { method: 'POST' });
+            await projectService.archive(id);
             router.refresh();
         } catch (err) {
             console.error(err);
+            toast.error('Có lỗi xảy ra khi lưu trữ');
         }
     };
 
@@ -169,16 +116,11 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
         }
 
         try {
-            const res = await fetch(`/api/projects/${project.id}`, { method: 'DELETE' });
-            if (res.ok) {
-                toast.success('Đã xóa dự án thành công');
-                router.refresh();
-            } else {
-                const data = await res.json();
-                toast.error(data.error || 'Có lỗi xảy ra');
-            }
-        } catch {
-            toast.error('Lỗi kết nối máy chủ');
+            await projectService.delete(project.id);
+            toast.success('Đã xóa dự án thành công');
+            router.refresh();
+        } catch (err: any) {
+            toast.error(err.message || 'Có lỗi xảy ra');
         }
     };
 

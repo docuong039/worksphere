@@ -238,10 +238,7 @@ model Project {
   parentId    String?   // Project hierarchy
 
   // Issue Tracking Settings
-  parentIssueDates          String   @default("calculated")
-  parentIssuePriority       String   @default("calculated")
-  parentIssueDoneRatio      String   @default("calculated")
-  parentIssueEstimatedHours String   @default("calculated")
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

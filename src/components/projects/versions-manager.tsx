@@ -15,17 +15,10 @@ import {
     ChevronUp,
     List,
 } from 'lucide-react';
+import { projectService } from '@/services/project.service';
+import { VersionWithStats as Version } from '@/types';
 
-interface Version {
-    id: string;
-    name: string;
-    description?: string | null;
-    status: string;
-    dueDate?: Date | string | null;
-    totalTasks: number;
-    closedTasks: number;
-    progress: number;
-}
+
 
 interface VersionsManagerProps {
     projectId: string;
@@ -61,17 +54,16 @@ export function VersionsManager({ projectId, versions, canManage }: VersionsMana
         setLoading(true);
 
         try {
-            const res = await fetch(`/api/projects/${projectId}/versions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+            await projectService.createVersion(projectId, {
+                ...formData,
+                projectId,
+                status: formData.status as 'open' | 'locked' | 'closed'
             });
-
-            if (res.ok) {
-                setShowAddModal(false);
-                resetForm();
-                router.refresh();
-            }
+            setShowAddModal(false);
+            resetForm();
+            router.refresh();
+        } catch (error) {
+            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -82,17 +74,15 @@ export function VersionsManager({ projectId, versions, canManage }: VersionsMana
         setLoading(true);
 
         try {
-            const res = await fetch(`/api/versions/${editingVersion.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+            await projectService.updateVersion(editingVersion.id, {
+                ...formData,
+                status: formData.status as 'open' | 'locked' | 'closed'
             });
-
-            if (res.ok) {
-                setEditingVersion(null);
-                resetForm();
-                router.refresh();
-            }
+            setEditingVersion(null);
+            resetForm();
+            router.refresh();
+        } catch (error) {
+            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -108,13 +98,8 @@ export function VersionsManager({ projectId, versions, canManage }: VersionsMana
         }
 
         try {
-            const res = await fetch(`/api/versions/${version.id}`, {
-                method: 'DELETE',
-            });
-
-            if (res.ok) {
-                router.refresh();
-            }
+            await projectService.deleteVersion(version.id);
+            router.refresh();
         } catch (error) {
             console.error('Delete failed', error);
         }

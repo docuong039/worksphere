@@ -5,19 +5,11 @@ import { Paperclip, Upload, File as FileIcon, Download, Trash2 } from 'lucide-re
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
-interface Attachment {
-    id: string;
-    filename: string;
-    path: string;
-    size: number;
-    mimeType: string;
-    createdAt: string | Date;
-    user: { id: string; name: string };
-}
+import { AttachmentWithUser } from '@/types';
 
 interface TaskAttachmentsProps {
     taskId: string;
-    initialAttachments: Attachment[];
+    initialAttachments: AttachmentWithUser[];
     canUpload: boolean;
     currentUserId: string;
 }
