@@ -23,6 +23,7 @@ import {
     MessageSquare,
     Loader2,
 } from 'lucide-react';
+import { useConfirm } from '@/providers/confirm-provider';
 import { LogTimeModal } from '@/components/tasks/log-time-modal';
 
 interface TimeLog {
@@ -66,6 +67,7 @@ export function SpentTimeContent({
     hideHeader = false,
     titleSize = 'lg',
 }: SpentTimeContentProps) {
+    const { confirm } = useConfirm();
     const [loading, setLoading] = useState(true);
     const [timeLogs, setTimeLogs] = useState<TimeLog[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -153,22 +155,34 @@ export function SpentTimeContent({
     }, [fetchTimeLogs]);
 
     const handleDelete = async (logId: string) => {
-        if (!confirm('Bạn có chắc muốn xóa bản ghi thời gian này?')) return;
-
-        try {
-            const res = await fetch(`/api/spent-time/${logId}`, { method: 'DELETE' });
-            if (res.ok) {
+        confirm({
+            title: 'Xóa bản ghi thời gian',
+            description: 'Bạn có chắc muốn xóa bản ghi thời gian này? Thao tác này không thể hoàn tác.',
+            confirmText: 'Xóa ngay',
+            variant: 'danger',
+            onConfirm: async () => {
+                // Optimistic: xóa ngay và cập nhật tổng giờ
+                const deletedLog = timeLogs.find((l) => l.id === logId);
+                setTimeLogs((prev) => prev.filter((l) => l.id !== logId));
+                if (deletedLog) setTotalHours((h) => Math.max(0, h - deletedLog.hours));
+                setOpenMenuId(null);
                 toast.success('Đã xóa bản ghi thời gian');
-                fetchTimeLogs();
-            } else {
-                const data = await res.json();
-                toast.error(data.error || 'Có lỗi xảy ra');
+
+                try {
+                    const res = await fetch(`/api/spent-time/${logId}`, { method: 'DELETE' });
+                    if (!res.ok) {
+                        const data = await res.json();
+                        toast.error(data.error || 'Có lỗi xảy ra');
+                        fetchTimeLogs(); // Rollback - tải lại từ server
+                    }
+                } catch {
+                    toast.error('Lỗi kết nối máy chủ');
+                    fetchTimeLogs(); // Rollback
+                }
             }
-        } catch {
-            toast.error('Lỗi kết nối máy chủ');
-        }
-        setOpenMenuId(null);
+        });
     };
+
 
     const formatDate = (date: string) => {
         return new Date(date).toLocaleDateString('vi-VN', {

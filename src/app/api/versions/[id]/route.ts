@@ -1,176 +1,125 @@
-import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
-import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
+import { successResponse, errorResponse } from '@/lib/api-error';
 import { updateVersionSchema } from '@/lib/validations';
+import { getUserPermissions } from '@/lib/permissions';
+import * as ProjectPolicy from '@/modules/project/project.policy';
+import { withAuth } from '@/server/middleware/withAuth';
+import type { RouteContext } from '@/server/middleware/withAuth';
+import { PERMISSIONS } from '@/lib/constants';
 
-interface Params {
-    params: Promise<{ id: string }>;
-}
 
-export async function GET(req: NextRequest, { params }: Params) {
-    try {
-        const session = await auth();
+export const GET = withAuth(async (_req, user, ctx) => {
+    const { id } = await (ctx as RouteContext<{ id: string }>).params;
 
-        if (!session) {
-            return errorResponse('Chưa đăng nhập', 401);
-        }
-
-        const { id } = await params;
-
-        const version = await prisma.version.findUnique({
-            where: { id },
-            include: {
-                project: { select: { id: true, name: true, identifier: true } },
-                tasks: {
-                    include: {
-                        status: { select: { id: true, name: true, isClosed: true } },
-                        priority: { select: { id: true, name: true, color: true } },
-                        assignee: { select: { id: true, name: true, avatar: true } },
-                        tracker: { select: { id: true, name: true } },
-                    },
-                    orderBy: [{ status: { position: 'asc' } }, { priority: { position: 'desc' } }],
+    const version = await prisma.version.findUnique({
+        where: { id },
+        include: {
+            project: { select: { id: true, name: true, identifier: true } },
+            tasks: {
+                include: {
+                    status: { select: { id: true, name: true, isClosed: true } },
+                    priority: { select: { id: true, name: true, color: true } },
+                    assignee: { select: { id: true, name: true, avatar: true } },
+                    tracker: { select: { id: true, name: true } },
                 },
+                orderBy: [{ status: { position: 'asc' } }, { priority: { position: 'desc' } }],
             },
-        });
+        },
+    });
 
-        if (!version) {
-            return errorResponse('Version không tồn tại', 404);
-        }
-
-        const canAccess =
-            session.user.isAdministrator ||
-            (await prisma.projectMember.findFirst({
-                where: { userId: session.user.id, projectId: version.projectId },
-            }));
-
-        if (!canAccess) {
-            return errorResponse('Không có quyền truy cập', 403);
-        }
-
-        const closedTasks = version.tasks.filter((t) => t.status.isClosed).length;
-        const totalTasks = version.tasks.length;
-        const progress = totalTasks > 0 ? Math.round((closedTasks / totalTasks) * 100) : 0;
-
-        return successResponse({
-            ...version,
-            closedTasks,
-            totalTasks,
-            progress,
-        });
-    } catch (error) {
-        return handleApiError(error);
+    if (!version) {
+        return errorResponse('Phiên bản không tồn tại', 404);
     }
-}
 
-export async function PUT(req: NextRequest, { params }: Params) {
-    try {
-        const session = await auth();
+    // Authorization Policy check
+    const userPermissions = await getUserPermissions(user.id, version.projectId);
+    const canView = ProjectPolicy.canViewProject(user, userPermissions);
 
-        if (!session) {
-            return errorResponse('Chưa đăng nhập', 401);
-        }
-
-        const { id } = await params;
-
-        const existingVersion = await prisma.version.findUnique({
-            where: { id },
-            select: { projectId: true },
-        });
-
-        if (!existingVersion) {
-            return errorResponse('Version không tồn tại', 404);
-        }
-
-        const canManage =
-            session.user.isAdministrator ||
-            (await prisma.projectMember.findFirst({
-                where: {
-                    userId: session.user.id,
-                    projectId: existingVersion.projectId,
-                    role: {
-                        permissions: {
-                            some: {
-                                permission: { key: 'projects.manage_versions' },
-                            },
-                        },
-                    },
-                },
-            }));
-
-        if (!canManage) {
-            return errorResponse('Không có quyền sửa version', 403);
-        }
-
-        const body = await req.json();
-        const validatedData = updateVersionSchema.parse(body);
-
-        const version = await prisma.version.update({
-            where: { id },
-            data: {
-                ...validatedData,
-                dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : undefined,
-            },
-        });
-
-        return successResponse(version);
-    } catch (error) {
-        return handleApiError(error);
+    if (!canView) {
+        return errorResponse('Không có quyền truy cập phiên bản này', 403);
     }
-}
 
-export async function DELETE(req: NextRequest, { params }: Params) {
-    try {
-        const session = await auth();
 
-        if (!session) {
-            return errorResponse('Chưa đăng nhập', 401);
-        }
+    const closedTasks = version.tasks.filter((t) => t.status.isClosed).length;
+    const totalTasks = version.tasks.length;
+    const progress = totalTasks > 0 ? Math.round((closedTasks / totalTasks) * 100) : 0;
 
-        const { id } = await params;
+    return successResponse({
+        ...version,
+        closedTasks,
+        totalTasks,
+        progress,
+    });
+});
 
-        const existingVersion = await prisma.version.findUnique({
-            where: { id },
-            select: { projectId: true, _count: { select: { tasks: true } } },
-        });
+export const PUT = withAuth(async (req, user, ctx) => {
+    const { id } = await (ctx as RouteContext<{ id: string }>).params;
 
-        if (!existingVersion) {
-            return errorResponse('Version không tồn tại', 404);
-        }
+    // 1. Load resource for Policy check
+    const existingVersion = await prisma.version.findUnique({
+        where: { id },
+        select: { id: true, projectId: true },
+    });
 
-        const canManage =
-            session.user.isAdministrator ||
-            (await prisma.projectMember.findFirst({
-                where: {
-                    userId: session.user.id,
-                    projectId: existingVersion.projectId,
-                    role: {
-                        permissions: {
-                            some: {
-                                permission: { key: 'projects.manage_versions' },
-                            },
-                        },
-                    },
-                },
-            }));
-
-        if (!canManage) {
-            return errorResponse('Không có quyền xóa version', 403);
-        }
-
-        if (existingVersion._count.tasks > 0) {
-            await prisma.task.updateMany({
-                where: { versionId: id },
-                data: { versionId: null },
-            });
-        }
-
-        await prisma.version.delete({
-            where: { id },
-        });
-
-        return successResponse({ message: 'Đã xóa version' });
-    } catch (error) {
-        return handleApiError(error);
+    if (!existingVersion) {
+        return errorResponse('Phiên bản không tồn tại', 404);
     }
-}
+
+    // 2. Authorization Policy check
+    const userPermissions = await getUserPermissions(user.id, existingVersion.projectId);
+    const canManage = ProjectPolicy.canManageVersions(user, userPermissions);
+
+    if (!canManage) {
+        return errorResponse('Không có quyền chỉnh sửa phiên bản này', 403);
+    }
+
+
+    const body = await req.json();
+    const validatedData = updateVersionSchema.parse(body);
+
+    const version = await prisma.version.update({
+        where: { id },
+        data: {
+            ...validatedData,
+            dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : undefined,
+        },
+    });
+
+    return successResponse(version);
+});
+
+export const DELETE = withAuth(async (_req, user, ctx) => {
+    const { id } = await (ctx as RouteContext<{ id: string }>).params;
+
+    // 1. Load resource for Policy check
+    const existingVersion = await prisma.version.findUnique({
+        where: { id },
+        select: { id: true, projectId: true, _count: { select: { tasks: true } } },
+    });
+
+    if (!existingVersion) {
+        return errorResponse('Phiên bản không tồn tại', 404);
+    }
+
+    // 2. Authorization Policy check
+    const userPermissions = await getUserPermissions(user.id, existingVersion.projectId);
+    const canManage = ProjectPolicy.canManageVersions(user, userPermissions);
+
+    if (!canManage) {
+        return errorResponse('Không có quyền xóa phiên bản này', 403);
+    }
+
+
+    if (existingVersion._count.tasks > 0) {
+        await prisma.task.updateMany({
+            where: { versionId: id },
+            data: { versionId: null },
+        });
+    }
+
+    await prisma.version.delete({
+        where: { id },
+    });
+
+    return successResponse({ message: 'Đã xóa version' });
+});

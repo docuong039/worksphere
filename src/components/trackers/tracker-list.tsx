@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Check, GripVertical } from 'lucide-react';
+import { useConfirm } from '@/providers/confirm-provider';
 import { trackerService } from '@/services/tracker.service';
 
 interface Tracker {
@@ -23,7 +24,8 @@ interface TrackerListProps {
 
 export function TrackerList({ trackers: initialTrackers }: TrackerListProps) {
     const router = useRouter();
-    const [trackers] = useState(initialTrackers);
+    const { confirm } = useConfirm();
+    const [trackers, setTrackers] = useState(initialTrackers);
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formData, setFormData] = useState({ name: '', description: '' });
@@ -35,29 +37,45 @@ export function TrackerList({ trackers: initialTrackers }: TrackerListProps) {
         setLoading(true);
 
         try {
-            await trackerService.create(formData);
+            const response = await trackerService.create(formData);
+            // Chỉ đóng form và reset khi API thành công
             setIsAdding(false);
             setFormData({ name: '', description: '' });
-            router.refresh();
+            toast.success('Đã tạo tracker mới');
+
+            // Optimistic: thêm tracker vào state ngay từ response
+            if (response.data) {
+                setTrackers((prev) => [...prev, { ...response.data!, _count: { tasks: 0 } }]);
+            }
+            router.refresh(); // Background sync
         } catch (error) {
             console.error(error);
             toast.error('Có lỗi xảy ra');
+            // Form vẫn mở, dữ liệu nhập vẫn còn
         } finally {
             setLoading(false);
         }
     };
+
 
     // Update tracker
     const handleUpdate = async (id: string) => {
         if (!formData.name.trim()) return;
         setLoading(true);
 
+        // Optimistic: cập nhật ngay
+        const previous = trackers;
+        setTrackers((prev) =>
+            prev.map((t) => (t.id === id ? { ...t, name: formData.name, description: formData.description || null } : t))
+        );
+        setEditingId(null);
+        setFormData({ name: '', description: '' });
+
         try {
             await trackerService.update(id, formData);
-            setEditingId(null);
-            setFormData({ name: '', description: '' });
-            router.refresh();
+            router.refresh(); // Background sync
         } catch (error) {
+            setTrackers(previous); // Rollback
             console.error(error);
             toast.error('Có lỗi xảy ra');
         } finally {
@@ -72,23 +90,39 @@ export function TrackerList({ trackers: initialTrackers }: TrackerListProps) {
             return;
         }
 
-        if (!confirm(`Bạn có chắc muốn xóa tracker "${name}"?`)) return;
+        confirm({
+            title: 'Xóa tracker',
+            description: `Bạn có chắc muốn xóa tracker "${name}"? Thao tác này không thể hoàn tác.`,
+            confirmText: 'Xóa ngay',
+            variant: 'danger',
+            onConfirm: async () => {
+                // Optimistic: xóa ngay
+                const previous = trackers;
+                setTrackers((prev) => prev.filter((t) => t.id !== id));
+                toast.success('Đã xóa tracker');
 
-        try {
-            await trackerService.delete(id);
-            toast.success('Đã xóa tracker');
-            router.refresh();
-        } catch (err: any) {
-            toast.error(err.message || 'Lỗi kết nối máy chủ');
-        }
+                try {
+                    await trackerService.delete(id);
+                    router.refresh(); // Background sync
+                } catch (err: any) {
+                    setTrackers(previous); // Rollback
+                    toast.error(err.message || 'Lỗi kết nối máy chủ');
+                }
+            },
+        });
     };
+
 
     // Set default
     const handleSetDefault = async (id: string) => {
+        // Optimistic: toggle default ngay
+        const previous = trackers;
+        setTrackers((prev) => prev.map((t) => ({ ...t, isDefault: t.id === id })));
         try {
             await trackerService.setDefault(id);
-            router.refresh();
+            router.refresh(); // Background sync
         } catch (error) {
+            setTrackers(previous); // Rollback
             console.error(error);
             toast.error('Có lỗi xảy ra');
         }

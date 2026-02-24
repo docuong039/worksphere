@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Filter, Save, Trash2, Globe, Lock } from 'lucide-react';
+import { useConfirm } from '@/providers/confirm-provider';
+import { apiFetch } from '@/lib/api-fetch';
 
 import { SavedQueryWithRelations } from '@/types';
 
@@ -18,26 +20,32 @@ export function SavedQueriesList({
     currentUserId,
     onSelectQuery,
 }: SavedQueriesListProps) {
-    const router = useRouter();
+    const { confirm } = useConfirm();
     const [queries, setQueries] = useState(initialQueries);
 
     const handleDelete = async (id: string, name: string) => {
-        if (!confirm(`Bạn có chắc muốn xóa bộ lọc "${name}"?`)) return;
-
-        try {
-            const res = await fetch(`/api/queries/${id}`, { method: 'DELETE' });
-            if (res.ok) {
+        confirm({
+            title: 'Xóa bộ lọc',
+            description: `Bạn có chắc muốn xóa bộ lọc "${name}"?`,
+            confirmText: 'Xóa ngay',
+            variant: 'danger',
+            onConfirm: async () => {
+                // Optimistic: xóa ngay
+                const previous = queries;
                 setQueries((prev) => prev.filter((q) => q.id !== id));
                 toast.success('Đã xóa bộ lọc');
-                router.refresh();
-            } else {
-                const data = await res.json();
-                toast.error(data.error || 'Có lỗi xảy ra');
+
+                try {
+                    await apiFetch(`/api/queries/${id}`, { method: 'DELETE' });
+                } catch (err) {
+                    setQueries(previous); // Rollback
+                    const msg = err instanceof Error ? err.message : 'Lỗi kết nối máy chủ';
+                    toast.error(msg);
+                }
             }
-        } catch {
-            toast.error('Lỗi kết nối máy chủ');
-        }
+        });
     };
+
 
     const publicQueries = queries.filter((q) => q.isPublic);
     const myQueries = queries.filter((q) => !q.isPublic && q.user.id === currentUserId);
@@ -163,9 +171,8 @@ export function SaveQueryModal({
         setError('');
 
         try {
-            const res = await fetch('/api/queries', {
+            await apiFetch('/api/queries', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: name.trim(),
                     projectId,
@@ -178,14 +185,12 @@ export function SaveQueryModal({
                 }),
             });
 
-            if (res.ok) {
-                toast.success('Đã lưu bộ lọc');
-                onClose();
-                router.refresh();
-            } else {
-                const data = await res.json();
-                setError(data.error || 'Có lỗi xảy ra');
-            }
+            toast.success('Đã lưu bộ lọc');
+            onClose();
+            router.refresh();
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Có lỗi xảy ra';
+            setError(msg);
         } finally {
             setLoading(false);
         }

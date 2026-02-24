@@ -1,4 +1,10 @@
 /**
+ * @file types.ts
+ * @description Định nghĩa các kiểu dữ liệu (TypeScript Interfaces) dùng chung.
+ * Giúp đảm bảo tính nhất quán của dữ liệu khi truyền giữa các Components và API.
+ */
+
+/**
  * Date type alias that accepts both Date objects and ISO strings
  * Prisma returns Date objects, but when data is serialized (e.g., via API)
  * it becomes a string. This type allows both.

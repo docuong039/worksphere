@@ -13,11 +13,13 @@ import {
     Loader2,
 } from 'lucide-react';
 import { timeActivityService } from '@/services/time-activity.service';
+import { useConfirm } from '@/providers/confirm-provider';
 import type { TimeEntryActivity } from '@/types';
 
 
 
 export default function TimeEntryActivitiesPage() {
+    const { confirm } = useConfirm();
     const [loading, setLoading] = useState(true);
     const [activities, setActivities] = useState<TimeEntryActivity[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -81,16 +83,23 @@ export default function TimeEntryActivitiesPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Bạn có chắc muốn xóa hoạt động này?')) return;
-
-        try {
-            await timeActivityService.delete(id);
-            toast.success('Đã xóa hoạt động');
-            fetchActivities();
-        } catch (err: any) {
-            toast.error(err.message || 'Có lỗi xảy ra');
-        }
+        confirm({
+            title: 'Xóa hoạt động',
+            description: 'Bạn có chắc muốn xóa hoạt động này? Thao tác này không thể hoàn tác.',
+            confirmText: 'Xóa ngay',
+            variant: 'danger',
+            onConfirm: async () => {
+                try {
+                    await timeActivityService.delete(id);
+                    toast.success('Đã xóa hoạt động');
+                    fetchActivities();
+                } catch (err: any) {
+                    toast.error(err.message || 'Có lỗi xảy ra');
+                }
+            }
+        });
     };
+
 
     const handleSetDefault = async (id: string) => {
         // First, remove default from all others

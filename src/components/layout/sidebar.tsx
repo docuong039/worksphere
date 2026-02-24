@@ -51,14 +51,18 @@ export function Sidebar({ user }: SidebarProps) {
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
-        // eslint-disable-next-line
-        setIsMounted(true);
         const saved = localStorage.getItem('sidebar-collapsed');
         if (saved !== null) {
-            const collapsed = saved === 'true';
-            setIsCollapsed(collapsed);
+            setIsCollapsed(saved === 'true');
         }
+        setIsMounted(true);
     }, []);
+
+    useEffect(() => {
+        if (isMounted) {
+            document.documentElement.style.setProperty('--sidebar-width', isCollapsed ? '80px' : '256px');
+        }
+    }, [isCollapsed, isMounted]);
 
     const toggleCollapse = () => {
         const newState = !isCollapsed;
@@ -73,10 +77,10 @@ export function Sidebar({ user }: SidebarProps) {
         return pathname.startsWith(href);
     };
 
-    if (!isMounted) return <aside className="w-64 bg-white border-r border-gray-200 flex flex-col" />;
+    if (!isMounted) return <aside className="fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 z-50" />;
 
     return (
-        <aside className={`${isCollapsed ? 'w-20' : 'w-64'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out relative group`}>
+        <aside className={`fixed inset-y-0 left-0 ${isCollapsed ? 'w-20' : 'w-64'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out z-50 group`}>
             {/* Toggle Button */}
             <button
                 onClick={toggleCollapse}
@@ -153,29 +157,7 @@ export function Sidebar({ user }: SidebarProps) {
                 )}
             </nav>
 
-            {/* User Info */}
-            <div className={`${isCollapsed ? 'p-2' : 'p-4'} border-t border-gray-200 bg-gray-50/30`}>
-                <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} p-1.5 rounded-xl hover:bg-white hover:shadow-sm transition-all`}>
-                    <div className="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center border-2 border-white shadow-sm shrink-0">
-                        <span className="text-gray-600 text-sm font-bold">
-                            {user.name?.charAt(0).toUpperCase() || 'U'}
-                        </span>
-                    </div>
-                    {!isCollapsed && (
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-gray-900 truncate">{user.name}</p>
-                            <p className="text-[10px] font-medium text-gray-500 truncate">{user.email}</p>
-                        </div>
-                    )}
-                </div>
-                {!isCollapsed && user.isAdministrator && (
-                    <div className="mt-3 px-2">
-                        <span className="inline-flex items-center px-2 py-1 rounded-md text-[9px] font-black bg-red-50 text-red-600 uppercase tracking-widest border border-red-100">
-                            Admin Access
-                        </span>
-                    </div>
-                )}
-            </div>
+
         </aside>
     );
 }

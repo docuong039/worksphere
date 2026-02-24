@@ -1,3 +1,8 @@
+/**
+ * @file api-error.ts
+ * @description Quản lý và chuẩn hóa lỗi cho toàn bộ API. 
+ * Chuyển đổi các lỗi từ Database (Prisma) và hệ thống thành định dạng JSON đồng nhất trả về cho Frontend.
+ */
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
@@ -67,10 +72,12 @@ export function handleApiError(error: unknown) {
 
         // Foreign key constraint violation
         if (error.code === 'P2003') {
+            const fieldName = error.meta?.field_name || (error.meta?.target as string[])?.join(', ') || 'unknown field';
             return NextResponse.json(
                 {
                     success: false,
-                    error: 'Không thể thực hiện vì dữ liệu liên quan không tồn tại hoặc đang được sử dụng',
+                    error: `Lỗi dữ liệu liên quan: ${fieldName} không tồn tại`,
+                    details: error.meta,
                 },
                 { status: 400 }
             );

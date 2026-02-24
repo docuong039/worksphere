@@ -1,6 +1,3 @@
-// This is your Prisma schema file
-// Learn more: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,79 +7,58 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// USER MANAGEMENT
-// ============================================
-
 model User {
-  id              String   @id @default(cuid())
-  email           String   @unique
-  name            String
-  password        String
-  avatar          String?
-  isAdministrator Boolean  @default(false)
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  // Relations
-  projectMemberships     ProjectMember[]
-  createdProjects        Project[]         @relation("ProjectCreator")
-  assignedTasks          Task[]            @relation("AssignedTasks")
-  createdTasks           Task[]            @relation("CreatedTasks")
-  watchedTasks           Watcher[]
-  comments               Comment[]
-  notifications          Notification[]
-  auditLogs              AuditLog[]
-  attachments            Attachment[]
-  queries                Query[]           @relation("QueryOwner")
-  timeLogs               TimeLog[]
+  id                 String          @id @default(cuid())
+  email              String          @unique
+  name               String
+  password           String
+  avatar             String?
+  isAdministrator    Boolean         @default(false)
+  isActive           Boolean         @default(true)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  attachments        Attachment[]
+  auditLogs          AuditLog[]
+  comments           Comment[]
+  notifications      Notification[]
+  projectMemberships ProjectMember[]
+  createdProjects    Project[]       @relation("ProjectCreator")
+  queries            Query[]         @relation("QueryOwner")
+  assignedTasks      Task[]          @relation("AssignedTasks")
+  createdTasks       Task[]          @relation("CreatedTasks")
+  timeLogs           TimeLog[]
+  watchedTasks       Watcher[]
 
   @@index([email])
   @@index([isAdministrator])
   @@map("users")
 }
 
-// ============================================
-// RBAC (Role-Based Access Control)
-// ============================================
-
 model Role {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?  @db.Text
-  isActive    Boolean  @default(true)
-  
-  // Target Permission: Can receive tasks?
-  assignable  Boolean  @default(true) 
-
-  // Source Permission: Can assign to OTHERS?
-  // true = Everyone, false = Self only
-  canAssignToOther Boolean @default(true)
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  permissions            RolePermission[]
-  projectMembers         ProjectMember[]
-  workflowTransitions    WorkflowTransition[]
-  trackers               RoleTracker[]
+  id                  String               @id @default(cuid())
+  name                String               @unique
+  description         String?              @db.Text
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  assignable          Boolean              @default(true)
+  canAssignToOther    Boolean              @default(true)
+  projectMembers      ProjectMember[]
+  permissions         RolePermission[]
+  trackers            RoleTracker[]
+  workflowTransitions WorkflowTransition[]
 
   @@index([name])
   @@map("roles")
 }
 
-// Role-Tracker: Which roles can use which trackers
 model RoleTracker {
   id        String   @id @default(cuid())
   roleId    String
   trackerId String
   createdAt DateTime @default(now())
-
-  // Relations
-  role    Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  tracker Tracker @relation(fields: [trackerId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  tracker   Tracker  @relation(fields: [trackerId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, trackerId])
   @@index([roleId])
@@ -91,15 +67,13 @@ model RoleTracker {
 }
 
 model Permission {
-  id          String   @id @default(cuid())
-  key         String   @unique
+  id          String           @id @default(cuid())
+  key         String           @unique
   name        String
-  description String?  @db.Text
+  description String?          @db.Text
   module      String
-  createdAt   DateTime @default(now())
-
-  // Relations
-  roles RolePermission[]
+  createdAt   DateTime         @default(now())
+  roles       RolePermission[]
 
   @@index([module])
   @@index([key])
@@ -107,14 +81,12 @@ model Permission {
 }
 
 model RolePermission {
-  id           String   @id @default(cuid())
+  id           String     @id @default(cuid())
   roleId       String
   permissionId String
-  createdAt    DateTime @default(now())
-
-  // Relations
-  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, permissionId])
   @@index([roleId])
@@ -122,39 +94,30 @@ model RolePermission {
   @@map("role_permissions")
 }
 
-// ============================================
-// TASK CONFIGURATION
-// ============================================
-
 model Tracker {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?  @db.Text
-  position    Int      @default(0)
-  isDefault   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  tasks                    Task[]
-  workflowTransitions      WorkflowTransition[]
-  roles                    RoleTracker[]
-  projects                 ProjectTracker[]
+  id                  String               @id @default(cuid())
+  name                String               @unique
+  description         String?              @db.Text
+  position            Int                  @default(0)
+  isDefault           Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  projects            ProjectTracker[]
+  roles               RoleTracker[]
+  tasks               Task[]
+  workflowTransitions WorkflowTransition[]
 
   @@index([position])
   @@map("trackers")
 }
 
-// Project-Tracker: Which trackers are enabled per project
 model ProjectTracker {
   id        String   @id @default(cuid())
   projectId String
   trackerId String
   createdAt DateTime @default(now())
-
-  // Relations
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tracker Tracker @relation(fields: [trackerId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tracker   Tracker  @relation(fields: [trackerId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, trackerId])
   @@index([projectId])
@@ -163,20 +126,18 @@ model ProjectTracker {
 }
 
 model Status {
-  id               String   @id @default(cuid())
-  name             String   @unique
-  description      String?  @db.Text
-  position         Int      @default(0)
-  isClosed         Boolean  @default(false)
-  isDefault        Boolean  @default(false)
-  defaultDoneRatio Int?     // Auto-set done ratio when transitioning to this status
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  // Relations
-  tasks                    Task[]
-  workflowsFrom            WorkflowTransition[] @relation("FromStatus")
-  workflowsTo              WorkflowTransition[] @relation("ToStatus")
+  id               String               @id @default(cuid())
+  name             String               @unique
+  description      String?              @db.Text
+  position         Int                  @default(0)
+  isClosed         Boolean              @default(false)
+  isDefault        Boolean              @default(false)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  defaultDoneRatio Int?
+  tasks            Task[]
+  workflowsFrom    WorkflowTransition[] @relation("FromStatus")
+  workflowsTo      WorkflowTransition[] @relation("ToStatus")
 
   @@index([position])
   @@index([isClosed])
@@ -191,9 +152,7 @@ model Priority {
   isDefault Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  // Relations
-  tasks Task[]
+  tasks     Task[]
 
   @@index([position])
   @@map("priorities")
@@ -206,12 +165,10 @@ model WorkflowTransition {
   fromStatusId String
   toStatusId   String
   createdAt    DateTime @default(now())
-
-  // Relations
-  tracker    Tracker @relation(fields: [trackerId], references: [id], onDelete: Cascade)
-  role       Role?   @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  fromStatus Status  @relation("FromStatus", fields: [fromStatusId], references: [id], onDelete: Cascade)
-  toStatus   Status  @relation("ToStatus", fields: [toStatusId], references: [id], onDelete: Cascade)
+  fromStatus   Status   @relation("FromStatus", fields: [fromStatusId], references: [id], onDelete: Cascade)
+  role         Role?    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  toStatus     Status   @relation("ToStatus", fields: [toStatusId], references: [id], onDelete: Cascade)
+  tracker      Tracker  @relation(fields: [trackerId], references: [id], onDelete: Cascade)
 
   @@unique([trackerId, roleId, fromStatusId, toStatusId])
   @@index([trackerId])
@@ -221,37 +178,28 @@ model WorkflowTransition {
   @@map("workflow_transitions")
 }
 
-// ============================================
-// PROJECT MANAGEMENT
-// ============================================
-
 model Project {
-  id          String    @id @default(cuid())
+  id          String           @id @default(cuid())
   name        String
-  description String?   @db.Text
-  identifier  String    @unique
+  description String?          @db.Text
+  identifier  String           @unique
   startDate   DateTime?
   endDate     DateTime?
-  isArchived  Boolean   @default(false)
-  isPublic    Boolean   @default(false)
+  isArchived  Boolean          @default(false)
   creatorId   String
-  parentId    String?   // Project hierarchy
-
-  // Issue Tracking Settings
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  // Relations
-  creator      User              @relation("ProjectCreator", fields: [creatorId], references: [id])
-  parent       Project?          @relation("ProjectHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
-  children     Project[]         @relation("ProjectHierarchy")
-  members      ProjectMember[]
-  tasks        Task[]
-  versions     Version[]
-  trackers     ProjectTracker[]
-  queries      Query[]
-  timeLogs     TimeLog[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  isPublic    Boolean          @default(false)
+  parentId    String?
+  members     ProjectMember[]
+  trackers    ProjectTracker[]
+  creator     User             @relation("ProjectCreator", fields: [creatorId], references: [id])
+  parent      Project?         @relation("ProjectHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Project[]        @relation("ProjectHierarchy")
+  queries     Query[]
+  tasks       Task[]
+  timeLogs    TimeLog[]
+  versions    Version[]
 
   @@index([identifier])
   @@index([creatorId])
@@ -262,18 +210,16 @@ model Project {
 }
 
 model ProjectMember {
-  id        String   @id @default(cuid())
-  projectId String
-  userId    String
-  roleId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  project              Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user                 User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role                 Role                         @relation(fields: [roleId], references: [id])
+  id                   String                     @id @default(cuid())
+  projectId            String
+  userId               String
+  roleId               String
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
   notificationSettings MemberNotificationSetting?
+  project              Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role                 Role                       @relation(fields: [roleId], references: [id])
+  user                 User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId])
   @@index([projectId])
@@ -282,41 +228,32 @@ model ProjectMember {
   @@map("project_members")
 }
 
-// Member notification preferences per project
 model MemberNotificationSetting {
-  id              String   @id @default(cuid())
-  projectMemberId String   @unique
-  notifyOnNew     Boolean  @default(true)
-  notifyOnUpdate  Boolean  @default(true)
-  notifyOnClose   Boolean  @default(true)
-  notifyOnNote    Boolean  @default(true)
-  notifyOnAssign  Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  // Relations
-  projectMember ProjectMember @relation(fields: [projectMemberId], references: [id], onDelete: Cascade)
+  id              String        @id @default(cuid())
+  projectMemberId String        @unique
+  notifyOnNew     Boolean       @default(true)
+  notifyOnUpdate  Boolean       @default(true)
+  notifyOnClose   Boolean       @default(true)
+  notifyOnNote    Boolean       @default(true)
+  notifyOnAssign  Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  projectMember   ProjectMember @relation(fields: [projectMemberId], references: [id], onDelete: Cascade)
 
   @@map("member_notification_settings")
 }
-
-// ============================================
-// VERSION / MILESTONE
-// ============================================
 
 model Version {
   id          String    @id @default(cuid())
   name        String
   description String?   @db.Text
-  status      String    @default("open") // open, locked, closed
+  status      String    @default("open")
   dueDate     DateTime?
   projectId   String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-
-  // Relations
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks   Task[]
+  tasks       Task[]
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, name])
   @@index([projectId])
@@ -324,15 +261,10 @@ model Version {
   @@map("versions")
 }
 
-// ============================================
-// TASK MANAGEMENT
-// ============================================
-
 model Task {
-  id             String    @id @default(cuid())
-  number         Int       @unique @default(autoincrement())
+  id             String          @id @default(cuid())
   title          String
-  description    String?   @db.Text
+  description    String?         @db.Text
   trackerId      String
   statusId       String
   priorityId     String
@@ -340,34 +272,33 @@ model Task {
   assigneeId     String?
   creatorId      String
   parentId       String?
-  versionId      String?
   path           String?
-  level          Int       @default(0)
+  level          Int             @default(0)
   estimatedHours Float?
-  doneRatio      Int       @default(0) // 0-100%
-  startDate      DateTime?
   dueDate        DateTime?
-  isPrivate      Boolean   @default(false)
-  lockVersion    Int       @default(0) // Optimistic locking
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  // Relations
-  tracker       Tracker        @relation(fields: [trackerId], references: [id])
-  status        Status         @relation(fields: [statusId], references: [id])
-  priority      Priority       @relation(fields: [priorityId], references: [id])
-  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignee      User?          @relation("AssignedTasks", fields: [assigneeId], references: [id])
-  creator       User           @relation("CreatedTasks", fields: [creatorId], references: [id])
-  parent        Task?          @relation("Subtasks", fields: [parentId], references: [id], onDelete: Restrict)
-  version       Version?       @relation(fields: [versionId], references: [id], onDelete: SetNull)
-  subtasks      Task[]         @relation("Subtasks")
-  watchers      Watcher[]
-  comments      Comment[]
-  attachments   Attachment[]
-  relationsFrom IssueRelation[] @relation("RelationFrom")
-  relationsTo   IssueRelation[] @relation("RelationTo")
-  timeLogs      TimeLog[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  doneRatio      Int             @default(0)
+  isPrivate      Boolean         @default(false)
+  lockVersion    Int             @default(0)
+  startDate      DateTime?
+  versionId      String?
+  number         Int             @unique @default(autoincrement())
+  attachments    Attachment[]
+  comments       Comment[]
+  relationsFrom  IssueRelation[] @relation("RelationFrom")
+  relationsTo    IssueRelation[] @relation("RelationTo")
+  assignee       User?           @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  creator        User            @relation("CreatedTasks", fields: [creatorId], references: [id])
+  parent         Task?           @relation("Subtasks", fields: [parentId], references: [id], onDelete: Restrict)
+  subtasks       Task[]          @relation("Subtasks")
+  priority       Priority        @relation(fields: [priorityId], references: [id])
+  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status         Status          @relation(fields: [statusId], references: [id])
+  tracker        Tracker         @relation(fields: [trackerId], references: [id])
+  version        Version?        @relation(fields: [versionId], references: [id])
+  timeLogs       TimeLog[]
+  watchers       Watcher[]
 
   @@index([projectId])
   @@index([assigneeId])
@@ -382,21 +313,15 @@ model Task {
   @@map("tasks")
 }
 
-// ============================================
-// ISSUE RELATIONS
-// ============================================
-
 model IssueRelation {
   id           String   @id @default(cuid())
   issueFromId  String
   issueToId    String
-  relationType String   // relates, duplicates, duplicated, blocks, blocked, precedes, follows, copied_to, copied_from
-  delay        Int?     // For precedes/follows: delay in days
+  relationType String
+  delay        Int?
   createdAt    DateTime @default(now())
-
-  // Relations
-  issueFrom Task @relation("RelationFrom", fields: [issueFromId], references: [id], onDelete: Cascade)
-  issueTo   Task @relation("RelationTo", fields: [issueToId], references: [id], onDelete: Cascade)
+  issueFrom    Task     @relation("RelationFrom", fields: [issueFromId], references: [id], onDelete: Cascade)
+  issueTo      Task     @relation("RelationTo", fields: [issueToId], references: [id], onDelete: Cascade)
 
   @@unique([issueFromId, issueToId, relationType])
   @@index([issueFromId])
@@ -410,10 +335,8 @@ model Watcher {
   taskId    String
   userId    String
   createdAt DateTime @default(now())
-
-  // Relations
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([taskId, userId])
   @@index([taskId])
@@ -428,10 +351,8 @@ model Comment {
   userId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  // Relations
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
   @@index([userId])
@@ -441,25 +362,19 @@ model Comment {
 model Attachment {
   id        String   @id @default(cuid())
   filename  String
+  taskId    String
+  createdAt DateTime @default(now())
+  mimeType  String
   path      String
   size      Int
-  mimeType  String
-  taskId    String
   userId    String
-  createdAt DateTime @default(now())
-
-  // Relations
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
   @@index([userId])
   @@map("attachments")
 }
-
-// ============================================
-// NOTIFICATIONS & AUDIT
-// ============================================
 
 model Notification {
   id        String   @id @default(cuid())
@@ -468,11 +383,9 @@ model Notification {
   message   String   @db.Text
   isRead    Boolean  @default(false)
   userId    String
-  metadata  Json?
+  metadata  String?  @db.LongText
   createdAt DateTime @default(now())
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([isRead])
@@ -485,39 +398,32 @@ model AuditLog {
   action     String
   entityType String
   entityId   String
-  changes    Json?
+  changes    String?  @db.LongText
   userId     String
   createdAt  DateTime @default(now())
-
-  // Relations
-  user User @relation(fields: [userId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("audit_logs")
 }
-// ============================================
-// SAVED QUERIES
-// ============================================
 
 model Query {
-  id         String   @id @default(cuid())
-  name       String
-  projectId  String?  // null = global query
-  userId     String
-  isPublic   Boolean  @default(false)
-  filters    String   @db.Text  // JSON: Array of filter conditions
-  columns    String?  @db.Text  // JSON: Array of column names to display
-  sortBy     String?
-  sortOrder  String?  @default("asc") // asc, desc
-  groupBy    String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // Relations
-  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user    User     @relation("QueryOwner", fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  name      String
+  projectId String?
+  userId    String
+  isPublic  Boolean  @default(false)
+  filters   String   @db.Text
+  columns   String?  @db.Text
+  sortBy    String?
+  sortOrder String?  @default("asc")
+  groupBy   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation("QueryOwner", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
   @@index([userId])
@@ -525,43 +431,35 @@ model Query {
   @@map("queries")
 }
 
-// ============================================
-// TIME TRACKING (Spent Time)
-// ============================================
-
 model TimeEntryActivity {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  position    Int      @default(0)
-  isDefault   Boolean  @default(false)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  timeLogs TimeLog[]
+  id        String    @id @default(cuid())
+  name      String    @unique
+  position  Int       @default(0)
+  isDefault Boolean   @default(false)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  timeLogs  TimeLog[]
 
   @@index([position])
   @@map("time_entry_activities")
 }
 
 model TimeLog {
-  id         String   @id @default(cuid())
+  id         String            @id @default(cuid())
   hours      Float
-  comments   String?  @db.Text
+  comments   String?           @db.Text
   spentOn    DateTime
   userId     String
   taskId     String?
   projectId  String
   activityId String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // Relations
-  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task     Task?             @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  project  Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  activity TimeEntryActivity @relation(fields: [activityId], references: [id])
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  activity   TimeEntryActivity @relation(fields: [activityId], references: [id])
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task       Task?             @relation(fields: [taskId], references: [id])
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([taskId])

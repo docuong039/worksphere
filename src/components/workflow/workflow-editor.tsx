@@ -2,7 +2,9 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Save, RotateCcw, Info } from 'lucide-react';
+import { useConfirm } from '@/providers/confirm-provider';
 import { workflowService } from '@/services/workflow.service';
 import { WorkflowTransition as Transition, Tracker, Status, Role } from '@/types';
 
@@ -22,6 +24,7 @@ export function WorkflowEditor({
     transitions: initialTransitions,
 }: WorkflowEditorProps) {
     const router = useRouter();
+    const { confirm } = useConfirm();
     const [selectedTracker, setSelectedTracker] = useState(trackers[0]?.id || '');
     const [selectedRole, setSelectedRole] = useState<string>(''); // '' = All Roles
     const [loading, setLoading] = useState(false);
@@ -103,10 +106,13 @@ export function WorkflowEditor({
             });
 
             setSaved(true);
+            toast.success('Đã lưu quy trình thành công');
             router.refresh();
+
+            setTimeout(() => setSaved(false), 3000);
         } catch (error) {
             console.error(error);
-            // Optionally handle error toast here
+            toast.error('Có lỗi xảy ra khi lưu quy trình');
         } finally {
             setLoading(false);
         }
@@ -114,19 +120,26 @@ export function WorkflowEditor({
 
     // Reset to allow all
     const handleReset = () => {
-        if (!confirm('Bạn có chắc muốn reset về cho phép tất cả transitions?')) return;
-
-        const newMap: TransitionMap = {};
-        statuses.forEach((fromStatus) => {
-            statuses.forEach((toStatus) => {
-                if (fromStatus.id !== toStatus.id) {
-                    newMap[`${fromStatus.id}-${toStatus.id}`] = true;
-                }
-            });
+        confirm({
+            title: 'Đặt lại quy trình',
+            description: 'Bạn có chắc muốn đặt lại về trạng thái cho phép tất cả các chuyển đổi? Các thay đổi chưa lưu sẽ không bị mất cho đến khi bạn nhấn Lưu.',
+            confirmText: 'Đặt lại',
+            variant: 'warning',
+            onConfirm: () => {
+                const newMap: TransitionMap = {};
+                statuses.forEach((fromStatus) => {
+                    statuses.forEach((toStatus) => {
+                        if (fromStatus.id !== toStatus.id) {
+                            newMap[`${fromStatus.id}-${toStatus.id}`] = true;
+                        }
+                    });
+                });
+                setTransitionMap(newMap);
+                setSaved(false);
+            }
         });
-        setTransitionMap(newMap);
-        setSaved(false);
     };
+
 
     // Count allowed transitions
     const allowedCount = Object.values(transitionMap).filter(Boolean).length;

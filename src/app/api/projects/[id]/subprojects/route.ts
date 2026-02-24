@@ -1,170 +1,139 @@
-import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
+import { successResponse, errorResponse } from '@/lib/api-error';
+import { withAuth } from '@/server/middleware/withAuth';
+import type { RouteContext } from '@/server/middleware/withAuth';
+import { getUserPermissions } from '@/lib/permissions';
+import * as ProjectPolicy from '@/modules/project/project.policy';
+import { PERMISSIONS } from '@/lib/constants';
+
 
 // GET /api/projects/[id]/subprojects - Get child projects
-export async function GET(
-    _request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const session = await auth();
-        if (!session) {
-            return NextResponse.json({ error: 'Không được quyền truy cập' }, { status: 401 });
-        }
+export const GET = withAuth(async (_req, user, ctx) => {
+    const { id } = await (ctx as RouteContext<{ id: string }>).params;
 
-        const { id } = await params;
+    // Authorization Policy check
+    const userPermissions = await getUserPermissions(user.id, id);
+    const canView = ProjectPolicy.canViewProject(user, userPermissions);
 
-        // Check access to parent project
-        const canAccess = session.user.isAdministrator ||
-            await prisma.projectMember.findFirst({
-                where: { projectId: id, userId: session.user.id },
-            });
+    if (!canView) {
+        return errorResponse('Không có quyền truy cập thông tin dự án con', 403);
+    }
 
-        if (!canAccess) {
-            return NextResponse.json({ error: 'Hành động bị cấm' }, { status: 403 });
-        }
 
-        const subprojects = await prisma.project.findMany({
-            where: { parentId: id },
-            select: {
-                id: true,
-                name: true,
-                identifier: true,
-                description: true,
-                isArchived: true,
-                isPublic: true,
-                createdAt: true,
-                _count: {
-                    select: {
-                        tasks: true,
-                        members: true,
-                        children: true,
-                    },
+    const subprojects = await prisma.project.findMany({
+        where: { parentId: id },
+        select: {
+            id: true,
+            name: true,
+            identifier: true,
+            description: true,
+            isArchived: true,
+            isPublic: true,
+            createdAt: true,
+            _count: {
+                select: {
+                    tasks: true,
+                    members: true,
+                    children: true,
                 },
             },
-            orderBy: { name: 'asc' },
-        });
+        },
+        orderBy: { name: 'asc' },
+    });
 
-        return NextResponse.json(subprojects);
-    } catch (error) {
-        console.error('Error fetching subprojects:', error);
-        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
-    }
-}
+    return successResponse(subprojects);
+});
 
 // POST /api/projects/[id]/subprojects - Create a subproject
-export async function POST(
-    request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const session = await auth();
-        if (!session) {
-            return NextResponse.json({ error: 'Không được quyền truy cập' }, { status: 401 });
-        }
+export const POST = withAuth(async (req, user, ctx) => {
+    const { id } = await (ctx as RouteContext<{ id: string }>).params;
 
-        const { id } = await params;
+    // Authorization Policy check
+    const userPermissions = await getUserPermissions(user.id, id);
+    const canCreate = ProjectPolicy.canCreateSubprojects(user, userPermissions);
 
-        // Check permission to create subproject
-        const hasPermission = session.user.isAdministrator ||
-            await prisma.projectMember.findFirst({
-                where: {
-                    projectId: id,
-                    userId: session.user.id,
-                    role: {
-                        permissions: {
-                            some: { permission: { key: 'projects.create_subprojects' } },
-                        },
-                    },
-                },
-            });
-
-        if (!hasPermission) {
-            return NextResponse.json({ error: 'Hành động bị cấm' }, { status: 403 });
-        }
-
-        const body = await request.json();
-        const { name, identifier, description, isPublic } = body;
-
-        if (!name?.trim()) {
-            return NextResponse.json({ error: 'Vui lòng nhập tên' }, { status: 400 });
-        }
-        if (!identifier?.trim()) {
-            return NextResponse.json({ error: 'Vui lòng nhập định danh' }, { status: 400 });
-        }
-
-        // Check identifier uniqueness
-        const existingProject = await prisma.project.findUnique({
-            where: { identifier: identifier.toLowerCase() },
-        });
-        if (existingProject) {
-            return NextResponse.json({ error: 'Định danh dự án đã tồn tại' }, { status: 400 });
-        }
-
-        // Check max nesting level (e.g., 3 levels)
-        const parentProject = await prisma.project.findUnique({
-            where: { id },
-            include: {
-                parent: {
-                    include: {
-                        parent: true,
-                    },
-                },
-            },
-        });
-
-        if (!parentProject) {
-            return NextResponse.json({ error: 'Không tìm thấy dự án cha' }, { status: 404 });
-        }
-
-        let nestingLevel = 1;
-        if (parentProject.parent) {
-            nestingLevel = 2;
-            if (parentProject.parent.parent) {
-                nestingLevel = 3;
-            }
-        }
-
-        if (nestingLevel >= 3) {
-            return NextResponse.json({ error: 'Đã đạt giới hạn cấp lồng nhau tối đa (3 cấp)' }, { status: 400 });
-        }
-
-        // Create subproject
-        const subproject = await prisma.project.create({
-            data: {
-                name: name.trim(),
-                identifier: identifier.toLowerCase().trim(),
-                description: description?.trim() || null,
-                isPublic: isPublic || false,
-                parentId: id,
-                creatorId: session.user.id,
-            },
-            include: {
-                creator: { select: { id: true, name: true } },
-                _count: { select: { tasks: true, members: true } },
-            },
-        });
-
-        // Optionally inherit members from parent
-        const parentMembers = await prisma.projectMember.findMany({
-            where: { projectId: id },
-        });
-
-        if (parentMembers.length > 0) {
-            await prisma.projectMember.createMany({
-                data: parentMembers.map(m => ({
-                    projectId: subproject.id,
-                    userId: m.userId,
-                    roleId: m.roleId,
-                })),
-                skipDuplicates: true,
-            });
-        }
-
-        return NextResponse.json(subproject, { status: 201 });
-    } catch (error) {
-        console.error('Error creating subproject:', error);
-        return NextResponse.json({ error: 'Lỗi máy chủ nội bộ' }, { status: 500 });
+    if (!canCreate) {
+        return errorResponse('Không có quyền tạo dự án con cho dự án này', 403);
     }
-}
+
+
+    const body = await req.json();
+    const { name, identifier, description, isPublic } = body;
+
+    if (!name?.trim()) {
+        return errorResponse('Vui lòng nhập tên', 400);
+    }
+    if (!identifier?.trim()) {
+        return errorResponse('Vui lòng nhập định danh', 400);
+    }
+
+    // Check identifier uniqueness
+    const existingProject = await prisma.project.findUnique({
+        where: { identifier: identifier.toLowerCase() },
+    });
+    if (existingProject) {
+        return errorResponse('Định danh dự án đã tồn tại', 400);
+    }
+
+    // Check max nesting level (e.g., 3 levels)
+    const parentProject = await prisma.project.findUnique({
+        where: { id },
+        include: {
+            parent: {
+                include: {
+                    parent: true,
+                },
+            },
+        },
+    });
+
+    if (!parentProject) {
+        return errorResponse('Không tìm thấy dự án cha', 404);
+    }
+
+    let nestingLevel = 1;
+    if (parentProject.parent) {
+        nestingLevel = 2;
+        if (parentProject.parent.parent) {
+            nestingLevel = 3;
+        }
+    }
+
+    if (nestingLevel >= 3) {
+        return errorResponse('Đã đạt giới hạn cấp lồng nhau tối đa (3 cấp)', 400);
+    }
+
+    // Create subproject
+    const subproject = await prisma.project.create({
+        data: {
+            name: name.trim(),
+            identifier: identifier.toLowerCase().trim(),
+            description: description?.trim() || null,
+            isPublic: isPublic || false,
+            parentId: id,
+            creatorId: user.id,
+        },
+        include: {
+            creator: { select: { id: true, name: true } },
+            _count: { select: { tasks: true, members: true } },
+        },
+    });
+
+    // Optionally inherit members from parent
+    const parentMembers = await prisma.projectMember.findMany({
+        where: { projectId: id },
+    });
+
+    if (parentMembers.length > 0) {
+        await prisma.projectMember.createMany({
+            data: parentMembers.map(m => ({
+                projectId: subproject.id,
+                userId: m.userId,
+                roleId: m.roleId,
+            })),
+            skipDuplicates: true,
+        });
+    }
+
+    return successResponse(subproject, 201);
+});

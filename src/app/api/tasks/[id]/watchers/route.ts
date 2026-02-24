@@ -1,83 +1,77 @@
-import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
 import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
+import { withAuth } from '@/server/middleware/withAuth';
+import type { RouteContext } from '@/server/middleware/withAuth';
+import { getUserPermissions } from '@/lib/permissions';
+import * as TaskPolicy from '@/modules/task/task.policy';
+import { PERMISSIONS } from '@/lib/constants';
 
-interface Params {
-    params: Promise<{ id: string }>;
-}
 
 // GET /api/tasks/[id]/watchers - Lấy danh sách watchers
-export async function GET(req: NextRequest, { params }: Params) {
-    try {
-        const session = await auth();
-        if (!session) return errorResponse('Chưa đăng nhập', 401);
+export const GET = withAuth(async (_req, user, ctx) => {
+    const { id } = await (ctx as RouteContext<{ id: string }>).params;
 
-        const { id } = await params;
-
-        const watchers = await prisma.watcher.findMany({
-            where: { taskId: id },
-            include: {
-                user: {
-                    select: { id: true, name: true, avatar: true, email: true },
-                },
+    const watchers = await prisma.watcher.findMany({
+        where: { taskId: id },
+        include: {
+            user: {
+                select: { id: true, name: true, avatar: true, email: true },
             },
-            orderBy: { createdAt: 'desc' },
-        });
+        },
+        orderBy: { createdAt: 'desc' },
+    });
 
-        // Check if current user is watching
-        const isWatching = watchers.some((w) => w.userId === session.user.id);
+    // Check if current user is watching
+    const isWatching = watchers.some((w) => w.userId === user.id);
 
-        return successResponse({
-            watchers,
-            isWatching,
-            count: watchers.length,
-        });
-    } catch (error) {
-        return handleApiError(error);
-    }
-}
+    return successResponse({
+        watchers,
+        isWatching,
+        count: watchers.length,
+    });
+});
 
 // POST /api/tasks/[id]/watchers - Thêm watcher
-export async function POST(req: NextRequest, { params }: Params) {
+export const POST = withAuth(async (req, user, ctx) => {
+    const { id } = await (ctx as RouteContext<{ id: string }>).params;
+    const body = await req.json();
+    // userId optional - nếu không có thì tự watch mình
+    const targetUserId = body.userId || user.id;
+
+    // Check task exists
+    const task = await prisma.task.findUnique({
+        where: { id },
+        select: { id: true, projectId: true, creatorId: true, assigneeId: true, isPrivate: true },
+    });
+
+    if (!task) return errorResponse('Task không tồn tại', 404);
+
+    // Authorization Policy check
+    const userPermissions = await getUserPermissions(user.id, task.projectId);
+    const canView = TaskPolicy.canViewTask(user, task, userPermissions);
+
+    if (!canView) {
+        return errorResponse('Không có quyền truy cập công việc này', 403);
+    }
+
+    // Check permission: target is self or has manage permission
+    const isSelfWatch = targetUserId === user.id;
+    const canManage = TaskPolicy.canManageWatchers(user, task, userPermissions);
+
+    if (!isSelfWatch && !canManage) {
+        return errorResponse('Không có quyền thêm người theo dõi cho công việc này', 403);
+    }
+
+
+    // Check if target is project member
+    const isMember = await prisma.projectMember.findFirst({
+        where: { userId: targetUserId, projectId: task.projectId },
+    });
+    if (!isMember && !user.isAdministrator) {
+        return errorResponse('Người dùng này không phải thành viên dự án', 400);
+    }
+
     try {
-        const session = await auth();
-        if (!session) return errorResponse('Chưa đăng nhập', 401);
-
-        const { id } = await params;
-        const body = await req.json();
-        // userId optional - nếu không có thì tự watch mình
-        const targetUserId = body.userId || session.user.id;
-
-        // Check task exists
-        const task = await prisma.task.findUnique({
-            where: { id },
-            select: { projectId: true, creatorId: true, assigneeId: true },
-        });
-        if (!task) return errorResponse('Task không tồn tại', 404);
-
-        // Check permission
-        const isSelfWatch = targetUserId === session.user.id;
-        const canAddOthers =
-            session.user.isAdministrator ||
-            task.creatorId === session.user.id ||
-            task.assigneeId === session.user.id ||
-            (await prisma.projectMember.findFirst({
-                where: { userId: session.user.id, projectId: task.projectId },
-            }));
-
-        if (!isSelfWatch && !canAddOthers) {
-            return errorResponse('Không có quyền thêm người theo dõi', 403);
-        }
-
-        // Check if target is project member
-        const isMember = await prisma.projectMember.findFirst({
-            where: { userId: targetUserId, projectId: task.projectId },
-        });
-        if (!isMember && !session.user.isAdministrator) {
-            return errorResponse('Người dùng này không phải thành viên dự án', 400);
-        }
-
         const watcher = await prisma.watcher.create({
             data: {
                 taskId: id,
@@ -95,52 +89,51 @@ export async function POST(req: NextRequest, { params }: Params) {
         }
         return handleApiError(error);
     }
-}
+});
 
 // DELETE /api/tasks/[id]/watchers - Xóa watcher (unwatch)
-export async function DELETE(req: NextRequest, { params }: Params) {
-    try {
-        const session = await auth();
-        if (!session) return errorResponse('Chưa đăng nhập', 401);
+export const DELETE = withAuth(async (req, user, ctx) => {
+    const { id } = await (ctx as RouteContext<{ id: string }>).params;
+    const { searchParams } = new URL(req.url);
+    const targetUserId = searchParams.get('userId') || user.id;
 
-        const { id } = await params;
-        const { searchParams } = new URL(req.url);
-        const targetUserId = searchParams.get('userId') || session.user.id;
+    // Check task exists
+    const task = await prisma.task.findUnique({
+        where: { id },
+        select: { id: true, projectId: true, creatorId: true, assigneeId: true, isPrivate: true },
+    });
 
-        // Check task exists
-        const task = await prisma.task.findUnique({
-            where: { id },
-            select: { creatorId: true, assigneeId: true },
-        });
-        if (!task) return errorResponse('Task không tồn tại', 404);
+    if (!task) return errorResponse('Công việc không tồn tại', 404);
 
-        // Check permission: self-unwatch always allowed
-        const isSelfUnwatch = targetUserId === session.user.id;
-        const canRemoveOthers =
-            session.user.isAdministrator ||
-            task.creatorId === session.user.id ||
-            task.assigneeId === session.user.id;
+    // Authorization Policy check
+    const userPermissions = await getUserPermissions(user.id, task.projectId);
+    const canView = TaskPolicy.canViewTask(user, task, userPermissions);
 
-        if (!isSelfUnwatch && !canRemoveOthers) {
-            return errorResponse('Không có quyền xóa người theo dõi', 403);
-        }
-
-        // Find and delete watcher
-        const watcher = await prisma.watcher.findFirst({
-            where: { taskId: id, userId: targetUserId },
-        });
-
-        if (!watcher) {
-            return errorResponse('Người dùng này không theo dõi task', 404);
-        }
-
-        await prisma.watcher.delete({
-            where: { id: watcher.id },
-        });
-
-        return successResponse({ message: 'Đã xóa khỏi danh sách theo dõi' });
-    } catch (error) {
-        return handleApiError(error);
+    if (!canView) {
+        return errorResponse('Không có quyền truy cập công việc này', 403);
     }
-}
 
+    // Check permission: self-unwatch always allowed, otherwise need manage permission
+    const isSelfUnwatch = targetUserId === user.id;
+    const canManage = TaskPolicy.canManageWatchers(user, task, userPermissions);
+
+    if (!isSelfUnwatch && !canManage) {
+        return errorResponse('Không có quyền xóa người theo dõi', 403);
+    }
+
+
+    // Find and delete watcher
+    const watcher = await prisma.watcher.findFirst({
+        where: { taskId: id, userId: targetUserId },
+    });
+
+    if (!watcher) {
+        return errorResponse('Người dùng này không theo dõi task', 404);
+    }
+
+    await prisma.watcher.delete({
+        where: { id: watcher.id },
+    });
+
+    return successResponse({ message: 'Đã xóa khỏi danh sách theo dõi' });
+});

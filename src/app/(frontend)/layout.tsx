@@ -15,14 +15,23 @@ export default async function DashboardLayout({
     }
 
     return (
-        <div className="min-h-screen flex">
-            {/* Sidebar */}
+        <div className="h-screen flex overflow-hidden bg-white">
+            {/* Sidebar is fixed, so it doesn't take space in the flex flow */}
             <Sidebar user={session.user} />
 
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col">
+            {/* Main Content Area */}
+            <div
+                className="flex-1 flex flex-col min-w-0 transition-[padding-left] duration-300 ease-in-out"
+                style={{ paddingLeft: 'var(--sidebar-width, 256px)' }}
+            >
                 <Header user={session.user} />
-                <main className="flex-1 p-6">{children}</main>
+
+                {/* Independent Scrollable Content */}
+                <main className="flex-1 overflow-y-auto p-8 bg-gray-50/40">
+                    <div className="max-w-7xl mx-auto">
+                        {children}
+                    </div>
+                </main>
             </div>
         </div>
     );

@@ -11,9 +11,6 @@ export interface TaskAggregation {
     totalHours: number;
 }
 
-export interface TaskAggregation {
-    totalHours: number;
-}
 
 export interface TaskListResponse {
     tasks: TaskWithRelations[];

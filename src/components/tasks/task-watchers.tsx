@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Eye, EyeOff, UserPlus, X, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useConfirm } from '@/providers/confirm-provider';
 
 interface User {
     id: string;
@@ -33,12 +34,19 @@ export function TaskWatchers({
     canManage,
 }: TaskWatchersProps) {
     const router = useRouter();
+    const { confirm } = useConfirm();
     const [watchers, setWatchers] = useState(initialWatchers);
     const [isWatching, setIsWatching] = useState(
         initialWatchers.some((w) => w.userId === currentUserId)
     );
     const [loading, setLoading] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
+
+    // Sync state with props
+    useEffect(() => {
+        setWatchers(initialWatchers);
+    }, [initialWatchers]);
+
 
     // For searching users to add
     const [searchQuery, setSearchQuery] = useState('');
@@ -52,15 +60,12 @@ export function TaskWatchers({
             const data = await res.json();
             if (res.ok) {
                 setIsWatching(data.data.watching);
-                // Refresh watchers list locally or re-fetch
                 if (data.data.watching) {
-                    // Add myself mostly for UI feedback, realistic data usually needs full object
-                    // Ideally we fetch updated list
-                    fetchWatchers();
+                    fetchWatchers(); // Refresh để lấy object đầy đủ
                 } else {
-                    setWatchers(watchers.filter(w => w.userId !== currentUserId));
+                    setWatchers((prev) => prev.filter((w) => w.userId !== currentUserId));
                 }
-                router.refresh();
+                // Không cần router.refresh() - state đã cập nhật
             }
         } catch (err) {
             console.error(err);
@@ -131,19 +136,27 @@ export function TaskWatchers({
     };
 
     const handleRemoveWatcher = async (userId: string) => {
-        if (!confirm('Xóa người theo dõi này?')) return;
-        try {
-            const res = await fetch(`/api/tasks/${taskId}/watchers/${userId}`, {
-                method: 'DELETE'
-            });
-            if (res.ok) {
-                setWatchers(watchers.filter(w => w.userId !== userId));
-                if (userId === currentUserId) setIsWatching(false);
+        confirm({
+            title: 'Xóa người theo dõi',
+            description: 'Bạn có chắc muốn xóa người theo dõi này khỏi công việc?',
+            confirmText: 'Xóa ngay',
+            variant: 'danger',
+            onConfirm: async () => {
+                try {
+                    const res = await fetch(`/api/tasks/${taskId}/watchers/${userId}`, {
+                        method: 'DELETE'
+                    });
+                    if (res.ok) {
+                        setWatchers(watchers.filter(w => w.userId !== userId));
+                        if (userId === currentUserId) setIsWatching(false);
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
             }
-        } catch (err) {
-            console.error(err);
-        }
+        });
     };
+
 
     return (
         <div className="bg-white rounded-lg border border-gray-200 p-4">

@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Shield, User } from 'lucide-react';
+import { useConfirm } from '@/providers/confirm-provider';
 import { Switch } from '@/components/ui/switch';
 import { userService } from '@/services/user.service';
 import { UserForm, UserFormData } from '@/components/users/user-form';
-import type { DateLike } from '@/lib/types';
-import { ApiError } from '@/lib/api-fetch';
+import type { DateLike } from '@/lib/date-utils';
+import { ApiClientError } from '@/lib/api-fetch';
 
 export interface UserType {
     id: string;
@@ -31,6 +32,7 @@ interface UserListProps {
 
 export function UserList({ users: initialUsers }: UserListProps) {
     const router = useRouter();
+    const { confirm } = useConfirm();
     const [users, setUsers] = useState(initialUsers);
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -47,17 +49,24 @@ export function UserList({ users: initialUsers }: UserListProps) {
         setError('');
 
         try {
-            await userService.create({
+            const response = await userService.create({
                 ...data,
                 password: data.password || ''
             });
 
             setIsAdding(false);
             toast.success('Đã tạo người dùng mới');
-            router.refresh();
+
+            // Optimistic: thêm user mới vào state ngay từ response
+            if (response.data) {
+                setUsers((prev) => [...prev, {
+                    ...response.data!,
+                    _count: { projectMemberships: 0, assignedTasks: 0 },
+                } as UserType]);
+            }
+            router.refresh(); // Background sync để lấy full data (avatar, roles...)
         } catch (err) {
-            // Handle ApiError specially if needed
-            if (err instanceof ApiError && err.message) {
+            if (err instanceof ApiClientError && err.message) {
                 setError(err.message);
             } else {
                 setError('Có lỗi xảy ra khi tạo người dùng');
@@ -72,24 +81,32 @@ export function UserList({ users: initialUsers }: UserListProps) {
         setLoading(true);
         setError('');
 
+        // Optimistic: cập nhật ngay
+        const previousUsers = users;
+        setUsers((prev) =>
+            prev.map((u) =>
+                u.id === id
+                    ? { ...u, name: data.name, email: data.email, isAdministrator: data.isAdministrator ?? u.isAdministrator }
+                    : u
+            )
+        );
+        setEditingId(null);
+
         try {
             const updateData: Record<string, unknown> = {
                 name: data.name,
                 email: data.email,
                 isAdministrator: data.isAdministrator,
             };
-
-            // Only send password if changed
             if (data.password) {
                 updateData.password = data.password;
             }
-
             await userService.update(id, updateData);
-
-            setEditingId(null);
             toast.success('Cập nhật thành công');
-            router.refresh();
+            router.refresh(); // Background sync
         } catch (err) {
+            // Rollback
+            setUsers(previousUsers);
             const msg = err instanceof Error ? err.message : 'Có lỗi cập nhật';
             setError(msg);
             toast.error(msg);
@@ -105,17 +122,30 @@ export function UserList({ users: initialUsers }: UserListProps) {
             return;
         }
 
-        if (!confirm(`Bạn có chắc muốn xóa user "${user.name}"?`)) return;
+        confirm({
+            title: 'Xóa người dùng',
+            description: `Bạn có chắc muốn xóa người dùng "${user.name}"? Thao tác này không thể hoàn tác.`,
+            confirmText: 'Xóa ngay',
+            variant: 'danger',
+            onConfirm: async () => {
+                // Optimistic: xóa ngay
+                const previousUsers = users;
+                setUsers((prev) => prev.filter((u) => u.id !== user.id));
+                toast.success('Đã xóa người dùng');
 
-        try {
-            await userService.delete(user.id);
-            toast.success('Đã xóa người dùng');
-            router.refresh();
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : 'Lỗi kết nối máy chủ';
-            toast.error(msg);
-        }
+                try {
+                    await userService.delete(user.id);
+                    router.refresh(); // Background sync
+                } catch (err) {
+                    // Rollback
+                    setUsers(previousUsers);
+                    const msg = err instanceof Error ? err.message : 'Lỗi kết nối máy chủ';
+                    toast.error(msg);
+                }
+            },
+        });
     };
+
 
     // Toggle active
     const handleToggleActive = async (id: string, currentActive: boolean) => {

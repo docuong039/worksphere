@@ -1,117 +1,103 @@
-import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
-import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
+import { successResponse, errorResponse } from '@/lib/api-error';
 import { updateCommentSchema } from '@/lib/validations';
-import { checkProjectPermission } from '@/lib/permissions';
+import { getUserPermissions } from '@/lib/permissions';
+import * as CommentPolicy from '@/modules/comment/comment.policy';
+import { withAuth } from '@/server/middleware/withAuth';
+import type { RouteContext } from '@/server/middleware/withAuth';
 
-interface Params {
-    params: Promise<{ id: string; commentId: string }>;
-}
 
 // PUT /api/tasks/[id]/comments/[commentId] - Chỉnh sửa comment
-export async function PUT(req: NextRequest, { params }: Params) {
-    try {
-        const session = await auth();
+export const PUT = withAuth(async (req, user, ctx) => {
+    const { id, commentId } = await (ctx as RouteContext<{ id: string; commentId: string }>).params;
+    const body = await req.json();
 
-        if (!session) {
-            return errorResponse('Chưa đăng nhập', 401);
-        }
+    // Validate
+    const validatedData = updateCommentSchema.parse(body);
 
-        const { id, commentId } = await params;
-        const body = await req.json();
+    // Check comment exists
+    const comment = await prisma.comment.findUnique({
+        where: { id: commentId },
+        select: { id: true, userId: true, taskId: true },
+    });
 
-        // Validate
-        const validatedData = updateCommentSchema.parse(body);
-
-        // Check comment exists
-        const comment = await prisma.comment.findUnique({
-            where: { id: commentId },
-            select: { id: true, userId: true, taskId: true },
-        });
-
-        if (!comment) {
-            return errorResponse('Comment không tồn tại', 404);
-        }
-
-        // Check comment belongs to this task
-        if (comment.taskId !== id) {
-            return errorResponse('Comment không thuộc task này', 400);
-        }
-
-        // Only the owner can edit their own comment, unless they have manage_comments permission
-        if (comment.userId !== session.user.id) {
-            // Check if user has explicit permission to manage comments
-            const canManage = await checkProjectPermission(session.user, 'tasks.manage_comments', id ? (await prisma.task.findUnique({ where: { id }, select: { projectId: true } }))?.projectId || '' : '');
-
-            if (!canManage) {
-                return errorResponse('Bạn chỉ có thể chỉnh sửa comment của mình', 403);
-            }
-        }
-
-        // Update comment
-        const updatedComment = await prisma.comment.update({
-            where: { id: commentId },
-            data: {
-                content: validatedData.content,
-                updatedAt: new Date(),
-            },
-            include: {
-                user: {
-                    select: { id: true, name: true, avatar: true },
-                },
-            },
-        });
-
-        return successResponse(updatedComment);
-    } catch (error) {
-        return handleApiError(error);
+    if (!comment) {
+        return errorResponse('Bình luận không tồn tại', 404);
     }
-}
+
+    // Check comment belongs to this task and get project info
+    const task = await prisma.task.findUnique({
+        where: { id },
+        select: { projectId: true }
+    });
+
+    if (!task || comment.taskId !== id) {
+        return errorResponse('Bình luận không thuộc công việc này', 400);
+    }
+
+    // Authorization Policy check
+    const userPermissions = await getUserPermissions(user.id, task.projectId);
+    const canEdit = CommentPolicy.canUpdateComment(user, comment, userPermissions);
+
+    if (!canEdit) {
+        return errorResponse('Không có quyền chỉnh sửa bình luận này', 403);
+    }
+
+
+    // Update comment
+    const updatedComment = await prisma.comment.update({
+        where: { id: commentId },
+        data: {
+            content: validatedData.content,
+            updatedAt: new Date(),
+        },
+        include: {
+            user: {
+                select: { id: true, name: true, avatar: true },
+            },
+        },
+    });
+
+    return successResponse(updatedComment);
+});
 
 // DELETE /api/tasks/[id]/comments/[commentId] - Xóa comment
-export async function DELETE(_req: NextRequest, { params }: Params) {
-    try {
-        const session = await auth();
+export const DELETE = withAuth(async (_req, user, ctx) => {
+    const { id, commentId } = await (ctx as RouteContext<{ id: string; commentId: string }>).params;
 
-        if (!session) {
-            return errorResponse('Chưa đăng nhập', 401);
-        }
+    // Check comment exists
+    const comment = await prisma.comment.findUnique({
+        where: { id: commentId },
+        select: { id: true, userId: true, taskId: true },
+    });
 
-        const { id, commentId } = await params;
-
-        // Check comment exists
-        const comment = await prisma.comment.findUnique({
-            where: { id: commentId },
-            select: { id: true, userId: true, taskId: true },
-        });
-
-        if (!comment) {
-            return errorResponse('Comment không tồn tại', 404);
-        }
-
-        // Check comment belongs to this task
-        if (comment.taskId !== id) {
-            return errorResponse('Comment không thuộc task này', 400);
-        }
-
-        // Only the owner can delete their own comment, unless they have manage_comments permission
-        if (comment.userId !== session.user.id) {
-            // Check if user has explicit permission to manage comments
-            const canManage = await checkProjectPermission(session.user, 'tasks.manage_comments', id ? (await prisma.task.findUnique({ where: { id }, select: { projectId: true } }))?.projectId || '' : '');
-
-            if (!canManage) {
-                return errorResponse('Bạn chỉ có thể xóa comment của mình', 403);
-            }
-        }
-
-        // Delete comment
-        await prisma.comment.delete({
-            where: { id: commentId },
-        });
-
-        return successResponse({ message: 'Đã xóa comment' });
-    } catch (error) {
-        return handleApiError(error);
+    if (!comment) {
+        return errorResponse('Bình luận không tồn tại', 404);
     }
-}
+
+    // Check comment belongs to this task
+    const task = await prisma.task.findUnique({
+        where: { id },
+        select: { projectId: true }
+    });
+
+    if (!task || comment.taskId !== id) {
+        return errorResponse('Bình luận không thuộc công việc này', 400);
+    }
+
+    // Authorization Policy check
+    const userPermissions = await getUserPermissions(user.id, task.projectId);
+    const canDelete = CommentPolicy.canDeleteComment(user, comment, userPermissions);
+
+    if (!canDelete) {
+        return errorResponse('Không có quyền xóa bình luận này', 403);
+    }
+
+
+    // Delete comment
+    await prisma.comment.delete({
+        where: { id: commentId },
+    });
+
+    return successResponse({ message: 'Đã xóa comment' });
+});

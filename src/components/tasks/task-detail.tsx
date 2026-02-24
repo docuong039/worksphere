@@ -117,6 +117,8 @@ export function TaskDetail({
 
     const handleSave = async () => {
         setLoading(true);
+        setIsEditing(false); // Optimistic: đóng edit mode ngay
+        toast.success('Đã cập nhật công việc');
         try {
             await taskService.update(task.id, {
                 title: editData.title,
@@ -126,16 +128,15 @@ export function TaskDetail({
                 priorityId: editData.priorityId,
                 assigneeId: editData.assigneeId || null,
                 versionId: editData.versionId || null,
-
                 estimatedHours: editData.estimatedHours ? (typeof editData.estimatedHours === 'string' ? parseFloat(editData.estimatedHours) : editData.estimatedHours) : null,
                 doneRatio: editData.doneRatio,
                 startDate: editData.startDate || null,
                 dueDate: editData.dueDate || null,
             });
-            toast.success('Đã cập nhật công việc');
-            setIsEditing(false);
-            router.refresh();
+            router.refresh(); // Background sync để lấy data đầy đủ từ server
         } catch (err: any) {
+            // Rollback: quay lại edit mode
+            setIsEditing(true);
             toast.error(err.message || 'Có lỗi xảy ra');
         }
         setLoading(false);

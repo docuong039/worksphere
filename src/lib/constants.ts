@@ -1,3 +1,8 @@
+/**
+ * @file constants.ts
+ * @description Khai báo các hằng số và quyền hạn (Permissions) dùng chung cho toàn dự án.
+ * Quản lý tập trung các chuỗi định danh giúp tránh lỗi chính tả và dễ dàng bảo trì.
+ */
 export const PERMISSIONS = {
     // Tasks
     TASKS: {
@@ -9,54 +14,52 @@ export const PERMISSIONS = {
         EDIT_ASSIGNED: 'tasks.edit_assigned',
         EDIT_OWN: 'tasks.edit_own',
         DELETE_ANY: 'tasks.delete_any',
-        DELETE_ASSIGNED: 'tasks.delete_assigned',
         DELETE_OWN: 'tasks.delete_own',
-        MANAGE_COMMENTS: 'tasks.manage_comments',
-        LOG_TIME: 'tasks.log_time',
-        VIEW_TIME_ENTRIES: 'tasks.view_time_entries',
-        EDIT_TIME_ENTRIES: 'tasks.edit_time_entries',
-        DELETE_TIME_ENTRIES: 'tasks.delete_time_entries',
+        MANAGE_WATCHERS: 'tasks.manage_watchers',
+        ASSIGN_OTHERS: 'tasks.assign_others',
+    },
+    // Comments
+    COMMENTS: {
+        ADD: 'comments.add',
+        EDIT_OWN: 'comments.edit_own',
+        EDIT_ALL: 'comments.edit_all',
+        DELETE_OWN: 'comments.delete_own',
+        DELETE_ALL: 'comments.delete_all',
+    },
+    // Time Tracking
+    TIMELOGS: {
+        LOG_TIME: 'timelogs.log_time',
+        VIEW_ALL: 'timelogs.view_all',
+        VIEW_OWN: 'timelogs.view_own',
+        EDIT_ALL: 'timelogs.edit_all',
+        EDIT_OWN: 'timelogs.edit_own',
+        DELETE_ALL: 'timelogs.delete_all',
+        DELETE_OWN: 'timelogs.delete_own',
     },
     // Projects
     PROJECTS: {
         CREATE: 'projects.create',
-        VIEW_ALL: 'projects.view_all',
         EDIT: 'projects.edit',
+        ARCHIVE: 'projects.archive',
         DELETE: 'projects.delete',
         MANAGE_MEMBERS: 'projects.manage_members',
         MANAGE_VERSIONS: 'projects.manage_versions',
-        MANAGE_CATEGORIES: 'projects.manage_categories',
+        MANAGE_TRACKERS: 'projects.manage_trackers',
+        CREATE_SUBPROJECTS: 'projects.create_subprojects',
     },
-    // Admin
-    ADMIN: {
-        MANAGE_USERS: 'admin.manage_users',
-        MANAGE_ROLES: 'admin.manage_roles',
-        MANAGE_SETTINGS: 'admin.manage_settings',
+    // Queries
+    QUERIES: {
+        MANAGE_PUBLIC: 'queries.manage_public',
     },
-    // Documents
-    DOCUMENTS: {
-        VIEW: 'documents.view',
-        MANAGE: 'documents.manage',
-    },
-    // Wiki
-    WIKI: {
-        VIEW: 'wiki.view',
-        MANAGE: 'wiki.manage', // Create, Edit, Delete, Watch, Lock, etc.
-    }
 } as const;
 
+
 export const ROLES = {
-    ADMIN: {
-        CODE: 'ADMIN', // Often implicit, but good to have
-    },
-    MANAGER: {
-        NAME_EN: 'Manager',
-        NAME_VN: 'Quản lý'
-    },
-    MEMBER: {
-        NAME_EN: 'Member',
-        NAME_VN: 'Thành viên'
-    }
+    ADMIN: 'Admin',
+    MANAGER: 'Manager',
+    MEMBER: 'Member',
+    DEVELOPER: 'Developer',
+    QA: 'QA'
 } as const;
 
 export const PAGINATION = {
@@ -65,6 +68,6 @@ export const PAGINATION = {
 } as const;
 
 export const DEFAULT_STATUS_IDS = {
-    NEW: 'new', // Ideally these should be UUIDs or codes from DB seed
+    NEW: 'new',
     CLOSED: 'closed',
 } as const;

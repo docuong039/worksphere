@@ -1,9 +1,12 @@
-import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
-import { errorResponse, successResponse, handleApiError } from '@/lib/api-error';
+import { errorResponse, successResponse } from '@/lib/api-error';
 import { createTimeLogSchema } from '@/lib/validations';
-import { canViewTask, hasPermission } from '@/lib/permissions';
+import { getUserPermissions } from '@/lib/permissions';
+import * as TaskPolicy from '@/modules/task/task.policy';
+import { withAuth } from '@/server/middleware/withAuth';
+import type { RouteContext } from '@/server/middleware/withAuth';
+import { PERMISSIONS } from '@/lib/constants';
+
 
 export const dynamic = 'force-dynamic';
 
@@ -20,118 +23,106 @@ async function resolveTaskId(idStr: string) {
     return idStr;
 }
 
-export async function GET(
-    req: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const session = await auth();
-        if (!session || !session.user) {
-            return errorResponse('Chưa đăng nhập', 401);
-        }
+export const GET = withAuth(async (_req, user, ctx) => {
+    const { id: rawId } = await (ctx as RouteContext<{ id: string }>).params;
+    const id = await resolveTaskId(rawId);
 
-        const { id: rawId } = await params;
-        const id = await resolveTaskId(rawId);
-
-        if (!id) {
-            return errorResponse('Không tìm thấy công việc', 404);
-        }
-
-        // Check if user can view task
-        const canView = await canViewTask(session.user, id);
-        if (!canView) {
-            return errorResponse('Không có quyền xem công việc này', 403);
-        }
-
-        // Check view permissions for time logs
-        const task = await prisma.task.findUnique({ where: { id }, select: { projectId: true } });
-        const canViewAll = await hasPermission(session.user, 'timelogs.view_all', task?.projectId);
-        const canViewOwn = await hasPermission(session.user, 'timelogs.view_own', task?.projectId);
-
-        if (!canViewAll && !canViewOwn) {
-            return errorResponse('Không có quyền xem nhật ký thời gian', 403);
-        }
-
-        const timeLogs = await prisma.timeLog.findMany({
-            where: {
-                taskId: id,
-                ...(canViewAll ? {} : { userId: session.user.id }) // If only canViewOwn, filter by current user
-            },
-            include: {
-                user: { select: { id: true, name: true, avatar: true } },
-                activity: { select: { id: true, name: true } },
-            },
-            orderBy: { spentOn: 'desc' },
-        });
-
-        return successResponse(timeLogs);
-    } catch (error) {
-        return handleApiError(error);
+    if (!id) {
+        return errorResponse('Không tìm thấy công việc', 404);
     }
-}
 
-export async function POST(
-    req: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
-) {
-    try {
-        const session = await auth();
-        if (!session || !session.user) {
-            return errorResponse('Chưa đăng nhập', 401);
-        }
+    // Load task for Policy and metadata
+    const task = await prisma.task.findUnique({
+        where: { id },
+        select: { id: true, creatorId: true, assigneeId: true, projectId: true, isPrivate: true }
+    });
 
-        const { id: rawId } = await params;
-        const id = await resolveTaskId(rawId);
-
-        if (!id) {
-            return errorResponse('Không tìm thấy công việc', 404);
-        }
-
-        const body = await req.json();
-        const validatedData = createTimeLogSchema.parse(body);
-
-        const task = await prisma.task.findUnique({
-            where: { id },
-            select: { projectId: true },
-        });
-
-        if (!task) {
-            return errorResponse('Không tìm thấy công việc', 404);
-        }
-
-        // Check project membership (minimal requirement)
-        const isMember = await prisma.projectMember.findFirst({
-            where: { userId: session.user.id, projectId: task.projectId }
-        });
-
-        if (!session.user.isAdministrator && !isMember) {
-            return errorResponse('Bạn không phải là thành viên của dự án này', 403);
-        }
-
-        // Check permission to log time
-        const canLogTime = await hasPermission(session.user, 'timelogs.log_time', task.projectId);
-        if (!session.user.isAdministrator && !canLogTime) {
-            return errorResponse('Bạn không có quyền ghi nhận thời gian', 403);
-        }
-
-        const timeLog = await prisma.timeLog.create({
-            data: {
-                hours: validatedData.hours,
-                spentOn: new Date(validatedData.spentOn),
-                comments: validatedData.comments,
-                activityId: validatedData.activityId,
-                taskId: id,
-                projectId: task.projectId,
-                userId: session.user.id,
-            },
-            include: {
-                user: { select: { id: true, name: true, avatar: true } },
-                activity: { select: { id: true, name: true } },
-            },
-        });
-
-        return successResponse(timeLog);
-    } catch (error) {
-        return handleApiError(error);
+    if (!task) {
+        return errorResponse('Không tìm thấy công việc', 404);
     }
-}
+
+    // Authorization Policy
+    const userPermissions = await getUserPermissions(user.id, task.projectId);
+    const canView = TaskPolicy.canViewTask(user, task, userPermissions);
+
+    if (!canView) {
+        return errorResponse('Không có quyền xem công việc này', 403);
+    }
+
+    // Check view permissions for time logs (RBAC)
+    const canViewAll = userPermissions.includes(PERMISSIONS.TIMELOGS.VIEW_ALL) || user.isAdministrator;
+    const canViewOwn = userPermissions.includes(PERMISSIONS.TIMELOGS.VIEW_OWN);
+
+    if (!canViewAll && !canViewOwn) {
+        return errorResponse('Không có quyền xem nhật ký thời gian', 403);
+    }
+
+
+    const timeLogs = await prisma.timeLog.findMany({
+        where: {
+            taskId: id,
+            ...(canViewAll ? {} : { userId: user.id }) // If only canViewOwn, filter by current user
+        },
+        include: {
+            user: { select: { id: true, name: true, avatar: true } },
+            activity: { select: { id: true, name: true } },
+        },
+        orderBy: { spentOn: 'desc' },
+    });
+
+    return successResponse(timeLogs);
+});
+
+export const POST = withAuth(async (req, user, ctx) => {
+    const { id: rawId } = await (ctx as RouteContext<{ id: string }>).params;
+    const id = await resolveTaskId(rawId);
+
+    if (!id) {
+        return errorResponse('Không tìm thấy công việc', 404);
+    }
+
+    const body = await req.json();
+    const validatedData = createTimeLogSchema.parse(body);
+
+    // Load task for Policy and metadata
+    const task = await prisma.task.findUnique({
+        where: { id },
+        select: { id: true, creatorId: true, assigneeId: true, projectId: true, isPrivate: true },
+    });
+
+    if (!task) {
+        return errorResponse('Không tìm thấy công việc', 404);
+    }
+
+    // Authorization Policy
+    const userPermissions = await getUserPermissions(user.id, task.projectId);
+    const canView = TaskPolicy.canViewTask(user, task, userPermissions);
+    if (!canView) {
+        return errorResponse('Không có quyền truy cập công việc này', 403);
+    }
+
+    // Check permission to log time (RBAC)
+    const canLogTime = userPermissions.includes(PERMISSIONS.TIMELOGS.LOG_TIME) || user.isAdministrator;
+    if (!canLogTime) {
+        return errorResponse('Bạn không có quyền ghi nhận thời gian', 403);
+    }
+
+
+    const timeLog = await prisma.timeLog.create({
+        data: {
+            hours: validatedData.hours,
+            spentOn: new Date(validatedData.spentOn),
+            comments: validatedData.comments,
+            activityId: validatedData.activityId,
+            taskId: id,
+            projectId: task.projectId,
+            userId: user.id,
+        },
+        include: {
+            user: { select: { id: true, name: true, avatar: true } },
+            activity: { select: { id: true, name: true } },
+        },
+    });
+
+    return successResponse(timeLog);
+});

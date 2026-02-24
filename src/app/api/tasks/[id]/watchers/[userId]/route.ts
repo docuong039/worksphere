@@ -1,53 +1,46 @@
-import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
-import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
+import { successResponse, errorResponse } from '@/lib/api-error';
+import { withAuth } from '@/server/middleware/withAuth';
+import type { RouteContext } from '@/server/middleware/withAuth';
+import { getUserPermissions } from '@/lib/permissions';
+import * as TaskPolicy from '@/modules/task/task.policy';
+import { PERMISSIONS } from '@/lib/constants';
 
-interface Params {
-    params: Promise<{ id: string; userId: string }>;
-}
 
 // DELETE /api/tasks/[id]/watchers/[userId] - Xóa watcher
-export async function DELETE(req: NextRequest, { params }: Params) {
-    try {
-        const session = await auth();
-        if (!session) return errorResponse('Chưa đăng nhập', 401);
+export const DELETE = withAuth(async (_req, user, ctx) => {
+    const { id, userId } = await (ctx as RouteContext<{ id: string; userId: string }>).params;
 
-        const { id, userId } = await params;
+    // Check permissions
+    // 1. Admin removes anyone
+    // 2. User removes themselves
+    // 3. Project Member can remove others? (Redmine: usually yes if they have permission)
 
-        // Check permissions
-        // 1. Admin removes anyone
-        // 2. User removes themselves
-        // 3. Project Member can remove others? (Redmine: usually yes if they have permission)
-
-        let canRemove = false;
-        if (session.user.isAdministrator || session.user.id === userId) {
-            canRemove = true;
-        } else {
-            const task = await prisma.task.findUnique({
-                where: { id },
-                select: { projectId: true },
-            });
-            if (task) {
-                const membership = await prisma.projectMember.findFirst({
-                    where: { userId: session.user.id, projectId: task.projectId }
-                });
-                // Basic permission: if member, allowed to manage watchers (simplified)
-                if (membership) canRemove = true;
-            }
-        }
-
-        if (!canRemove) return errorResponse('Không có quyền xóa người theo dõi này', 403);
-
-        await prisma.watcher.deleteMany({
-            where: {
-                taskId: id,
-                userId: userId,
-            },
+    let canRemove = false;
+    if (user.isAdministrator || user.id === userId) {
+        canRemove = true;
+    } else {
+        // Removing others requires explicit manage_watchers permission
+        const task = await prisma.task.findUnique({
+            where: { id },
+            select: { id: true, creatorId: true, assigneeId: true, projectId: true, isPrivate: true },
         });
 
-        return successResponse({ message: 'Đã xóa người theo dõi' });
-    } catch (error) {
-        return handleApiError(error);
+        if (task) {
+            const userPermissions = await getUserPermissions(user.id, task.projectId);
+            canRemove = TaskPolicy.canManageWatchers(user, task, userPermissions);
+        }
     }
-}
+
+
+    if (!canRemove) return errorResponse('Không có quyền xóa người theo dõi này', 403);
+
+    await prisma.watcher.deleteMany({
+        where: {
+            taskId: id,
+            userId: userId,
+        },
+    });
+
+    return successResponse({ message: 'Đã xóa người theo dõi' });
+});

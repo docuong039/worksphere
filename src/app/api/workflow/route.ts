@@ -1,10 +1,9 @@
-import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
 import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
+import { withAdmin } from '@/server/middleware/withAuth';
 
-// GET /api/workflow - Lấy workflow matrix
-export async function GET(req: NextRequest) {
+// GET /api/workflow - Lấy workflow matrix (public)
+export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
         const trackerId = searchParams.get('trackerId');
@@ -43,55 +42,45 @@ export async function GET(req: NextRequest) {
     }
 }
 
-// POST /api/workflow - Cập nhật workflow transitions
-export async function POST(req: NextRequest) {
-    try {
-        const session = await auth();
+// POST /api/workflow - Cập nhật workflow transitions (admin only)
+export const POST = withAdmin(async (req) => {
+    const body = await req.json();
+    const { trackerId, roleId, transitions } = body;
 
-        if (!session?.user?.isAdministrator) {
-            return errorResponse('Không có quyền truy cập', 403);
-        }
-
-        const body = await req.json();
-        const { trackerId, roleId, transitions } = body;
-
-        if (!trackerId) {
-            return errorResponse('Tracker ID là bắt buộc', 400);
-        }
-
-        if (!Array.isArray(transitions)) {
-            return errorResponse('Transitions phải là một mảng', 400);
-        }
-
-        // Xóa tất cả transitions cũ cho tracker + role này
-        await prisma.workflowTransition.deleteMany({
-            where: {
-                trackerId,
-                roleId: roleId || null,
-            },
-        });
-
-        // Tạo transitions mới
-        const newTransitions = transitions
-            .filter((t: { allowed: boolean }) => t.allowed)
-            .map((t: { fromStatusId: string; toStatusId: string }) => ({
-                trackerId,
-                roleId: roleId || null,
-                fromStatusId: t.fromStatusId,
-                toStatusId: t.toStatusId,
-            }));
-
-        if (newTransitions.length > 0) {
-            await prisma.workflowTransition.createMany({
-                data: newTransitions,
-            });
-        }
-
-        return successResponse({
-            message: 'Đã cập nhật workflow',
-            count: newTransitions.length,
-        });
-    } catch (error) {
-        return handleApiError(error);
+    if (!trackerId) {
+        return errorResponse('Tracker ID là bắt buộc', 400);
     }
-}
+
+    if (!Array.isArray(transitions)) {
+        return errorResponse('Transitions phải là một mảng', 400);
+    }
+
+    // Xóa tất cả transitions cũ cho tracker + role này
+    await prisma.workflowTransition.deleteMany({
+        where: {
+            trackerId,
+            roleId: roleId || null,
+        },
+    });
+
+    // Tạo transitions mới
+    const newTransitions = transitions
+        .filter((t: { allowed: boolean }) => t.allowed)
+        .map((t: { fromStatusId: string; toStatusId: string }) => ({
+            trackerId,
+            roleId: roleId || null,
+            fromStatusId: t.fromStatusId,
+            toStatusId: t.toStatusId,
+        }));
+
+    if (newTransitions.length > 0) {
+        await prisma.workflowTransition.createMany({
+            data: newTransitions,
+        });
+    }
+
+    return successResponse({
+        message: 'Đã cập nhật workflow',
+        count: newTransitions.length,
+    });
+});

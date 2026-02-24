@@ -1,214 +1,141 @@
-import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
-import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
+import { successResponse, errorResponse } from '@/lib/api-error';
 import { createProjectSchema } from '@/lib/validations';
 import { logCreate } from '@/lib/audit-log';
-// import { projectService } from '@/lib/services/project-service'; // Removed
+import { notifyProjectCreated } from '@/lib/notifications';
+import { withAuth } from '@/server/middleware/withAuth';
+
+import { PERMISSIONS } from '@/lib/constants';
+
+// Import helpers
+import {
+    buildProjectFilters,
+    PROJECT_LIST_INCLUDE,
+} from './helpers';
+import { getUserPermissions } from '@/lib/permissions';
+import * as ProjectPolicy from '@/modules/project/project.policy';
+
 
 // GET /api/projects - Lấy danh sách projects
-export async function GET(req: NextRequest) {
-    try {
-        const session = await auth();
+export const GET = withAuth(async (req, user) => {
+    const { searchParams } = new URL(req.url);
+    const search = searchParams.get('search') || undefined;
+    const status = searchParams.get('status'); // active, archived, all
+    const myProjects = searchParams.get('my') === 'true';
 
-        if (!session) {
-            return errorResponse('Chưa đăng nhập', 401);
-        }
+    // Build filter using helper
+    const where = buildProjectFilters({
+        search,
+        status,
+        myProjects,
+        userId: user.id,
+        isAdmin: user.isAdministrator,
+    });
 
-        const { searchParams } = new URL(req.url);
-        const search = searchParams.get('search') || '';
-        const status = searchParams.get('status'); // active, archived, all
-        const myProjects = searchParams.get('my') === 'true';
+    const projects = await prisma.project.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        include: PROJECT_LIST_INCLUDE,
+    });
 
-        // Base where clause
-        const where: Record<string, unknown> = {};
-
-        // Search filter
-        if (search) {
-            where.OR = [
-                { name: { contains: search } },
-                { identifier: { contains: search } },
-                { description: { contains: search } },
-            ];
-        }
-
-        // Status filter
-        if (status === 'active') {
-            where.isArchived = false;
-        } else if (status === 'archived') {
-            where.isArchived = true;
-        }
-
-        // Non-admin chỉ xem projects mình là member
-        if (!session.user.isAdministrator || myProjects) {
-            where.members = {
-                some: { userId: session.user.id },
-            };
-        }
-
-        const projects = await prisma.project.findMany({
-            where,
-            orderBy: { updatedAt: 'desc' },
-            include: {
-                creator: {
-                    select: { id: true, name: true, avatar: true },
-                },
-                members: {
-                    include: {
-                        user: {
-                            select: { id: true, name: true, avatar: true },
-                        },
-                        role: {
-                            select: { id: true, name: true },
-                        },
-                    },
-                },
-                tasks: {
-                    where: {
-                        status: {
-                            isClosed: true
-                        }
-                    },
-                    select: { id: true }
-                },
-                _count: {
-                    select: { tasks: true, members: true },
-                },
-            },
-        });
-
-        return successResponse(projects);
-    } catch (error) {
-        return handleApiError(error);
-    }
-}
+    return successResponse(projects);
+});
 
 // POST /api/projects - Tạo project mới
-export async function POST(req: NextRequest) {
-    try {
-        const session = await auth();
+export const POST = withAuth(async (req, user) => {
+    // Verify user exists in DB (fix for P2003 error if DB was reset)
+    const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { id: true }
+    });
 
-        if (!session) {
-            return errorResponse('Chưa đăng nhập', 401);
-        }
+    if (!dbUser) {
+        console.error(`Session user ID ${user.id} not found in Database users table.`);
+        return errorResponse('Tài khoản không tồn tại trong hệ thống (vui lòng đăng xuất và đăng nhập lại)', 401);
+    }
 
-        // Kiểm tra quyền tạo project
-        if (!session.user.isAdministrator) {
-            // Use centralized permission check
-            // Note: 'projects.create' is a global permission, usually not attached to a specific project context yet
-            // But our system might require checking if user has this role globally or in system context.
-            // For now, we assume strict check: Admin or if we had a system-level role.
-            // As per previous logic, it checked permissions on ANY project membership? That logic was slightly flawd.
-            // Let's stick to the previous logic but implemented CLEANLY if possible.
-            // The previous logic checked if user has 'projects.create' in ANY of their project roles.
-            const hasPermission = await checkAnyProjectPermission(session.user.id, 'projects.create');
-            if (!hasPermission) {
-                return errorResponse('Không có quyền tạo dự án', 403);
-            }
-        }
+    // 1. Check Permission: 'projects.create'
+    const globalPermissions = await getUserPermissions(user.id, ''); // No project ID for global creation check
+    const canCreate = ProjectPolicy.canCreateProject(user, globalPermissions);
 
-        const body = await req.json();
-        const validatedData = createProjectSchema.parse(body);
+    if (!canCreate) {
+        return errorResponse('Bạn không có quyền tạo dự án', 403);
+    }
 
-        // Kiểm tra identifier unique
-        const existing = await prisma.project.findUnique({
-            where: { identifier: validatedData.identifier },
-        });
 
-        if (existing) {
-            return errorResponse('Định danh dự án đã tồn tại', 400);
-        }
+    const body = await req.json();
+    const validatedData = createProjectSchema.parse(body);
 
-        // Call Service
-        // Create Project Logic (Inlined from deleted service)
-        // 1. Get default Manager role
-        const managerRole = await prisma.role.findFirst({
-            where: { name: 'Manager' },
-        });
+    // Kiểm tra identifier unique
+    const existing = await prisma.project.findUnique({
+        where: { identifier: validatedData.identifier },
+    });
 
-        // 2. Create Project
-        const project = await prisma.project.create({
+    if (existing) {
+        return errorResponse('Định danh dự án đã tồn tại', 400);
+    }
+
+    // 1. Get default Manager role
+    // Ưu tiên tìm role 'Manager' hoặc 'Project Manager' hoặc lấy role đầu tiên có quyền quản lý
+    let managerRole = await prisma.role.findFirst({
+        where: { name: { in: ['Manager', 'Project Manager', 'Quản lý'] } },
+    });
+
+    // Fallback: Lấy role đầu tiên nếu không có manager (để tránh lỗi không tạo được member)
+    // Tuy nhiên tốt nhất là nên fail nếu system chưa setup role
+    if (!managerRole) {
+        console.warn('Warning: No "Manager" role found. Looking for any role.');
+        managerRole = await prisma.role.findFirst();
+    }
+
+    if (!managerRole) {
+        return errorResponse('Hệ thống chưa cấu hình Role nào. Vui lòng liên hệ Admin.', 500);
+    }
+
+    const allTrackers = await prisma.tracker.findMany({ select: { id: true } });
+
+    // Sử dụng Transaction để đảm bảo tính toàn vẹn
+    const project = await prisma.$transaction(async (tx) => {
+        // 2. Create Project & Member
+        const newProject = await tx.project.create({
             data: {
                 name: validatedData.name,
                 description: validatedData.description,
                 identifier: validatedData.identifier,
                 startDate: validatedData.startDate ? new Date(validatedData.startDate) : undefined,
                 endDate: validatedData.endDate ? new Date(validatedData.endDate) : undefined,
-                creatorId: session.user.id,
-                members: managerRole
-                    ? {
-                        create: {
-                            userId: session.user.id,
-                            roleId: managerRole.id,
-                        },
-                    }
-                    : undefined,
-            },
-            include: {
-                creator: {
-                    select: { id: true, name: true, avatar: true },
-                },
+                creatorId: user.id,
                 members: {
-                    include: {
-                        user: { select: { id: true, name: true, avatar: true } },
-                        role: { select: { id: true, name: true } },
+                    create: {
+                        userId: user.id,
+                        roleId: managerRole!.id, // Chắc chắn tồn tại
                     },
                 },
-                tasks: {
-                    where: { status: { isClosed: true } },
-                    select: { id: true }
-                },
-                _count: {
-                    select: { tasks: true, members: true },
-                },
             },
+            include: PROJECT_LIST_INCLUDE,
         });
 
-        // 3. Enable all trackers by default
-        const allTrackers = await prisma.tracker.findMany({ select: { id: true } });
+        // 3. Enable all trackers
         if (allTrackers.length > 0) {
-            await prisma.projectTracker.createMany({
-                data: allTrackers.map(t => ({
-                    projectId: project.id,
-                    trackerId: t.id
-                }))
+            await tx.projectTracker.createMany({
+                data: allTrackers.map((t) => ({
+                    projectId: newProject.id,
+                    trackerId: t.id,
+                })),
             });
         }
 
-        // Ghi nhật ký hoạt động
-        await logCreate('project', project.id, session.user.id, {
-            name: project.name,
-            identifier: validatedData.identifier,
-        });
-
-        return successResponse(project, 201);
-    } catch (error) {
-        return handleApiError(error);
-    }
-}
-
-// Helper: Check if user has permission in ANY project
-// This replaces the local duplicate function
-async function checkAnyProjectPermission(userId: string, permissionKey: string): Promise<boolean> {
-    const memberships = await prisma.projectMember.findMany({
-        where: { userId },
-        include: {
-            role: {
-                include: {
-                    permissions: {
-                        include: { permission: true },
-                    },
-                },
-            },
-        },
+        return newProject;
     });
 
-    for (const membership of memberships) {
-        const hasPermission = membership.role.permissions.some(
-            (rp) => rp.permission.key === permissionKey
-        );
-        if (hasPermission) return true;
-    }
+    // Ghi nhật ký hoạt động (ngoài transaction để không block)
+    logCreate('project', project.id, user.id, {
+        name: project.name,
+        identifier: validatedData.identifier,
+    });
 
-    return false;
-}
+    // Gửi thông báo cho admins (fire-and-forget)
+    notifyProjectCreated(project.id, project.name, user.id, user.name || 'Ai đó');
+
+    return successResponse(project, 201);
+});

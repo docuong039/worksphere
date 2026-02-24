@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Check, GripVertical } from 'lucide-react';
+import { useConfirm } from '@/providers/confirm-provider';
 import { priorityService } from '@/services/priority.service';
 
 interface Priority {
@@ -35,7 +36,8 @@ const COLORS = [
 
 export function PriorityList({ priorities: initialPriorities }: PriorityListProps) {
     const router = useRouter();
-    const [priorities] = useState(initialPriorities);
+    const { confirm } = useConfirm();
+    const [priorities, setPriorities] = useState(initialPriorities);
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formData, setFormData] = useState({
@@ -52,16 +54,25 @@ export function PriorityList({ priorities: initialPriorities }: PriorityListProp
         setError('');
 
         try {
-            await priorityService.create(formData);
+            const response = await priorityService.create(formData);
+            // Chỉ đóng form khi API thành công
             setIsAdding(false);
             setFormData({ name: '', color: '#3b82f6' });
-            router.refresh();
+            toast.success('Đã tạo priority mới');
+
+            // Optimistic: thêm priority vào state ngay từ response
+            if (response.data) {
+                setPriorities((prev) => [...prev, { ...response.data!, _count: { tasks: 0 } }]);
+            }
+            router.refresh(); // Background sync
         } catch (err: any) {
             setError(err.message || 'Có lỗi xảy ra');
+            // Form vẫn mở, user có thể sửa và thử lại
         } finally {
             setLoading(false);
         }
     };
+
 
     // Update priority
     const handleUpdate = async (id: string) => {
@@ -69,12 +80,19 @@ export function PriorityList({ priorities: initialPriorities }: PriorityListProp
         setLoading(true);
         setError('');
 
+        // Optimistic: cập nhật ngay
+        const previous = priorities;
+        setPriorities((prev) =>
+            prev.map((p) => (p.id === id ? { ...p, name: formData.name, color: formData.color } : p))
+        );
+        setEditingId(null);
+        setFormData({ name: '', color: '#3b82f6' });
+
         try {
             await priorityService.update(id, formData);
-            setEditingId(null);
-            setFormData({ name: '', color: '#3b82f6' });
-            router.refresh();
+            router.refresh(); // Background sync
         } catch (err: any) {
+            setPriorities(previous); // Rollback
             setError(err.message || 'Có lỗi xảy ra');
         } finally {
             setLoading(false);
@@ -88,23 +106,39 @@ export function PriorityList({ priorities: initialPriorities }: PriorityListProp
             return;
         }
 
-        if (!confirm(`Bạn có chắc muốn xóa priority "${name}"?`)) return;
+        confirm({
+            title: 'Xóa mức độ ưu tiên',
+            description: `Bạn có chắc muốn xóa mức độ ưu tiên "${name}"? Thao tác này không thể hoàn tác.`,
+            confirmText: 'Xóa ngay',
+            variant: 'danger',
+            onConfirm: async () => {
+                // Optimistic: xóa ngay
+                const previous = priorities;
+                setPriorities((prev) => prev.filter((p) => p.id !== id));
+                toast.success('Đã xóa priority');
 
-        try {
-            await priorityService.delete(id);
-            toast.success('Đã xóa priority');
-            router.refresh();
-        } catch (err: any) {
-            toast.error(err.message || 'Có lỗi xảy ra');
-        }
+                try {
+                    await priorityService.delete(id);
+                    router.refresh(); // Background sync
+                } catch (err: any) {
+                    setPriorities(previous); // Rollback
+                    toast.error(err.message || 'Có lỗi xảy ra');
+                }
+            },
+        });
     };
+
 
     // Set default
     const handleSetDefault = async (id: string) => {
+        // Optimistic: toggle default ngay
+        const previous = priorities;
+        setPriorities((prev) => prev.map((p) => ({ ...p, isDefault: p.id === id })));
         try {
             await priorityService.setDefault(id);
-            router.refresh();
+            router.refresh(); // Background sync
         } catch (err) {
+            setPriorities(previous); // Rollback
             console.error(err);
             toast.error('Có lỗi xảy ra');
         }

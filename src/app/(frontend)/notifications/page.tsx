@@ -2,21 +2,33 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Bell, Check, CheckCheck, AlertCircle, MessageSquare, User, Calendar, ChevronLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiFetch } from '@/lib/api-fetch';
 
 interface Notification {
     id: string;
     type: string;
+    title: string;
     message: string;
-    link: string | null;
     isRead: boolean;
     metadata: Record<string, unknown> | null;
     createdAt: string;
 }
 
+interface NotificationResponse {
+    success: boolean;
+    data: {
+        notifications: Notification[];
+        unreadCount: number;
+    };
+}
+
 export default function NotificationsPage() {
+    const router = useRouter();
     const [allNotifications, setAllNotifications] = useState<Notification[]>([]);
+
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
@@ -27,8 +39,9 @@ export default function NotificationsPage() {
     // Fetch all notifications
     const fetchNotifications = useCallback(async () => {
         try {
-            const res = await fetch('/api/notifications?limit=100');
-            const data = await res.json();
+            const data = await apiFetch<NotificationResponse>('/api/notifications', {
+                params: { limit: 100 },
+            });
             if (data.success) {
                 setAllNotifications(data.data.notifications);
             }
@@ -40,21 +53,17 @@ export default function NotificationsPage() {
     }, []);
 
     useEffect(() => {
-        // eslint-disable-next-line
         fetchNotifications();
     }, [fetchNotifications]);
-
-
 
     // Mark as read
     const markAsRead = async (notificationIds: string[]) => {
         try {
-            await fetch('/api/notifications', {
+            await apiFetch('/api/notifications', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ notificationIds }),
             });
-            fetchNotifications();
+            await fetchNotifications();
         } catch (error) {
             console.error(error);
         }
@@ -63,13 +72,12 @@ export default function NotificationsPage() {
     // Mark all as read
     const markAllAsRead = async () => {
         try {
-            await fetch('/api/notifications', {
+            await apiFetch('/api/notifications', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ markAll: true }),
             });
             toast.success('Đã đánh dấu tất cả là đã đọc');
-            fetchNotifications();
+            await fetchNotifications();
         } catch (error) {
             console.error(error);
         }
@@ -88,16 +96,29 @@ export default function NotificationsPage() {
                 return <MessageSquare className="w-5 h-5 text-purple-500" />;
             case 'task_due_soon':
                 return <Calendar className="w-5 h-5 text-red-500" />;
+            case 'project_member_added':
+                return <User className="w-5 h-5 text-green-500" />;
+            case 'project_member_removed':
+                return <User className="w-5 h-5 text-gray-400" />;
+            case 'project_created':
+                return <AlertCircle className="w-5 h-5 text-green-600" />;
             default:
                 return <Bell className="w-5 h-5 text-gray-500" />;
         }
     };
 
-    // Get link from metadata
+    // Build link from metadata (DB stores metadata as JSON string, parse before use)
     const getNotificationLink = (notification: Notification) => {
-        if (notification.link) return notification.link;
-
-        const metadata = notification.metadata as { taskId?: string; commentId?: string; projectId?: string } | null;
+        let metadata: { taskId?: string; commentId?: string; projectId?: string } | null = null;
+        if (notification.metadata) {
+            try {
+                metadata = typeof notification.metadata === 'string'
+                    ? JSON.parse(notification.metadata)
+                    : notification.metadata;
+            } catch {
+                // invalid JSON, skip
+            }
+        }
         if (!metadata) return null;
 
         if (metadata.taskId) {
@@ -219,16 +240,23 @@ export default function NotificationsPage() {
                                         </div>
                                     </div>
                                     <div className="flex-1 min-w-0">
+                                        <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${!notification.isRead ? 'text-blue-700' : 'text-gray-500'}`}>
+                                            {notification.title}
+                                        </p>
                                         {link ? (
                                             <Link
                                                 href={link}
-                                                onClick={() => {
+                                                onClick={(e) => {
+                                                    e.preventDefault();
                                                     if (!notification.isRead) {
                                                         markAsRead([notification.id]);
                                                     }
+                                                    router.push(link);
+                                                    router.refresh();
                                                 }}
                                                 className="text-sm text-gray-900 hover:text-blue-600 font-medium block"
                                             >
+
                                                 {notification.message}
                                             </Link>
                                         ) : (

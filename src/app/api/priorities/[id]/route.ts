@@ -1,15 +1,11 @@
-import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
 import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
 import { updatePrioritySchema } from '@/lib/validations';
+import { withAdmin } from '@/server/middleware/withAuth';
+import type { RouteContext } from '@/server/middleware/withAuth';
 
-interface Params {
-    params: Promise<{ id: string }>;
-}
-
-// GET /api/priorities/[id] - Lấy chi tiết priority
-export async function GET(req: NextRequest, { params }: Params) {
+// GET /api/priorities/[id] - Lấy chi tiết priority (public)
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
 
@@ -32,67 +28,47 @@ export async function GET(req: NextRequest, { params }: Params) {
     }
 }
 
-// PUT /api/priorities/[id] - Cập nhật priority
-export async function PUT(req: NextRequest, { params }: Params) {
-    try {
-        const session = await auth();
+// PUT /api/priorities/[id] - Cập nhật priority (admin only)
+export const PUT = withAdmin(async (req, _user, ctx) => {
+    const { id } = await (ctx as RouteContext<{ id: string }>).params;
+    const body = await req.json();
+    const validatedData = updatePrioritySchema.parse(body);
 
-        if (!session?.user?.isAdministrator) {
-            return errorResponse('Không có quyền truy cập', 403);
-        }
-
-        const { id } = await params;
-        const body = await req.json();
-        const validatedData = updatePrioritySchema.parse(body);
-
-        // Nếu set isDefault, bỏ default của các priority khác
-        if (validatedData.isDefault) {
-            await prisma.priority.updateMany({
-                where: { isDefault: true, id: { not: id } },
-                data: { isDefault: false },
-            });
-        }
-
-        const priority = await prisma.priority.update({
-            where: { id },
-            data: validatedData,
+    // Nếu set isDefault, bỏ default của các priority khác
+    if (validatedData.isDefault) {
+        await prisma.priority.updateMany({
+            where: { isDefault: true, id: { not: id } },
+            data: { isDefault: false },
         });
-
-        return successResponse(priority);
-    } catch (error) {
-        return handleApiError(error);
     }
-}
 
-// DELETE /api/priorities/[id] - Xóa priority
-export async function DELETE(req: NextRequest, { params }: Params) {
-    try {
-        const session = await auth();
+    const priority = await prisma.priority.update({
+        where: { id },
+        data: validatedData,
+    });
 
-        if (!session?.user?.isAdministrator) {
-            return errorResponse('Không có quyền truy cập', 403);
-        }
+    return successResponse(priority);
+});
 
-        const { id } = await params;
+// DELETE /api/priorities/[id] - Xóa priority (admin only)
+export const DELETE = withAdmin(async (_req, _user, ctx) => {
+    const { id } = await (ctx as RouteContext<{ id: string }>).params;
 
-        // Kiểm tra có tasks đang dùng priority này không
-        const taskCount = await prisma.task.count({
-            where: { priorityId: id },
-        });
+    // Kiểm tra có tasks đang dùng priority này không
+    const taskCount = await prisma.task.count({
+        where: { priorityId: id },
+    });
 
-        if (taskCount > 0) {
-            return errorResponse(
-                `Không thể xóa priority đang được sử dụng bởi ${taskCount} công việc`,
-                400
-            );
-        }
-
-        await prisma.priority.delete({
-            where: { id },
-        });
-
-        return successResponse({ message: 'Đã xóa priority' });
-    } catch (error) {
-        return handleApiError(error);
+    if (taskCount > 0) {
+        return errorResponse(
+            `Không thể xóa priority đang được sử dụng bởi ${taskCount} công việc`,
+            400
+        );
     }
-}
+
+    await prisma.priority.delete({
+        where: { id },
+    });
+
+    return successResponse({ message: 'Đã xóa priority' });
+});

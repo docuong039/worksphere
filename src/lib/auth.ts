@@ -1,3 +1,8 @@
+/**
+ * @file auth.ts
+ * @description Cấu hình trung tâm cho hệ thống Xác thực và Phân quyền (NextAuth).
+ * Định nghĩa phương thức đăng nhập bằng Credentials, quản lý JWT và Session của người dùng.
+ */
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';

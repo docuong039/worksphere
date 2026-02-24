@@ -1,10 +1,10 @@
-import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
-import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
+import { successResponse } from '@/lib/api-error';
+import { handleApiError } from '@/lib/api-error';
 import { createRoleSchema } from '@/lib/validations';
+import { withAdmin } from '@/server/middleware/withAuth';
 
-// GET /api/roles - Lấy danh sách roles
+// GET /api/roles - Lấy danh sách roles (public, không cần auth)
 export async function GET() {
     try {
         const roles = await prisma.role.findMany({
@@ -27,31 +27,21 @@ export async function GET() {
     }
 }
 
-// POST /api/roles - Tạo role mới
-export async function POST(req: NextRequest) {
-    try {
-        const session = await auth();
+// POST /api/roles - Tạo role mới (admin only)
+export const POST = withAdmin(async (req) => {
+    const body = await req.json();
+    const validatedData = createRoleSchema.parse(body);
 
-        if (!session?.user?.isAdministrator) {
-            return errorResponse('Không có quyền truy cập', 403);
-        }
-
-        const body = await req.json();
-        const validatedData = createRoleSchema.parse(body);
-
-        const role = await prisma.role.create({
-            data: validatedData,
-            include: {
-                permissions: {
-                    include: {
-                        permission: true,
-                    },
+    const role = await prisma.role.create({
+        data: validatedData,
+        include: {
+            permissions: {
+                include: {
+                    permission: true,
                 },
             },
-        });
+        },
+    });
 
-        return successResponse(role, 201);
-    } catch (error) {
-        return handleApiError(error);
-    }
-}
+    return successResponse(role, 201);
+});

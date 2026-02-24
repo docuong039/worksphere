@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { ConfirmProvider } from "@/providers/confirm-provider";
 
 export const metadata: Metadata = {
   title: "Worksphere",
@@ -15,8 +16,10 @@ export default function RootLayout({
   return (
     <html lang="vi" suppressHydrationWarning>
       <body className="antialiased" suppressHydrationWarning>
-        {children}
-        <Toaster />
+        <ConfirmProvider>
+          {children}
+          <Toaster />
+        </ConfirmProvider>
       </body>
     </html>
   );

@@ -170,7 +170,6 @@ export function CopyTaskModal({
                 const data = await res.json();
                 toast.success('Đã sao chép công việc thành công');
                 onClose();
-                router.refresh();
                 router.push(`/tasks/${data.id}`);
             } else {
                 const data = await res.json();

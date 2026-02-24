@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ListTodo, Users, ArrowRight } from 'lucide-react';
-import type { DateLike } from '@/lib/types';
+import type { DateLike } from '@/lib/date-utils';
 import Image from 'next/image';
 
 export interface Status {

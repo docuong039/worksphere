@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Paperclip, Upload, File as FileIcon, Download, Trash2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useConfirm } from '@/providers/confirm-provider';
 
 import { AttachmentWithUser } from '@/types';
 
@@ -20,9 +20,15 @@ export function TaskAttachments({
     canUpload,
     currentUserId,
 }: TaskAttachmentsProps) {
-    const router = useRouter();
+    const { confirm } = useConfirm();
     const [attachments, setAttachments] = useState(initialAttachments);
     const [uploading, setUploading] = useState(false);
+
+    // Sync state with props
+    useEffect(() => {
+        setAttachments(initialAttachments);
+    }, [initialAttachments]);
+
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -39,9 +45,9 @@ export function TaskAttachments({
             });
             if (res.ok) {
                 const data = await res.json();
-                setAttachments([...attachments, data.data]);
+                setAttachments((prev) => [...prev, data.data]);
                 toast.success('Đã tải lên tài liệu');
-                router.refresh();
+                // router.refresh() không cần - state đã được cập nhật
             } else {
                 toast.error('Không thể tải lên tài liệu');
             }
@@ -49,26 +55,36 @@ export function TaskAttachments({
             toast.error('Lỗi kết nối máy chủ');
         } finally {
             setUploading(false);
-            // Reset input
             e.target.value = '';
         }
     };
 
     const handleDelete = async (attachmentId: string) => {
-        if (!confirm('Xóa file này?')) return;
-        try {
-            const res = await fetch(`/api/attachments/${attachmentId}`, { method: 'DELETE' });
-            if (res.ok) {
-                setAttachments(attachments.filter((a) => a.id !== attachmentId));
+        confirm({
+            title: 'Xóa tài liệu',
+            description: 'Bạn có chắc muốn xóa tài liệu này? Thao tác này không thể hoàn tác.',
+            confirmText: 'Xóa ngay',
+            variant: 'danger',
+            onConfirm: async () => {
+                // Optimistic: xóa ngay
+                const previous = attachments;
+                setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
                 toast.success('Đã xóa tài liệu');
-                router.refresh();
-            } else {
-                toast.error('Không thể xóa tài liệu');
+
+                try {
+                    const res = await fetch(`/api/attachments/${attachmentId}`, { method: 'DELETE' });
+                    if (!res.ok) {
+                        setAttachments(previous); // Rollback
+                        toast.error('Không thể xóa tài liệu');
+                    }
+                } catch {
+                    setAttachments(previous); // Rollback
+                    toast.error('Lỗi kết nối máy chủ');
+                }
             }
-        } catch {
-            toast.error('Lỗi kết nối máy chủ');
-        }
+        });
     };
+
 
     const formatSize = (bytes: number) => {
         if (bytes === 0) return '0 B';

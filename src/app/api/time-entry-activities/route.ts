@@ -1,69 +1,47 @@
-import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
-import { errorResponse, successResponse, handleApiError } from '@/lib/api-error';
+import { successResponse } from '@/lib/api-error';
 import { createActivitySchema } from '@/lib/validations';
+import { withAuth, withAdmin } from '@/server/middleware/withAuth';
 
-export async function GET(req: NextRequest) {
-    try {
-        const session = await auth();
-        if (!session || !session.user) {
-            return errorResponse('Chưa đăng nhập', 401);
-        }
+export const GET = withAuth(async (req) => {
+    const { searchParams } = new URL(req.url);
+    const includeInactive = searchParams.get('includeInactive') === 'true';
 
-        const { searchParams } = new URL(req.url);
-        const includeInactive = searchParams.get('includeInactive') === 'true';
-
-        const where: any = {};
-        if (!includeInactive) {
-            where.isActive = true;
-        }
-
-        const activities = await prisma.timeEntryActivity.findMany({
-            where,
-            orderBy: { position: 'asc' },
-        });
-
-        return successResponse(activities);
-    } catch (error) {
-        return handleApiError(error);
+    const where: any = {};
+    if (!includeInactive) {
+        where.isActive = true;
     }
-}
 
-export async function POST(req: NextRequest) {
-    try {
-        const session = await auth();
-        if (!session || !session.user) {
-            return errorResponse('Chưa đăng nhập', 401);
-        }
+    const activities = await prisma.timeEntryActivity.findMany({
+        where,
+        orderBy: { position: 'asc' },
+    });
 
-        if (!session.user.isAdministrator) {
-            return errorResponse('Chỉ quản trị viên mới có quyền tạo hoạt động', 403);
-        }
+    return successResponse(activities);
+});
 
-        const body = await req.json();
-        const validatedData = createActivitySchema.parse(body);
+export const POST = withAdmin(async (req) => {
+    const body = await req.json();
+    const validatedData = createActivitySchema.parse(body);
 
-        // Check duplicate name
-        const existing = await prisma.timeEntryActivity.findFirst({
-            where: { name: validatedData.name },
-        });
+    // Check duplicate name
+    const existing = await prisma.timeEntryActivity.findFirst({
+        where: { name: validatedData.name },
+    });
 
-        if (existing) {
-            return errorResponse('Tên hoạt động đã tồn tại', 400);
-        }
-
-        const activity = await prisma.timeEntryActivity.create({
-            data: {
-                name: validatedData.name,
-                position: validatedData.position ?? 0,
-                isDefault: validatedData.isDefault ?? false,
-                isActive: validatedData.isActive ?? true,
-            },
-        });
-
-        return successResponse(activity);
-    } catch (error) {
-        return handleApiError(error);
+    if (existing) {
+        const { errorResponse } = await import('@/lib/api-error');
+        return errorResponse('Tên hoạt động đã tồn tại', 400);
     }
-}
+
+    const activity = await prisma.timeEntryActivity.create({
+        data: {
+            name: validatedData.name,
+            position: validatedData.position ?? 0,
+            isDefault: validatedData.isDefault ?? false,
+            isActive: validatedData.isActive ?? true,
+        },
+    });
+
+    return successResponse(activity);
+});

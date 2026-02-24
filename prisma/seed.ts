@@ -1,356 +1,224 @@
 
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { PERMISSIONS, ROLES } from '../src/lib/constants';
 
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log('🌱 Starting seed with current DB state...');
+    console.log('🌱 Bắt đầu dọn dẹp và khởi tạo dữ liệu chuẩn (Clean Mode)...');
 
-    // ============================================
-    // 1. CREATE PERMISSIONS
-    // ============================================
-    console.log('📝 Syncing permissions...');
+    // 1. Dọn dẹp dữ liệu cũ
+    await prisma.timeLog.deleteMany();
+    await prisma.comment.deleteMany();
+    await prisma.watcher.deleteMany();
+    await prisma.attachment.deleteMany();
+    await prisma.notification.deleteMany();
+    await prisma.auditLog.deleteMany();
 
-    const permissions = [
-        // User Management (Người dùng)
-        { key: 'users.view_all', name: 'View All Users', module: 'Người dùng' },
-        { key: 'users.create', name: 'Create User', module: 'Người dùng' },
-        { key: 'users.edit_any', name: 'Edit Any User', module: 'Người dùng' },
-        { key: 'users.delete', name: 'Delete User', module: 'Người dùng' },
-        { key: 'users.set_administrator', name: 'Set Administrator', module: 'Người dùng' },
+    await prisma.task.updateMany({ data: { parentId: null } });
+    await prisma.task.deleteMany();
 
-        // Project Management (Dự án)
-        { key: 'projects.view_all', name: 'View All Projects', module: 'Dự án' },
+    await prisma.version.deleteMany();
+    await prisma.projectMember.deleteMany();
+    await prisma.projectTracker.deleteMany();
+    await prisma.workflowTransition.deleteMany();
+    await prisma.roleTracker.deleteMany();
+    await prisma.rolePermission.deleteMany();
 
-        { key: 'projects.create', name: 'Create Project', module: 'Dự án' },
-        { key: 'projects.edit_own', name: 'Edit Own Project', module: 'Dự án' },
-        { key: 'projects.edit_any', name: 'Edit Any Project', module: 'Dự án' },
-        { key: 'projects.delete_any', name: 'Delete Any Project', module: 'Dự án' },
-        { key: 'projects.manage_members', name: 'Manage Members', module: 'Dự án' },
-        { key: 'projects.manage_versions', name: 'Manage Versions', module: 'Dự án' },
-        { key: 'projects.manage_trackers', name: 'Manage Trackers', module: 'Dự án' },
-        { key: 'projects.create_subprojects', name: 'Create Sub-projects', module: 'Dự án' },
-        { key: 'projects.manage', name: 'Manage Project Settings', module: 'Dự án' },
-        { key: 'projects.archive', name: 'Archive Project', module: 'Dự án' },
+    await prisma.project.updateMany({ data: { parentId: null } });
+    await prisma.project.deleteMany();
 
-        // Task Management (Công việc)
-        { key: 'tasks.view_all', name: 'View All Tasks', module: 'Công việc' },
-        { key: 'tasks.view_project', name: 'View Project Tasks', module: 'Công việc' },
-        { key: 'tasks.view_assigned', name: 'View Assigned Tasks', module: 'Công việc' },
-        { key: 'tasks.create', name: 'Create Task', module: 'Công việc' },
-        { key: 'tasks.edit_own', name: 'Edit Own Task', module: 'Công việc' },
-        { key: 'tasks.edit_assigned', name: 'Edit Assigned Task', module: 'Công việc' },
-        { key: 'tasks.edit_any', name: 'Edit Any Task', module: 'Công việc' },
-        { key: 'tasks.delete_any', name: 'Delete Any Task', module: 'Công việc' },
-        { key: 'tasks.assign', name: 'Assign Task', module: 'Công việc' },
-        { key: 'tasks.change_status', name: 'Change Status', module: 'Công việc' },
-        { key: 'tasks.comment', name: 'Add Comment', module: 'Công việc' },
-        { key: 'tasks.upload_files', name: 'Upload Files', module: 'Công việc' },
-        { key: 'tasks.manage_comments', name: 'Manage Comments (Edit/Delete Any)', module: 'Công việc' },
+    await prisma.user.deleteMany();
+    await prisma.role.deleteMany();
+    await prisma.permission.deleteMany();
+    await prisma.tracker.deleteMany();
+    await prisma.status.deleteMany();
+    await prisma.priority.deleteMany();
+    await prisma.timeEntryActivity.deleteMany();
 
-        // Reports (Báo cáo)
-        { key: 'reports.view_personal', name: 'View Personal Reports', module: 'Báo cáo' },
-        { key: 'reports.view_project', name: 'View Project Reports', module: 'Báo cáo' },
-        { key: 'reports.view_system', name: 'View System Reports', module: 'Báo cáo' },
-        { key: 'reports.export', name: 'Export Reports', module: 'Báo cáo' },
+    console.log('✅ Đã dọn dẹp database.');
 
-        // Queries (Bộ lọc)
-        { key: 'queries.manage_public', name: 'Manage Public Queries', module: 'Bộ lọc' },
+    // 2. Khởi tạo Quyền (Permissions) - Với tên tiếng Việt
+    console.log('📝 Khởi tạo danh sách quyền thực tế...');
 
-        // Time Logs (Thời gian)
-        { key: 'timelogs.log_time', name: 'Log Time', module: 'Thời gian' },
-        { key: 'timelogs.view_own', name: 'View Own Time Logs', module: 'Thời gian' },
-        { key: 'timelogs.view_all', name: 'View All Time Logs', module: 'Thời gian' },
-        { key: 'timelogs.edit_own', name: 'Edit Own Time Logs', module: 'Thời gian' },
+    // Mapping tên tiếng Việt cho tất cả permissions
+    const permissionNames: Record<string, string> = {
+        // Tasks
+        'tasks.view_all': 'Xem tất cả công việc',
+        'tasks.view_project': 'Xem công việc trong dự án',
+        'tasks.view_assigned': 'Xem công việc được gán',
+        'tasks.create': 'Tạo công việc',
+        'tasks.edit_any': 'Sửa bất kỳ công việc',
+        'tasks.edit_assigned': 'Sửa công việc được gán',
+        'tasks.edit_own': 'Sửa công việc của mình',
+        'tasks.delete_any': 'Xóa bất kỳ công việc',
+        'tasks.delete_own': 'Xóa công việc của mình',
+        'tasks.manage_watchers': 'Quản lý người theo dõi',
+        'tasks.assign_others': 'Giao việc cho người khác',
+        // Comments
+        'comments.add': 'Thêm bình luận',
+        'comments.edit_own': 'Sửa bình luận của mình',
+        'comments.edit_all': 'Sửa tất cả bình luận',
+        'comments.delete_own': 'Xóa bình luận của mình',
+        'comments.delete_all': 'Xóa tất cả bình luận',
+        // Time Logs
+        'timelogs.log_time': 'Ghi nhận thời gian',
+        'timelogs.view_all': 'Xem tất cả thời gian',
+        'timelogs.view_own': 'Xem thời gian của mình',
+        'timelogs.edit_all': 'Sửa tất cả thời gian',
+        'timelogs.edit_own': 'Sửa thời gian của mình',
+        'timelogs.delete_all': 'Xóa tất cả thời gian',
+        'timelogs.delete_own': 'Xóa thời gian của mình',
+        // Projects
+        'projects.create': 'Tạo dự án',
+        'projects.edit': 'Sửa dự án',
+        'projects.archive': 'Lưu trữ dự án',
+        'projects.delete': 'Xóa dự án',
+        'projects.manage_members': 'Quản lý thành viên',
+        'projects.manage_versions': 'Quản lý phiên bản',
+        'projects.manage_trackers': 'Quản lý loại công việc',
+        'projects.create_subprojects': 'Tạo dự án con',
+        // Queries
+        'queries.manage_public': 'Quản lý bộ lọc công khai',
+    };
 
-        { key: 'timelogs.delete_own', name: 'Delete Own Time Logs', module: 'Thời gian' },
+    const allPermissions: { key: string; name: string; module: string }[] = [];
 
-
-        // System (Hệ thống)
-        { key: 'system.manage_roles', name: 'Manage Roles', module: 'Hệ thống' },
-        { key: 'system.manage_config', name: 'Manage Configuration', module: 'Hệ thống' },
-        { key: 'system.settings', name: 'System Settings', module: 'Hệ thống' },
-        { key: 'system.audit_logs', name: 'View Audit Logs', module: 'Hệ thống' },
-    ];
-
-    for (const perm of permissions) {
-        await prisma.permission.upsert({
-            where: { key: perm.key },
-            update: {
-                name: perm.name,
-                module: perm.module,
-            },
-            create: perm,
-        });
-    }
-
-    // ============================================
-    // 2. SYNC TRACKERS
-    // ============================================
-    console.log('🏷️ Syncing trackers...');
-    const trackers = [
-        { name: 'Bug', description: 'Software bugs and errors', position: 1, isDefault: false },
-        { name: 'Feature', description: 'New features and enhancements', position: 2, isDefault: true },
-        { name: 'Task', description: 'General tasks', position: 3, isDefault: false },
-        { name: 'Support', description: 'Customer support requests', position: 4, isDefault: false },
-    ];
-
-    for (const tracker of trackers) {
-        await prisma.tracker.upsert({
-            where: { name: tracker.name },
-            update: {
-                description: tracker.description,
-                position: tracker.position,
-                isDefault: tracker.isDefault,
-            },
-            create: tracker,
-        });
-    }
-
-    // ============================================
-    // 3. SYNC STATUSES
-    // ============================================
-    console.log('📊 Syncing statuses...');
-    const statuses = [
-        { name: 'New', position: 1, isClosed: false, isDefault: true },
-        { name: 'In Progress', position: 2, isClosed: false, isDefault: false },
-        { name: 'Resolved', position: 3, isClosed: false, isDefault: false },
-        { name: 'Closed', position: 4, isClosed: true, isDefault: false },
-    ];
-
-    for (const status of statuses) {
-        await prisma.status.upsert({
-            where: { name: status.name },
-            update: {
-                position: status.position,
-                isClosed: status.isClosed,
-                isDefault: status.isDefault,
-            },
-            create: status,
-        });
-    }
-
-    // ============================================
-    // 4. SYNC PRIORITIES
-    // ============================================
-    console.log('🔝 Syncing priorities...');
-    const priorities = [
-        { name: 'Low', position: 1, color: '#10b981', isDefault: true },
-        { name: 'Normal', position: 2, color: '#3b82f6', isDefault: false },
-        { name: 'High', position: 3, color: '#f59e0b', isDefault: false },
-        { name: 'Urgent', position: 4, color: '#ef4444', isDefault: false },
-        { name: 'Immediate', position: 5, color: '#8b5cf6', isDefault: false },
-    ];
-
-    for (const priority of priorities) {
-        await prisma.priority.upsert({
-            where: { name: priority.name },
-            update: {
-                position: priority.position,
-                color: priority.color,
-                isDefault: priority.isDefault,
-            },
-            create: priority,
-        });
-    }
-
-    // ============================================
-    // 5. SYNC DEFAULT ADMIN
-    // ============================================
-    const adminEmail = 'admin@worksphere.com';
-    const adminUser = await prisma.user.findUnique({ where: { email: adminEmail } });
-
-    if (!adminUser) {
-        console.log('👤 Creating default admin user...');
-        const hashedPassword = await bcrypt.hash('admin123', 10);
-        await prisma.user.create({
-            data: {
-                email: adminEmail,
-                name: 'Administrator',
-                password: hashedPassword,
-                isAdministrator: true,
-            },
-        });
-    }
-
-    // ============================================
-    // TIME ENTRY ACTIVITIES
-    // ============================================
-    console.log('Seeding time entry activities...');
-    const activitiesData = [
-        { name: 'Phát triển', position: 1, isDefault: true },
-        { name: 'Thiết kế', position: 2, isDefault: false },
-        { name: 'Kiểm thử', position: 3, isDefault: false },
-        { name: 'Họp', position: 4, isDefault: false },
-        { name: 'Nghiên cứu', position: 5, isDefault: false },
-        { name: 'Hỗ trợ', position: 6, isDefault: false },
-    ];
-
-    for (const activity of activitiesData) {
-        await prisma.timeEntryActivity.upsert({
-            where: { name: activity.name },
-            update: {},
-            create: activity,
-        });
-    }
-
-
-    // ============================================
-    // 7. SYNC ROLES & PERMISSIONS
-    // ============================================
-    console.log('👥 Syncing roles...');
-
-    // Define Roles and their Permission Keys
-    const roleDefinitions = [
-        {
-            name: 'Manager',
-            description: 'Project Manager with full access',
-            permissions: permissions.map(p => p.key) // Manager gets all permissions
-        },
-        {
-            name: 'Developer',
-            description: 'Team member who works on tasks',
-            permissions: [
-                'projects.view_all',
-                'tasks.view_all', 'tasks.view_project', 'tasks.view_assigned',
-                'tasks.create', 'tasks.edit_own', 'tasks.edit_assigned',
-                'tasks.assign', 'tasks.change_status', 'tasks.comment', 'tasks.upload_files',
-                'timelogs.log_time', 'timelogs.view_own', 'timelogs.edit_own',
-                'reports.view_project'
-            ]
-        },
-        {
-            name: 'Reporter',
-            description: 'Tester or stakeholder who reports issues',
-            permissions: [
-                'projects.view_all',
-                'tasks.view_all', 'tasks.view_project',
-                'tasks.create', 'tasks.edit_own',
-                'tasks.comment', 'tasks.upload_files',
-                'reports.view_project'
-            ]
-        },
-        {
-            name: 'Viewer',
-            description: 'Read-only access',
-            permissions: [
-                'projects.view_all',
-                'tasks.view_all', 'tasks.view_project',
-                'reports.view_project'
-            ]
-        }
-    ];
-
-    for (const roleDef of roleDefinitions) {
-        // 1. Create/Update Role
-        // Note: 'isSystem' field does not exist in schema, so we omit it.
-        const role = await prisma.role.upsert({
-            where: { name: roleDef.name },
-            update: {
-                description: roleDef.description,
-            },
-            create: {
-                name: roleDef.name,
-                description: roleDef.description,
-            }
-        });
-
-        console.log(`   - Role: ${role.name}`);
-
-        // 2. Sync Permissions for this Role
-        // First get all Permission IDs for the keys
-        const permissionRecs = await prisma.permission.findMany({
-            where: { key: { in: roleDef.permissions } },
-            select: { id: true }
-        });
-
-        // We need to manage RolePermission (table name in schema: role_permissions, model: RolePermission)
-
-        // Find existing relations
-        const existingRelations = await prisma.rolePermission.findMany({
-            where: { roleId: role.id },
-            select: { permissionId: true }
-        });
-
-        const existingPermIds = new Set(existingRelations.map(r => r.permissionId));
-        const newPermIds = new Set(permissionRecs.map(p => p.id));
-
-        // Add missing
-        for (const pId of newPermIds) {
-            if (!existingPermIds.has(pId)) {
-                await prisma.rolePermission.create({
-                    data: { roleId: role.id, permissionId: pId }
-                });
-            }
-        }
-    }
-
-    // ============================================
-    // 8. SYNC DEFAULT WORKFLOW
-    // ============================================
-    console.log('twisted_rightwards_arrows Syncing default workflow...');
-
-    // Get IDs needed for Matrix
-    const trackerBug = await prisma.tracker.findUnique({ where: { name: 'Bug' } });
-    const trackerTask = await prisma.tracker.findUnique({ where: { name: 'Task' } });
-    const trackerFeature = await prisma.tracker.findUnique({ where: { name: 'Feature' } });
-
-    const statusNew = await prisma.status.findUnique({ where: { name: 'New' } });
-    const statusInProgress = await prisma.status.findUnique({ where: { name: 'In Progress' } });
-    const statusResolved = await prisma.status.findUnique({ where: { name: 'Resolved' } });
-    const statusClosed = await prisma.status.findUnique({ where: { name: 'Closed' } });
-
-    const roleManager = await prisma.role.findUnique({ where: { name: 'Manager' } });
-    const roleDev = await prisma.role.findUnique({ where: { name: 'Developer' } });
-
-    if (trackerTask && statusNew && statusInProgress && statusResolved && statusClosed) {
-
-        // Helper to add transition
-        const addTransition = async (trackerId: string, fromId: string, toId: string, roleId: string | null = null) => {
-            const exists = await prisma.workflowTransition.findFirst({
-                where: { trackerId, fromStatusId: fromId, toStatusId: toId, roleId }
+    Object.entries(PERMISSIONS).forEach(([moduleName, actions]) => {
+        Object.entries(actions).forEach(([, key]) => {
+            allPermissions.push({
+                key: key as string,
+                name: permissionNames[key as string] || key as string,
+                module: moduleName
             });
-            if (!exists) {
-                await prisma.workflowTransition.create({
-                    data: { trackerId, fromStatusId: fromId, toStatusId: toId, roleId }
-                });
-            }
-        };
+        });
+    });
 
-        const trackers = [trackerTask, trackerBug, trackerFeature].filter(Boolean);
-        const statuses = [statusNew, statusInProgress, statusResolved, statusClosed];
-
-        for (const tr of trackers) {
-            if (!tr) continue;
-
-            // 1. Manager Link: Can go from ANY status to ANY status
-            if (roleManager) {
-                for (const s1 of statuses) {
-                    for (const s2 of statuses) {
-                        if (s1.id !== s2.id) {
-                            await addTransition(tr.id, s1.id, s2.id, roleManager.id);
-                        }
-                    }
-                }
-            }
-
-            // 2. Developer Link: Standard Flow
-            if (roleDev) {
-                await addTransition(tr.id, statusNew.id, statusInProgress.id, roleDev.id);
-                await addTransition(tr.id, statusInProgress.id, statusResolved.id, roleDev.id);
-                await addTransition(tr.id, statusResolved.id, statusInProgress.id, roleDev.id);
-                await addTransition(tr.id, statusResolved.id, statusClosed.id, roleDev.id);
-            }
-        }
+    for (const perm of allPermissions) {
+        await prisma.permission.create({ data: perm });
     }
 
-    console.log('✅ Seed completed successfully.');
+    // 3. Khởi tạo Cấu hình hệ thống
+    const trackers = await Promise.all([
+        prisma.tracker.create({ data: { name: 'Tính năng (Feature)', position: 1, isDefault: true } }),
+        prisma.tracker.create({ data: { name: 'Lỗi (Bug)', position: 2 } }),
+        prisma.tracker.create({ data: { name: 'Hỗ trợ (Support)', position: 3 } }),
+    ]);
+
+    const statuses = await Promise.all([
+        prisma.status.create({ data: { name: 'Mới', position: 1, isDefault: true } }),
+        prisma.status.create({ data: { name: 'Đang làm', position: 2 } }),
+        prisma.status.create({ data: { name: 'Đã xử lý', position: 3 } }),
+        prisma.status.create({ data: { name: 'Phản hồi', position: 4 } }),
+        prisma.status.create({ data: { name: 'Đóng', position: 5, isClosed: true } }),
+    ]);
+
+    const priorities = await Promise.all([
+        prisma.priority.create({ data: { name: 'Thấp', position: 1, color: '#94a3b8' } }),
+        prisma.priority.create({ data: { name: 'Bình thường', position: 2, color: '#3b82f6', isDefault: true } }),
+        prisma.priority.create({ data: { name: 'Cao', position: 3, color: '#f59e0b' } }),
+        prisma.priority.create({ data: { name: 'Khẩn cấp', position: 4, color: '#ef4444' } }),
+    ]);
+
+    const activities = await Promise.all([
+        prisma.timeEntryActivity.create({ data: { name: 'Lập trình', position: 1, isDefault: true } }),
+        prisma.timeEntryActivity.create({ data: { name: 'Thiết kế', position: 2 } }),
+        prisma.timeEntryActivity.create({ data: { name: 'Kiểm thử', position: 3 } }),
+    ]);
+
+    // 4. Khởi tạo Vai trò (Roles)
+    console.log('👥 Khởi tạo vai trò chuẩn...');
+
+    const roleManager = await prisma.role.create({
+        data: { name: ROLES.MANAGER, canAssignToOther: true, description: 'Quản lý toàn bộ dự án' }
+    });
+
+    const roleDev = await prisma.role.create({
+        data: { name: ROLES.DEVELOPER, canAssignToOther: false, description: 'Thực hiện các công việc kỹ thuật' }
+    });
+
+    // Manager có tất cả quyền
+    const allPerms = await prisma.permission.findMany();
+    await prisma.rolePermission.createMany({
+        data: allPerms.map(p => ({ roleId: roleManager.id, permissionId: p.id }))
+    });
+
+    // Dev có quyền hạn chế
+    const devPermKeys = [
+        // Tasks
+        PERMISSIONS.TASKS.VIEW_PROJECT, PERMISSIONS.TASKS.VIEW_ASSIGNED, PERMISSIONS.TASKS.CREATE,
+        PERMISSIONS.TASKS.EDIT_OWN, PERMISSIONS.TASKS.EDIT_ASSIGNED, PERMISSIONS.TASKS.DELETE_OWN,
+        // Comments
+        PERMISSIONS.COMMENTS.ADD, PERMISSIONS.COMMENTS.EDIT_OWN, PERMISSIONS.COMMENTS.DELETE_OWN,
+        // Time Logs
+        PERMISSIONS.TIMELOGS.LOG_TIME, PERMISSIONS.TIMELOGS.VIEW_OWN, PERMISSIONS.TIMELOGS.EDIT_OWN, PERMISSIONS.TIMELOGS.DELETE_OWN
+    ];
+    const devPerms = allPerms.filter(p => devPermKeys.includes(p.key as any));
+    await prisma.rolePermission.createMany({
+        data: devPerms.map(p => ({ roleId: roleDev.id, permissionId: p.id }))
+    });
+
+    // 5. Khởi tạo Người dùng
+    const hp = await bcrypt.hash('admin123', 10);
+    const adminUser = await prisma.user.create({ data: { email: 'admin@worksphere.com', name: 'Quản trị hệ thống', password: hp, isAdministrator: true } });
+    const managerUser = await prisma.user.create({ data: { email: 'manager@worksphere.com', name: 'Nguyễn Quản Lý', password: hp } });
+    const devUser = await prisma.user.create({ data: { email: 'dev@worksphere.com', name: 'Trần Lập Trình', password: hp } });
+
+    // 6. Khởi tạo Dự án & Dữ liệu Demo
+    const mainProject = await prisma.project.create({
+        data: {
+            name: 'Hệ thống Quản trị WorkSphere',
+            identifier: 'worksphere-core',
+            description: 'Dự án trọng điểm phát triển nền tảng quản trị công việc.',
+            creatorId: adminUser.id,
+            members: {
+                create: [
+                    { userId: managerUser.id, roleId: roleManager.id },
+                    { userId: devUser.id, roleId: roleDev.id }
+                ]
+            }
+        }
+    });
+
+    await prisma.projectTracker.createMany({
+        data: trackers.map(t => ({ projectId: mainProject.id, trackerId: t.id }))
+    });
+
+    // 7. Task mẫu
+    const task = await prisma.task.create({
+        data: {
+            title: 'Thiết kế hệ thống phân quyền (RBAC)',
+            description: 'Phân tích và triển khai các bảng Role, Permission, User.',
+            projectId: mainProject.id,
+            trackerId: trackers[0].id,
+            statusId: statuses[1].id, // Đang làm
+            priorityId: priorities[2].id, // Cao
+            creatorId: managerUser.id,
+            assigneeId: devUser.id,
+            estimatedHours: 16,
+            startDate: new Date(),
+        }
+    });
+
+    await prisma.timeLog.create({
+        data: {
+            hours: 4.5,
+            spentOn: new Date(),
+            userId: devUser.id,
+            projectId: mainProject.id,
+            taskId: task.id,
+            activityId: activities[0].id,
+            comments: 'Đã hoàn thành phần database schema cho Permissions.'
+        }
+    });
+
+    console.log('✨ Hệ thống đã được làm sạch và cài đặt dữ liệu chuẩn.');
 }
 
 main()
     .catch((e) => {
-        console.error(e);
+        console.error('❌ Lỗi Seeding:', e);
         process.exit(1);
     })
     .finally(async () => {

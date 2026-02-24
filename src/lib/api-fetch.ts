@@ -1,4 +1,8 @@
-import { toast } from 'sonner';
+/**
+ * @file api-fetch.ts
+ * @description Hàm tiện ích để thực hiện các HTTP requests (GET, POST, PUT, DELETE).
+ * Tự động xử lý Base URL, Header Content-Type và kiểm tra lỗi xác thực (401).
+ */
 import { ApiResponse } from '@/types';
 
 interface ApiFetchOptions extends RequestInit {
@@ -6,14 +10,15 @@ interface ApiFetchOptions extends RequestInit {
     params?: Record<string, string | number | boolean | undefined | null>;
 }
 
-// Custom error class for API errors
-export class ApiError extends Error {
+// Custom error class for client-side API errors
+// Named ApiClientError to distinguish from server-side ApiError in api-error.ts
+export class ApiClientError extends Error {
     public status?: number;
     public data?: unknown;
 
     constructor(message: string, status?: number, data?: unknown) {
         super(message);
-        this.name = 'ApiError';
+        this.name = 'ApiClientError';
         this.status = status;
         this.data = data;
     }
@@ -75,7 +80,7 @@ export async function apiFetch<T = unknown>(
             if (text && !response.ok && text.trim().startsWith('<')) {
                 // It's likely an HTML error page (like Next.js error overlay or 404/500 page)
                 console.error('API returned HTML instead of JSON:', text.substring(0, 100) + '...');
-                throw new ApiError(
+                throw new ApiClientError(
                     `Server Error (${response.statusText || response.status})`,
                     response.status
                 );
@@ -93,19 +98,19 @@ export async function apiFetch<T = unknown>(
                 errorMessage = apiRes.error || apiRes.message || errorMessage;
             }
 
-            throw new ApiError(errorMessage, response.status, data);
+            throw new ApiClientError(errorMessage, response.status, data);
         }
 
         // Return the data directly
         return data as T;
     } catch (error) {
-        if (error instanceof ApiError) {
+        if (error instanceof ApiClientError) {
             throw error;
         }
 
         // Network or other uncaught errors
         const message = error instanceof Error ? error.message : 'Unknown network error';
         console.error(`[ApiFetch] Failed request to ${url}:`, error);
-        throw new ApiError(message);
+        throw new ApiClientError(message);
     }
 }

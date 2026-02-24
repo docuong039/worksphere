@@ -1,3 +1,8 @@
+/**
+ * @file permissions.ts
+ * @description "Bộ não" kiểm tra quyền hạn (Role-based Access Control).
+ * Chứa logic kiểm tra xem người dùng có đủ quyền để thực hiện các thao tác (Xem, Sửa, Xóa) trên Project hoặc Task.
+ */
 import { Role, Permission } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { PERMISSIONS } from '@/lib/constants';
@@ -18,96 +23,6 @@ export type UserWithRoles = PermissionUser & {
         };
     }>;
 };
-
-/**
- * Check if user has a specific permission
- * @param user - User object with roles
- * @param permissionKey - Permission key (e.g., "tasks.create")
- * @param projectId - Optional project ID for project-specific permissions
- */
-export async function hasPermission(
-    user: PermissionUser,
-    permissionKey: string,
-    projectId?: string
-): Promise<boolean> {
-    // Administrator has all permissions
-    if (user.isAdministrator) {
-        return true;
-    }
-
-    // Get user's roles in the project (or all roles if no projectId)
-    const memberships = await prisma.projectMember.findMany({
-        where: {
-            userId: user.id,
-            ...(projectId ? { projectId } : {}),
-        },
-        include: {
-            role: {
-                include: {
-                    permissions: {
-                        include: {
-                            permission: true,
-                        },
-                    },
-                },
-            },
-        },
-    });
-
-    // Check if any role has the permission
-    for (const membership of memberships) {
-        const hasPermission = membership.role.permissions.some(
-            (rp) => rp.permission.key === permissionKey
-        );
-        if (hasPermission) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/**
- * Check if user has ANY of the specified permissions
- */
-export async function hasAnyPermission(
-    user: PermissionUser,
-    permissionKeys: string[],
-    projectId?: string
-): Promise<boolean> {
-    if (user.isAdministrator) {
-        return true;
-    }
-
-    for (const key of permissionKeys) {
-        if (await hasPermission(user, key, projectId)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/**
- * Check if user has ALL of the specified permissions
- */
-export async function hasAllPermissions(
-    user: PermissionUser,
-    permissionKeys: string[],
-    projectId?: string
-): Promise<boolean> {
-    if (user.isAdministrator) {
-        return true;
-    }
-
-    for (const key of permissionKeys) {
-        if (!(await hasPermission(user, key, projectId))) {
-            return false;
-        }
-    }
-
-    return true;
-}
 
 /**
  * Get all permissions for a user in a project
@@ -159,122 +74,6 @@ export async function getUserPermissions(
 }
 
 /**
- * Check if user is member of a project
- */
-export async function isProjectMember(
-    userId: string,
-    projectId: string
-): Promise<boolean> {
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-    });
-
-    if (user?.isAdministrator) {
-        return true;
-    }
-
-    const membership = await prisma.projectMember.findFirst({
-        where: {
-            userId,
-            projectId,
-        },
-    });
-
-    return !!membership;
-}
-
-/**
- * Check if user can view a task
- */
-export async function canViewTask(
-    user: PermissionUser,
-    taskId: string
-): Promise<boolean> {
-    if (user.isAdministrator) {
-        return true;
-    }
-
-    const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: { projectId: true, assigneeId: true, creatorId: true, isPrivate: true },
-    });
-
-    if (!task) {
-        return false;
-    }
-
-    // Security: Private tasks are only visible to creator, assignee, or admin
-    if (task.isPrivate) {
-        if (task.creatorId !== user.id && task.assigneeId !== user.id) {
-            return false;
-        }
-    }
-
-    // Check if user has view_all permission
-    if (await hasPermission(user, PERMISSIONS.TASKS.VIEW_ALL)) {
-        return true;
-    }
-
-    // Check if user is project member with view_project permission
-    if (await isProjectMember(user.id, task.projectId)) {
-        if (await hasPermission(user, PERMISSIONS.TASKS.VIEW_PROJECT, task.projectId)) {
-            return true;
-        }
-    }
-
-    // Check if user is assignee with view_assigned permission
-    if (task.assigneeId === user.id) {
-        if (await hasPermission(user, PERMISSIONS.TASKS.VIEW_ASSIGNED, task.projectId)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/**
- * Check if user can edit a task
- */
-export async function canEditTask(
-    user: PermissionUser,
-    taskId: string
-): Promise<boolean> {
-    if (user.isAdministrator) {
-        return true;
-    }
-
-    const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: { projectId: true, assigneeId: true, creatorId: true },
-    });
-
-    if (!task) {
-        return false;
-    }
-
-    // Check if user has edit_any permission
-    if (await hasPermission(user, PERMISSIONS.TASKS.EDIT_ANY, task.projectId)) {
-        return true;
-    }
-
-    // Check if user is assignee with edit_assigned permission
-    if (task.assigneeId === user.id) {
-        if (await hasPermission(user, PERMISSIONS.TASKS.EDIT_ASSIGNED, task.projectId)) {
-            return true;
-        }
-    }
-
-    // Check if user is creator with edit_own permission
-    if (task.creatorId === user.id) {
-        if (await hasPermission(user, PERMISSIONS.TASKS.EDIT_OWN, task.projectId)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/**
  * Check if workflow transition is allowed
  */
 export async function canTransitionStatus(
@@ -320,29 +119,6 @@ export async function canTransitionStatus(
     });
 
     return !!allowedTransition;
-}
-
-/**
- * Check if user can manage comments (delete/edit any) in a task
- */
-export async function canManageComments(
-    user: PermissionUser,
-    taskId: string
-): Promise<boolean> {
-    if (user.isAdministrator) {
-        return true;
-    }
-
-    const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: { projectId: true },
-    });
-
-    if (!task) {
-        return false;
-    }
-
-    return hasPermission(user, PERMISSIONS.TASKS.MANAGE_COMMENTS, task.projectId);
 }
 
 /**
@@ -400,16 +176,3 @@ export async function getAccessibleProjectIds(
     return memberships.map(m => m.projectId);
 }
 
-/**
- * Check if user has permission in a specific project
- * Wrapper for cleaner controller code
- */
-export async function checkProjectPermission(
-    user: PermissionUser,
-    permissionKey: string,
-    projectId: string
-): Promise<boolean> {
-    if (user.isAdministrator) return true;
-
-    return hasPermission(user, permissionKey, projectId);
-}

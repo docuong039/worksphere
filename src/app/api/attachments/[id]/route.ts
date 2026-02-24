@@ -1,50 +1,46 @@
-import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
-import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
+import { successResponse, errorResponse } from '@/lib/api-error';
 import { unlink } from 'fs/promises';
 import path from 'path';
+import { getUserPermissions } from '@/lib/permissions';
+import * as AttachmentPolicy from '@/modules/attachment/attachment.policy';
+import { withAuth } from '@/server/middleware/withAuth';
+import type { RouteContext } from '@/server/middleware/withAuth';
+import { PERMISSIONS } from '@/lib/constants';
 
-interface Params {
-    params: Promise<{ id: string }>;
-}
 
 // DELETE /api/attachments/[id] - Xóa attachment
-export async function DELETE(req: NextRequest, { params }: Params) {
-    try {
-        const session = await auth();
-        if (!session) return errorResponse('Chưa đăng nhập', 401);
+export const DELETE = withAuth(async (_req, user, ctx) => {
+    const { id } = await (ctx as RouteContext<{ id: string }>).params;
 
-        const { id } = await params;
+    const attachment = await prisma.attachment.findUnique({
+        where: { id },
+        include: { task: { select: { projectId: true } } },
+    });
 
-        const attachment = await prisma.attachment.findUnique({
-            where: { id },
-            include: { task: { select: { projectId: true } } },
-        });
+    if (!attachment) return errorResponse('File không tồn tại', 404);
 
-        if (!attachment) return errorResponse('File không tồn tại', 404);
+    // Authorization Policy check
+    const projectId = attachment.task?.projectId;
+    const userPermissions = projectId ? await getUserPermissions(user.id, projectId) : [];
+    const canDelete = AttachmentPolicy.canDeleteAttachment(user, attachment, userPermissions);
 
-        // Permissions: Admin, Author, or Project Manager (simplified: author or admin)
-        const isAuthor = attachment.userId === session.user.id;
-        if (!session.user.isAdministrator && !isAuthor) {
-            // Check project strict permission if needed, but for now stick to simplified
-            return errorResponse('Không có quyền xóa file này', 403);
-        }
-
-        // Delete record
-        await prisma.attachment.delete({ where: { id } });
-
-        // Delete file from disk
-        const filepath = path.join(process.cwd(), 'public', attachment.path);
-        try {
-            await unlink(filepath);
-        } catch (e) {
-            console.error('Failed to delete file from disk:', e);
-            // Continue even if file delete fails (maybe already gone)
-        }
-
-        return successResponse({ message: 'Đã xóa file' });
-    } catch (error) {
-        return handleApiError(error);
+    if (!canDelete) {
+        return errorResponse('Không có quyền xóa tệp đính kèm này', 403);
     }
-}
+
+
+    // Delete record
+    await prisma.attachment.delete({ where: { id } });
+
+    // Delete file from disk
+    const filepath = path.join(process.cwd(), 'public', attachment.path);
+    try {
+        await unlink(filepath);
+    } catch (e) {
+        console.error('Failed to delete file from disk:', e);
+        // Continue even if file delete fails (maybe already gone)
+    }
+
+    return successResponse({ message: 'Đã xóa file' });
+});

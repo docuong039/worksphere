@@ -1,3 +1,8 @@
+/**
+ * @file prisma.ts
+ * @description Quản lý kết nối tới Cơ sở dữ liệu thông qua Prisma Client.
+ * Sử dụng Singleton Pattern để đảm bảo chỉ có một instance duy nhất được tạo ra, tránh quá tải kết nối.
+ */
 import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = globalThis as unknown as {

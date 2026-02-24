@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -12,11 +12,12 @@ import {
     Trash2,
     Settings,
     Search,
-
     Pencil,
+    X,
 } from 'lucide-react';
 import Image from 'next/image';
-import type { DateLike } from '@/lib/types';
+import { useConfirm } from '@/providers/confirm-provider';
+import type { DateLike } from '@/lib/date-utils';
 import { projectService } from '@/services/project.service';
 import type { ProjectWithMembers as Project } from '@/types';
 
@@ -26,7 +27,8 @@ interface ProjectListProps {
 
 export function ProjectList({ projects: initialProjects }: ProjectListProps) {
     const router = useRouter();
-    const [projects] = useState(initialProjects);
+    const { confirm } = useConfirm();
+    const [projects, setProjects] = useState(initialProjects);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [filter, setFilter] = useState<'all' | 'active' | 'archived'>('active');
     const [search, setSearch] = useState('');
@@ -40,6 +42,11 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    // Sync khi server data thay đổi (vd: từ router.refresh() background)
+    useEffect(() => {
+        setProjects(initialProjects);
+    }, [initialProjects]);
 
     // Filter projects
     const filteredProjects = projects.filter((project) => {
@@ -66,9 +73,16 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
         setError('');
 
         try {
-            await projectService.create(formData);
+            const result = await projectService.create(formData);
+            // Optimistic: thêm project mới vào đầu danh sách ngay lập tức
+            if (result?.data) {
+                const newProject = result.data as Project;
+                setProjects((prev) => [newProject, ...prev]);
+            }
             setShowCreateModal(false);
             setFormData({ name: '', identifier: '', description: '' });
+            toast.success('Đã tạo dự án thành công');
+            // Sync lại từ server (background) để lấy data đầy đủ
             router.refresh();
         } catch (err: any) {
             setError(err.message || 'Có lỗi xảy ra');
@@ -86,11 +100,19 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
         setError('');
 
         try {
-            await projectService.update(editingProject.id, formData);
+            const result = await projectService.update(editingProject.id, formData);
+            // Optimistic: cập nhật project trong list ngay lập tức
+            setProjects((prev) =>
+                prev.map((p) =>
+                    p.id === editingProject.id
+                        ? { ...p, name: formData.name, identifier: formData.identifier, description: formData.description, ...(result?.data || {}) }
+                        : p
+                )
+            );
             setEditingProject(null);
             setFormData({ name: '', identifier: '', description: '' });
-            router.refresh();
             toast.success('Đã cập nhật dự án thành công');
+            router.refresh();
         } catch (err: any) {
             setError(err.message || 'Lỗi kết nối');
         } finally {
@@ -100,10 +122,20 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
 
     // Archive project
     const handleArchive = async (id: string) => {
+        // Optimistic: toggle archive ngay lập tức
+        setProjects((prev) =>
+            prev.map((p) => (p.id === id ? { ...p, isArchived: !p.isArchived } : p))
+        );
+        toast.success('Đã cập nhật trạng thái lưu trữ');
+
         try {
             await projectService.archive(id);
             router.refresh();
         } catch (err) {
+            // Rollback nếu lỗi
+            setProjects((prev) =>
+                prev.map((p) => (p.id === id ? { ...p, isArchived: !p.isArchived } : p))
+            );
             console.error(err);
             toast.error('Có lỗi xảy ra khi lưu trữ');
         }
@@ -111,18 +143,29 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
 
     // Delete project
     const handleDelete = async (project: Project) => {
-        if (!confirm(`Bạn có chắc muốn xóa dự án "${project.name}"?\n\nTất cả tasks, comments và dữ liệu liên quan sẽ bị xóa vĩnh viễn!`)) {
-            return;
-        }
+        confirm({
+            title: 'Xóa dự án',
+            description: `Bạn có chắc muốn xóa dự án "${project.name}"? Tất cả tasks, comments và dữ liệu liên quan sẽ bị xóa vĩnh viễn!`,
+            confirmText: 'Xóa ngay',
+            variant: 'danger',
+            onConfirm: async () => {
+                // Optimistic: xóa khỏi list ngay lập tức
+                const previousProjects = projects;
+                setProjects((prev) => prev.filter((p) => p.id !== project.id));
+                toast.success('Đã xóa dự án thành công');
 
-        try {
-            await projectService.delete(project.id);
-            toast.success('Đã xóa dự án thành công');
-            router.refresh();
-        } catch (err: any) {
-            toast.error(err.message || 'Có lỗi xảy ra');
-        }
+                try {
+                    await projectService.delete(project.id);
+                    router.refresh();
+                } catch (err: any) {
+                    // Rollback nếu lỗi xóa
+                    setProjects(previousProjects);
+                    toast.error(err.message || 'Có lỗi xảy ra');
+                }
+            },
+        });
     };
+
 
     // Auto generate identifier from name
     const generateIdentifier = (name: string) => {
@@ -350,19 +393,33 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
 
             {/* Create Modal */}
             {showCreateModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg w-full max-w-md p-6 shadow-xl">
-                        <h2 className="text-xl font-semibold text-gray-900 mb-6">Tạo dự án mới</h2>
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-gray-100">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-5 py-4 bg-gray-50/80 border-b border-gray-100 shrink-0">
+                            <h2 className="text-base font-bold text-gray-900">Tạo dự án mới</h2>
+                            <button
+                                onClick={() => {
+                                    setShowCreateModal(false);
+                                    setFormData({ name: '', identifier: '', description: '' });
+                                    setError('');
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200/50 rounded-lg transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
 
-                        {error && (
-                            <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-700 rounded-md text-sm font-medium">
-                                {error}
-                            </div>
-                        )}
+                        {/* Content */}
+                        <div className="p-6 space-y-5">
+                            {error && (
+                                <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl text-xs font-bold uppercase tracking-wider">
+                                    {error}
+                                </div>
+                            )}
 
-                        <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
                                     Tên dự án <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -376,13 +433,14 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
                                             identifier: formData.identifier || generateIdentifier(name),
                                         });
                                     }}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    placeholder="VD: Website Redesign"
+                                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+                                    placeholder="VD: Website Redesign, Mobile App..."
+                                    autoFocus
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
                                     Định danh (identifier) <span className="text-red-500">*</span>
                                 </label>
                                 <input
@@ -391,38 +449,40 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
                                     onChange={(e) =>
                                         setFormData({ ...formData, identifier: e.target.value.toLowerCase() })
                                     }
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
                                     placeholder="website-redesign"
                                 />
+                                <p className="mt-1.5 text-[10px] text-gray-500 font-medium">Định danh duy nhất dùng cho URL dự án</p>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
+                                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">Mô tả dự án</label>
                                 <textarea
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    rows={3}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                                    placeholder="Mô tả ngắn về dự án..."
+                                    rows={4}
+                                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all resize-none"
+                                    placeholder="Mô tả ngắn về mục tiêu dự án..."
                                 />
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-3 mt-6">
+                        {/* Footer */}
+                        <div className="px-5 py-4 bg-gray-50/80 border-t border-gray-100 flex justify-end gap-3 shrink-0">
                             <button
                                 onClick={() => {
                                     setShowCreateModal(false);
                                     setFormData({ name: '', identifier: '', description: '' });
                                     setError('');
                                 }}
-                                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm font-medium"
+                                className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:text-gray-900 hover:bg-gray-200/50 rounded-xl transition-all"
                             >
-                                Hủy
+                                Hủy bỏ
                             </button>
                             <button
                                 onClick={handleCreate}
                                 disabled={loading || !formData.name.trim() || !formData.identifier.trim()}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold shadow-lg shadow-blue-500/20 transition-all active:scale-95"
                             >
                                 {loading ? 'Đang tạo...' : 'Tạo dự án'}
                             </button>
@@ -433,85 +493,99 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
 
 
             {/* Edit Modal */}
-            {
-                editingProject && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-lg w-full max-w-md p-6 shadow-xl">
-                            <h2 className="text-xl font-semibold text-gray-900 mb-6">Chỉnh sửa dự án</h2>
+            {editingProject && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-gray-100">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-5 py-4 bg-gray-50/80 border-b border-gray-100 shrink-0">
+                            <h2 className="text-base font-bold text-gray-900">Chỉnh sửa dự án</h2>
+                            <button
+                                onClick={() => {
+                                    setEditingProject(null);
+                                    setFormData({ name: '', identifier: '', description: '' });
+                                    setError('');
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200/50 rounded-lg transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
 
+                        {/* Content */}
+                        <div className="p-6 space-y-5">
                             {error && (
-                                <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-700 rounded-md text-sm font-medium">
+                                <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl text-xs font-bold uppercase tracking-wider">
                                     {error}
                                 </div>
                             )}
 
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Tên dự án <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.name}
-                                        onChange={(e) => {
-                                            const name = e.target.value;
-                                            setFormData({
-                                                ...formData,
-                                                name,
-                                            });
-                                        }}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Định danh (identifier) <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.identifier}
-                                        onChange={(e) =>
-                                            setFormData({ ...formData, identifier: e.target.value.toLowerCase() })
-                                        }
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
-                                    <textarea
-                                        value={formData.description}
-                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                        rows={3}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                                    />
-                                </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
+                                    Tên dự án <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.name}
+                                    onChange={(e) => {
+                                        const name = e.target.value;
+                                        setFormData({
+                                            ...formData,
+                                            name,
+                                        });
+                                    }}
+                                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+                                    autoFocus
+                                />
                             </div>
 
-                            <div className="flex justify-end gap-3 mt-6">
-                                <button
-                                    onClick={() => {
-                                        setEditingProject(null);
-                                        setFormData({ name: '', identifier: '', description: '' });
-                                        setError('');
-                                    }}
-                                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-sm font-medium"
-                                >
-                                    Hủy
-                                </button>
-                                <button
-                                    onClick={handleUpdate}
-                                    disabled={loading || !formData.name.trim() || !formData.identifier.trim()}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
-                                </button>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
+                                    Định danh (identifier) <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.identifier}
+                                    onChange={(e) =>
+                                        setFormData({ ...formData, identifier: e.target.value.toLowerCase() })
+                                    }
+                                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">Mô tả dự án</label>
+                                <textarea
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                    rows={4}
+                                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all resize-none"
+                                />
                             </div>
                         </div>
+
+                        {/* Footer */}
+                        <div className="px-5 py-4 bg-gray-50/80 border-t border-gray-100 flex justify-end gap-3 shrink-0">
+                            <button
+                                onClick={() => {
+                                    setEditingProject(null);
+                                    setFormData({ name: '', identifier: '', description: '' });
+                                    setError('');
+                                }}
+                                className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:text-gray-900 hover:bg-gray-200/50 rounded-xl transition-all"
+                            >
+                                Hủy bỏ
+                            </button>
+                            <button
+                                onClick={handleUpdate}
+                                disabled={loading || !formData.name.trim() || !formData.identifier.trim()}
+                                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold shadow-lg shadow-blue-500/20 transition-all active:scale-95"
+                            >
+                                {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
+                            </button>
+                        </div>
                     </div>
-                )
-            }
+                </div>
+            )}
         </div >
     );
 }

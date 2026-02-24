@@ -1,5 +1,9 @@
+/**
+ * @file audit-log.ts
+ * @description Hệ thống ghi nhật ký hoạt động (Audit Trail).
+ * Lưu lại lịch sử các thay đổi dữ liệu (giá trị cũ và mới) để phục vụ việc truy vết và giám sát.
+ */
 import prisma from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 
 // Action types
 export type AuditAction = 'created' | 'updated' | 'deleted' | 'archived' | 'unarchived';
@@ -30,6 +34,30 @@ interface AuditLogData {
 }
 
 /**
+ * Serialize changes object thành JSON string.
+ * DB schema lưu `changes` là String? @db.LongText — không phải Json type.
+ */
+function serializeChanges(changes?: AuditLogData['changes']): string | null {
+    if (!changes) return null;
+    return JSON.stringify(changes);
+}
+
+/**
+ * Parse changes string trở lại thành object khi đọc từ DB.
+ * Export để các API route có thể dùng khi trả về response.
+ */
+export function parseAuditLogChanges(
+    changes: string | null | undefined
+): { old?: Record<string, unknown>; new?: Record<string, unknown> } | null {
+    if (!changes) return null;
+    try {
+        return JSON.parse(changes);
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Create an audit log entry
  */
 export async function createAuditLog(data: AuditLogData) {
@@ -39,7 +67,8 @@ export async function createAuditLog(data: AuditLogData) {
             entityType: data.entityType,
             entityId: data.entityId,
             userId: data.userId,
-            changes: data.changes as Prisma.InputJsonValue ?? Prisma.JsonNull,
+            // Serialize object → JSON string trước khi lưu vào LongText column
+            changes: serializeChanges(data.changes),
         },
     });
 }

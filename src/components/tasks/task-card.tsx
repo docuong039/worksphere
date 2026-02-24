@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { TaskContextMenu } from '@/components/tasks/task-context-menu';
+import { taskService } from '@/services/task.service';
 
 import {
     TaskWithRelations as Task,
@@ -86,14 +87,8 @@ export function TaskCard({ task, statuses, trackers, priorities, onRefresh }: Ta
 
             if (!targetStatus) return;
 
-            const res = await fetch(`/api/tasks/${subtask.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ statusId: targetStatus.id }),
-            });
-            if (res.ok) {
-                onRefresh();
-            }
+            await taskService.update(subtask.id, { statusId: targetStatus.id });
+            onRefresh();
         } catch (error) {
             console.error('Failed to update subtask', error);
         } finally {

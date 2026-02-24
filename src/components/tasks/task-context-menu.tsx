@@ -21,6 +21,7 @@ import {
 
 import { taskService } from '@/services/task.service';
 import { projectService } from '@/services/project.service';
+import { useConfirm } from '@/providers/confirm-provider';
 import { CopyTaskModal } from '@/components/tasks/copy-task-modal';
 
 import {
@@ -108,6 +109,7 @@ export function TaskContextMenu({
     priorities,
     onRefresh,
 }: TaskContextMenuProps) {
+    const { confirm } = useConfirm();
     const [members, setMembers] = useState<Member[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
@@ -207,16 +209,23 @@ export function TaskContextMenu({
     };
 
     const handleDelete = async () => {
-        if (!confirm('Bạn có chắc muốn xóa công việc này?')) return;
-
-        try {
-            await taskService.delete(taskId);
-            toast.success('Đã xóa công việc');
-            onRefresh();
-        } catch (err: any) {
-            toast.error(err.message || 'Không thể xóa');
-        }
+        confirm({
+            title: 'Xóa công việc',
+            description: 'Bạn có chắc muốn xóa công việc này? Thao tác này không thể hoàn tác.',
+            confirmText: 'Xóa ngay',
+            variant: 'danger',
+            onConfirm: async () => {
+                try {
+                    await taskService.delete(taskId);
+                    toast.success('Đã xóa công việc');
+                    onRefresh();
+                } catch (err: any) {
+                    toast.error(err.message || 'Không thể xóa');
+                }
+            }
+        });
     };
+
 
     const doneRatioOptions = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 

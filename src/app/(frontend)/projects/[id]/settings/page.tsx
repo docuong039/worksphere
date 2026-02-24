@@ -48,7 +48,7 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
     }
 
 
-    const canManage = session.user.isAdministrator || (member?.role.name === ROLES.MANAGER.NAME_EN || member?.role.name === ROLES.MANAGER.NAME_VN);
+    const canManage = session.user.isAdministrator || member?.role.name === ROLES.MANAGER;
 
     if (!canManage) {
         redirect(`/projects/${id}`);

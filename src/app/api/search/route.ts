@@ -1,178 +1,222 @@
-import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { auth } from '@/lib/auth';
-import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
+import { successResponse, errorResponse } from '@/lib/api-error';
+import { withAuth } from '@/server/middleware/withAuth';
+import { getUserPermissions } from '@/lib/permissions';
+import * as ProjectPolicy from '@/modules/project/project.policy';
+import * as TaskPolicy from '@/modules/task/task.policy';
+
 
 // GET /api/search - Global Search
-export async function GET(req: NextRequest) {
-    try {
-        const session = await auth();
+export const GET = withAuth(async (req, user) => {
+    const { searchParams } = new URL(req.url);
+    const query = searchParams.get('q');
+    const type = searchParams.get('type'); // tasks, projects, comments, users, all
 
-        if (!session) {
-            return errorResponse('Chưa đăng nhập', 401);
+    if (!query || query.trim().length < 2) {
+        return errorResponse('Query phải có ít nhất 2 ký tự', 400);
+    }
+
+    const searchQuery = query.trim();
+    const isAdmin = user.isAdministrator;
+    const userId = user.id;
+
+    // 1. Load context-independent data
+    const results: {
+        tasks: any[];
+        projects: any[];
+        comments: any[];
+        users: any[];
+    } = {
+        tasks: [],
+        projects: [],
+        comments: [],
+        users: [],
+    };
+
+    // Helper: Bulk fetch project permissions
+    const permissionsMap = new Map<string, string[]>();
+    const getCachedPermissions = async (projectId: string) => {
+        if (!permissionsMap.has(projectId)) {
+            const perms = await getUserPermissions(userId, projectId);
+            permissionsMap.set(projectId, perms);
         }
+        return permissionsMap.get(projectId) || [];
+    };
 
-        const { searchParams } = new URL(req.url);
-        const query = searchParams.get('q');
-        const type = searchParams.get('type'); // tasks, projects, comments, users, all
+    // SEARCH TASKS
+    if (!type || type === 'all' || type === 'tasks') {
+        const tasks = await prisma.task.findMany({
+            where: {
+                OR: [
+                    { title: { contains: searchQuery } },
+                    { description: { contains: searchQuery } },
+                ],
+                // Base filter: must be in a project user is a member of (unless admin)
+                project: isAdmin ? {} : { members: { some: { userId } } },
+            },
+            include: {
+                status: { select: { name: true, isClosed: true } },
+                priority: { select: { name: true, color: true } },
+                project: { select: { id: true, name: true, creatorId: true, isArchived: true } },
+                assignee: { select: { id: true, name: true } },
+            },
+            take: 50, // Fetch more to allow for filtering
+            orderBy: { updatedAt: 'desc' },
+        });
 
-        if (!query || query.trim().length < 2) {
-            return errorResponse('Query phải có ít nhất 2 ký tự', 400);
+        // Apply Policy Filter
+        for (const task of tasks) {
+            const perms = await getCachedPermissions(task.projectId);
+            if (TaskPolicy.canViewTask(user, task as any, perms)) {
+                results.tasks.push({
+                    id: task.id,
+                    title: task.title,
+                    status: task.status,
+                    priority: task.priority,
+                    project: { id: task.project.id, name: task.project.name },
+                    assignee: task.assignee,
+                });
+            }
+            if (results.tasks.length >= 20) break;
         }
+    }
 
-        const searchQuery = query.trim();
-        const isAdmin = session.user.isAdministrator;
-        const userId = session.user.id;
+    // SEARCH PROJECTS
+    if (!type || type === 'all' || type === 'projects') {
+        const projects = await prisma.project.findMany({
+            where: {
+                OR: [
+                    { name: { contains: searchQuery } },
+                    { identifier: { contains: searchQuery } },
+                    { description: { contains: searchQuery } },
+                ],
+                isArchived: false,
+                members: isAdmin ? {} : { some: { userId } },
+            },
+            select: {
+                id: true,
+                name: true,
+                identifier: true,
+                description: true,
+                creatorId: true,
+                isArchived: true,
+                _count: { select: { tasks: true, members: true } },
+            },
+            take: 20,
+        });
 
-        // Project filter for non-admin users
-        const projectFilter = isAdmin
-            ? {}
-            : { members: { some: { userId } } };
+        for (const project of projects) {
+            const perms = await getCachedPermissions(project.id);
+            if (ProjectPolicy.canViewProject(user, perms)) {
+                results.projects.push(project);
+            }
+            if (results.projects.length >= 10) break;
+        }
+    }
 
-        const results: {
-            tasks: unknown[];
-            projects: unknown[];
-            comments: unknown[];
-            users: unknown[];
-        } = {
-            tasks: [],
-            projects: [],
-            comments: [],
-            users: [],
-        };
-
-        // Search Tasks
-        if (!type || type === 'all' || type === 'tasks') {
-            results.tasks = await prisma.task.findMany({
-                where: {
-                    OR: [
-                        { title: { contains: searchQuery } },
-                        { description: { contains: searchQuery } },
-                    ],
-                    project: projectFilter,
+    // SEARCH COMMENTS
+    if (!type || type === 'all' || type === 'comments') {
+        const comments = await prisma.comment.findMany({
+            where: {
+                content: { contains: searchQuery },
+                task: { project: isAdmin ? {} : { members: { some: { userId } } } },
+            },
+            include: {
+                user: { select: { id: true, name: true } },
+                task: {
+                    select: {
+                        id: true,
+                        title: true,
+                        isPrivate: true,
+                        creatorId: true,
+                        assigneeId: true,
+                        projectId: true
+                    }
                 },
-                select: {
-                    id: true,
-                    title: true,
-                    status: { select: { name: true, isClosed: true } },
-                    priority: { select: { name: true, color: true } },
-                    project: { select: { id: true, name: true } },
-                    assignee: { select: { id: true, name: true } },
-                },
-                take: 20,
-                orderBy: { updatedAt: 'desc' },
-            });
-        }
+            },
+            take: 30,
+            orderBy: { createdAt: 'desc' },
+        });
 
-        // Search Projects
-        if (!type || type === 'all' || type === 'projects') {
-            results.projects = await prisma.project.findMany({
+        for (const comment of comments) {
+            const perms = await getCachedPermissions(comment.task.projectId);
+            if (TaskPolicy.canViewTask(user, comment.task as any, perms)) {
+                results.comments.push({
+                    id: comment.id,
+                    content: comment.content,
+                    createdAt: comment.createdAt,
+                    user: comment.user,
+                    task: { id: comment.task.id, title: comment.task.title },
+                });
+            }
+            if (results.comments.length >= 10) break;
+        }
+    }
+
+    // SEARCH USERS
+    if (!type || type === 'all' || type === 'users') {
+        if (isAdmin) {
+            results.users = await prisma.user.findMany({
                 where: {
                     OR: [
                         { name: { contains: searchQuery } },
-                        { identifier: { contains: searchQuery } },
-                        { description: { contains: searchQuery } },
+                        { email: { contains: searchQuery } },
                     ],
-                    ...projectFilter,
-                    isArchived: false,
+                    isActive: true,
                 },
                 select: {
                     id: true,
                     name: true,
-                    identifier: true,
-                    description: true,
-                    _count: { select: { tasks: true, members: true } },
+                    email: true,
+                    avatar: true,
+                    isAdministrator: true,
                 },
                 take: 10,
             });
-        }
-
-        // Search Comments
-        if (!type || type === 'all' || type === 'comments') {
-            results.comments = await prisma.comment.findMany({
+        } else {
+            // Non-admin: only search users in same projects
+            const projectMembers = await prisma.projectMember.findMany({
                 where: {
-                    content: { contains: searchQuery },
-                    task: { project: projectFilter },
-                },
-                select: {
-                    id: true,
-                    content: true,
-                    createdAt: true,
-                    user: { select: { id: true, name: true } },
-                    task: { select: { id: true, title: true } },
-                },
-                take: 10,
-                orderBy: { createdAt: 'desc' },
-            });
-        }
-
-        // Search Users (Admin only for full search, others see project members)
-        if (!type || type === 'all' || type === 'users') {
-            if (isAdmin) {
-                results.users = await prisma.user.findMany({
-                    where: {
+                    project: { members: { some: { userId } } },
+                    user: {
                         OR: [
                             { name: { contains: searchQuery } },
                             { email: { contains: searchQuery } },
                         ],
                         isActive: true,
                     },
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                        avatar: true,
-                        isAdministrator: true,
-                    },
-                    take: 10,
-                });
-            } else {
-                // Non-admin: only search users in same projects
-                const projectMembers = await prisma.projectMember.findMany({
-                    where: {
-                        project: { members: { some: { userId } } },
-                        user: {
-                            OR: [
-                                { name: { contains: searchQuery } },
-                                { email: { contains: searchQuery } },
-                            ],
-                            isActive: true,
+                },
+                select: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            avatar: true,
                         },
                     },
-                    select: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                email: true,
-                                avatar: true,
-                            },
-                        },
-                    },
-                    take: 10,
-                });
-                // Deduplicate users
-                const uniqueUsers = new Map();
-                projectMembers.forEach((pm) => {
-                    if (!uniqueUsers.has(pm.user.id)) {
-                        uniqueUsers.set(pm.user.id, pm.user);
-                    }
-                });
-                results.users = Array.from(uniqueUsers.values());
-            }
+                },
+                take: 50,
+            });
+            const uniqueUsers = new Map();
+            projectMembers.forEach((pm) => {
+                if (!uniqueUsers.has(pm.user.id)) {
+                    uniqueUsers.set(pm.user.id, pm.user);
+                }
+            });
+            results.users = Array.from(uniqueUsers.values()).slice(0, 10);
         }
-
-        return successResponse({
-            query: searchQuery,
-            results,
-            counts: {
-                tasks: results.tasks.length,
-                projects: results.projects.length,
-                comments: results.comments.length,
-                users: results.users.length,
-            },
-        });
-    } catch (error) {
-        return handleApiError(error);
     }
-}
+
+    return successResponse({
+        query: searchQuery,
+        results,
+        counts: {
+            tasks: results.tasks.length,
+            projects: results.projects.length,
+            comments: results.comments.length,
+            users: results.users.length,
+        },
+    });
+
+});

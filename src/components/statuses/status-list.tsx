@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Check, GripVertical, Lock } from 'lucide-react';
+import { useConfirm } from '@/providers/confirm-provider';
 import { statusService } from '@/services/status.service';
 
 interface Status {
@@ -25,7 +26,8 @@ interface StatusListProps {
 
 export function StatusList({ statuses: initialStatuses }: StatusListProps) {
     const router = useRouter();
-    const [statuses] = useState(initialStatuses);
+    const { confirm } = useConfirm();
+    const [statuses, setStatuses] = useState(initialStatuses);
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formData, setFormData] = useState({
@@ -44,16 +46,25 @@ export function StatusList({ statuses: initialStatuses }: StatusListProps) {
         setError('');
 
         try {
-            await statusService.create(formData);
+            const response = await statusService.create(formData);
+            // Chỉ đóng form khi API thành công
             setIsAdding(false);
             setFormData({ name: '', description: '', isClosed: false, defaultDoneRatio: null });
-            router.refresh();
+            toast.success('Đã tạo status mới');
+
+            // Optimistic: thêm status vào state ngay từ response
+            if (response.data) {
+                setStatuses((prev) => [...prev, { ...response.data!, _count: { tasks: 0 } }]);
+            }
+            router.refresh(); // Background sync
         } catch (err: any) {
             setError(err.message || 'Có lỗi xảy ra');
+            // Form vẫn mở, user có thể sửa và thử lại
         } finally {
             setLoading(false);
         }
     };
+
 
     // Update status
     const handleUpdate = async (id: string) => {
@@ -61,12 +72,24 @@ export function StatusList({ statuses: initialStatuses }: StatusListProps) {
         setLoading(true);
         setError('');
 
+        // Optimistic: cập nhật ngay
+        const previousStatuses = statuses;
+        setStatuses((prev) =>
+            prev.map((s) =>
+                s.id === id
+                    ? { ...s, name: formData.name, description: formData.description, isClosed: formData.isClosed, defaultDoneRatio: formData.defaultDoneRatio }
+                    : s
+            )
+        );
+        setEditingId(null);
+        setFormData({ name: '', description: '', isClosed: false, defaultDoneRatio: null });
+
         try {
             await statusService.update(id, formData);
-            setEditingId(null);
-            setFormData({ name: '', description: '', isClosed: false, defaultDoneRatio: null });
-            router.refresh();
+            router.refresh(); // Background sync
         } catch (err: any) {
+            // Rollback
+            setStatuses(previousStatuses);
             setError(err.message || 'Có lỗi xảy ra');
         } finally {
             setLoading(false);
@@ -80,23 +103,43 @@ export function StatusList({ statuses: initialStatuses }: StatusListProps) {
             return;
         }
 
-        if (!confirm(`Bạn có chắc muốn xóa status "${name}"?`)) return;
+        confirm({
+            title: 'Xóa trạng thái',
+            description: `Bạn có chắc muốn xóa trạng thái "${name}"? Thao tác này không thể hoàn tác.`,
+            confirmText: 'Xóa ngay',
+            variant: 'danger',
+            onConfirm: async () => {
+                // Optimistic: xóa ngay
+                const previousStatuses = statuses;
+                setStatuses((prev) => prev.filter((s) => s.id !== id));
+                toast.success('Đã xóa status');
 
-        try {
-            await statusService.delete(id);
-            toast.success('Đã xóa status');
-            router.refresh();
-        } catch (err: any) {
-            toast.error(err.message || 'Có lỗi xảy ra');
-        }
+                try {
+                    await statusService.delete(id);
+                    router.refresh(); // Background sync
+                } catch (err: any) {
+                    // Rollback
+                    setStatuses(previousStatuses);
+                    toast.error(err.message || 'Có lỗi xảy ra');
+                }
+            },
+        });
     };
+
 
     // Set default
     const handleSetDefault = async (id: string) => {
+        // Optimistic: đánh dấu default ngay
+        const previousStatuses = statuses;
+        setStatuses((prev) =>
+            prev.map((s) => ({ ...s, isDefault: s.id === id }))
+        );
         try {
             await statusService.setDefault(id);
-            router.refresh();
+            router.refresh(); // Background sync
         } catch (err) {
+            // Rollback
+            setStatuses(previousStatuses);
             console.error(err);
             toast.error('Có lỗi xảy ra');
         }

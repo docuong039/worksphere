@@ -14,8 +14,10 @@ import {
     ChevronDown,
     ChevronUp,
     List,
+    X,
 } from 'lucide-react';
 import { projectService } from '@/services/project.service';
+import { useConfirm } from '@/providers/confirm-provider';
 import { VersionWithStats as Version } from '@/types';
 
 
@@ -32,8 +34,10 @@ const STATUS_CONFIG = {
     closed: { label: 'Đã đóng', icon: CheckCircle, color: 'text-gray-500 bg-gray-100' },
 };
 
-export function VersionsManager({ projectId, versions, canManage }: VersionsManagerProps) {
+export function VersionsManager({ projectId, versions: initialVersions, canManage }: VersionsManagerProps) {
     const router = useRouter();
+    const { confirm } = useConfirm();
+    const [versionsList, setVersionsList] = useState<Version[]>(initialVersions);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingVersion, setEditingVersion] = useState<Version | null>(null);
@@ -53,16 +57,40 @@ export function VersionsManager({ projectId, versions, canManage }: VersionsMana
         if (!formData.name.trim()) return;
         setLoading(true);
 
+        // Optimistic: thêm placeholder version ngay
+        const tempId = `temp-${Date.now()}`;
+        const optimisticVersion: Version = {
+            id: tempId,
+            name: formData.name,
+            description: formData.description || null,
+            status: formData.status as 'open' | 'locked' | 'closed',
+            dueDate: formData.dueDate ? new Date(formData.dueDate) : null,
+            projectId,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            totalTasks: 0,
+            closedTasks: 0,
+            progress: 0,
+        };
+        setVersionsList((prev) => [...prev, optimisticVersion]);
+        setShowAddModal(false);
+        resetForm();
+
         try {
-            await projectService.createVersion(projectId, {
+            const result = await projectService.createVersion(projectId, {
                 ...formData,
                 projectId,
                 status: formData.status as 'open' | 'locked' | 'closed'
             });
-            setShowAddModal(false);
-            resetForm();
-            router.refresh();
+            // Thay thế temp bằng real version từ server
+            if (result?.data) {
+                setVersionsList((prev) => prev.map((v) => (v.id === tempId ? result.data! : v)));
+            }
+            router.refresh(); // Background sync
         } catch (error) {
+            // Rollback
+            setVersionsList((prev) => prev.filter((v) => v.id !== tempId));
+            setShowAddModal(true);
             console.error(error);
         } finally {
             setLoading(false);
@@ -73,15 +101,34 @@ export function VersionsManager({ projectId, versions, canManage }: VersionsMana
         if (!editingVersion || !formData.name.trim()) return;
         setLoading(true);
 
+        // Optimistic: cập nhật version ngay
+        const previousVersions = versionsList;
+        setVersionsList((prev) =>
+            prev.map((v) =>
+                v.id === editingVersion.id
+                    ? {
+                        ...v,
+                        name: formData.name,
+                        description: formData.description || null,
+                        status: formData.status as 'open' | 'locked' | 'closed',
+                        dueDate: formData.dueDate ? new Date(formData.dueDate) : null,
+                    }
+                    : v
+            )
+        );
+        const editId = editingVersion.id;
+        setEditingVersion(null);
+        resetForm();
+
         try {
-            await projectService.updateVersion(editingVersion.id, {
+            await projectService.updateVersion(editId, {
                 ...formData,
                 status: formData.status as 'open' | 'locked' | 'closed'
             });
-            setEditingVersion(null);
-            resetForm();
-            router.refresh();
+            router.refresh(); // Background sync
         } catch (error) {
+            // Rollback
+            setVersionsList(previousVersions);
             console.error(error);
         } finally {
             setLoading(false);
@@ -89,21 +136,30 @@ export function VersionsManager({ projectId, versions, canManage }: VersionsMana
     };
 
     const handleDelete = async (version: Version) => {
-        if (version.totalTasks > 0) {
-            if (!confirm(`Version "${version.name}" có ${version.totalTasks} công việc. Các công việc này sẽ không còn thuộc version nào. Tiếp tục?`)) {
-                return;
-            }
-        } else if (!confirm(`Xóa version "${version.name}"?`)) {
-            return;
-        }
+        confirm({
+            title: 'Xóa phiên bản',
+            description: version.totalTasks > 0
+                ? `Phiên bản "${version.name}" có ${version.totalTasks} công việc. Các công việc này sẽ không còn thuộc phiên bản nào. Bạn có chắc chắn muốn tiếp tục?`
+                : `Bạn có chắc muốn xóa phiên bản "${version.name}"?`,
+            confirmText: 'Xóa ngay',
+            variant: 'danger',
+            onConfirm: async () => {
+                // Optimistic: xóa ngay
+                const previousVersions = versionsList;
+                setVersionsList((prev) => prev.filter((v) => v.id !== version.id));
 
-        try {
-            await projectService.deleteVersion(version.id);
-            router.refresh();
-        } catch (error) {
-            console.error('Delete failed', error);
-        }
+                try {
+                    await projectService.deleteVersion(version.id);
+                    router.refresh(); // Background sync
+                } catch (error) {
+                    // Rollback
+                    setVersionsList(previousVersions);
+                    console.error('Delete failed', error);
+                }
+            }
+        });
     };
+
 
     const openEditModal = (version: Version) => {
         setEditingVersion(version);
@@ -127,9 +183,9 @@ export function VersionsManager({ projectId, versions, canManage }: VersionsMana
     };
 
     const groupedVersions = {
-        open: versions.filter((v) => v.status === 'open'),
-        locked: versions.filter((v) => v.status === 'locked'),
-        closed: versions.filter((v) => v.status === 'closed'),
+        open: versionsList.filter((v) => v.status === 'open'),
+        locked: versionsList.filter((v) => v.status === 'locked'),
+        closed: versionsList.filter((v) => v.status === 'closed'),
     };
 
     return (
@@ -253,7 +309,7 @@ export function VersionsManager({ projectId, versions, canManage }: VersionsMana
                 );
             })}
 
-            {versions.length === 0 && (
+            {versionsList.length === 0 && (
                 <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
                     Dự án chưa có phiên bản nào.
                     {canManage && (
@@ -269,92 +325,108 @@ export function VersionsManager({ projectId, versions, canManage }: VersionsMana
 
             {/* Add/Edit Modal */}
             {(showAddModal || editingVersion) && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-                        <div className="p-4 border-b">
-                            <h2 className="text-lg font-semibold">
-                                {editingVersion ? 'Sửa phiên bản' : 'Thêm phiên bản mới'}
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-gray-100">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-5 py-4 bg-gray-50/80 border-b border-gray-100 shrink-0">
+                            <h2 className="text-base font-bold text-gray-900">
+                                {editingVersion ? 'Chỉnh sửa phiên bản' : 'Tạo phiên bản mới'}
                             </h2>
-                        </div>
-
-                        <div className="p-4 space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Tên <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                                    placeholder="VD: v1.0, Sprint 1..."
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Mô tả
-                                </label>
-                                <textarea
-                                    value={formData.description}
-                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    rows={3}
-                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Trạng thái
-                                    </label>
-                                    <select
-                                        value={formData.status}
-                                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="open">Đang mở</option>
-                                        <option value="locked">Đã khóa</option>
-                                        <option value="closed">Đã đóng</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Ngày đến hạn
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={formData.dueDate}
-                                        onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end gap-2 p-4 border-t bg-gray-50">
                             <button
                                 onClick={() => {
                                     setShowAddModal(false);
                                     setEditingVersion(null);
                                     resetForm();
                                 }}
-                                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200/50 rounded-lg transition-colors"
                             >
-                                Hủy
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 space-y-5">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
+                                    Tên phiên bản <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+                                    placeholder="VD: v1.0, Sprint 1, Release Alpha..."
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
+                                    Mô tả chi tiết
+                                </label>
+                                <textarea
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                    rows={4}
+                                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all resize-none"
+                                    placeholder="Ghi chú về phiên bản này..."
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-5">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
+                                        Trạng thái
+                                    </label>
+                                    <select
+                                        value={formData.status}
+                                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                        className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
+                                    >
+                                        <option value="open">Đang mở (Open)</option>
+                                        <option value="locked">Đã khóa (Locked)</option>
+                                        <option value="closed">Đã đóng (Closed)</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1.5">
+                                        Ngày đến hạn
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={formData.dueDate}
+                                        onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                                        className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-5 py-4 bg-gray-50/80 border-t border-gray-100 flex justify-end gap-3 shrink-0">
+                            <button
+                                onClick={() => {
+                                    setShowAddModal(false);
+                                    setEditingVersion(null);
+                                    resetForm();
+                                }}
+                                className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:text-gray-900 hover:bg-gray-200/50 rounded-xl transition-all"
+                            >
+                                Hủy bỏ
                             </button>
                             <button
                                 onClick={editingVersion ? handleUpdate : handleCreate}
                                 disabled={!formData.name.trim() || loading}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold shadow-lg shadow-blue-500/20 transition-all active:scale-95"
                             >
-                                {loading ? 'Đang lưu...' : editingVersion ? 'Cập nhật' : 'Tạo mới'}
+                                {loading ? 'Đang lưu...' : editingVersion ? 'Lưu thay đổi' : 'Tạo phiên bản'}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
+
         </div>
     );
 }

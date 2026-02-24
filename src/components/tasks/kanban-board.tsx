@@ -1,5 +1,3 @@
-'use client';
-
 import {
     DndContext,
     DragEndEvent,
@@ -15,15 +13,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { useState, useEffect } from 'react';
 import { TaskCard } from '@/components/tasks/task-card';
 import { TaskWithRelations, Status, Tracker, Priority } from '@/types';
-
-// Local interfaces removed
-// interface Tracker ... removed
-// interface Priority ... removed
-
-// Local interfaces removed, using shared types
-// interface Task ... removed
-
-// interface Status ... removed
+import { Plus } from 'lucide-react';
 
 interface KanbanBoardProps {
     tasks: TaskWithRelations[];
@@ -32,15 +22,17 @@ interface KanbanBoardProps {
     priorities: Priority[];
     onRefresh: () => void;
     onStatusChange: (taskId: string, newStatusId: string) => Promise<void>;
+    onCreateTask?: (statusId: string) => void;
 }
 
-function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses }: {
+function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses, onCreateTask }: {
     status: Status,
     tasks: TaskWithRelations[],
     trackers: Tracker[],
     priorities: Priority[],
     onRefresh: () => void,
-    statuses: Status[]
+    statuses: Status[],
+    onCreateTask?: (statusId: string) => void
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: status.id,
@@ -111,14 +103,25 @@ function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses
             <div className={`px-4 py-3 rounded-t-2xl ${columnStyle.headerBg}`}>
                 <div className="flex items-center justify-between">
                     <h3 className={`text-[13px] font-bold uppercase tracking-wide ${columnStyle.text}`}>{status.name}</h3>
-                    <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${columnStyle.badge}`}>
-                        {tasks.length}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${columnStyle.badge}`}>
+                            {tasks.length}
+                        </span>
+                        {onCreateTask && (
+                            <button
+                                onClick={() => onCreateTask(status.id)}
+                                className={`p-1 rounded-md transition-colors hover:bg-white/50 ${columnStyle.text} opacity-60 hover:opacity-100`}
+                                title="Tạo công việc mới"
+                            >
+                                <Plus className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
             {/* Column Content */}
-            <div className="flex-1 px-2 py-3 space-y-3 overflow-y-auto scrollbar-none">
+            <div className="flex-1 px-2 py-3 space-y-3 overflow-y-auto scrollbar-none flex flex-col">
                 {tasks.map(task => (
                     <TaskCard
                         key={task.id}
@@ -129,12 +132,22 @@ function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses
                         onRefresh={onRefresh}
                     />
                 ))}
+
+                {onCreateTask && (
+                    <button
+                        onClick={() => onCreateTask(status.id)}
+                        className="w-full py-2 flex items-center justify-center gap-2 text-sm text-gray-500 hover:text-gray-800 hover:bg-gray-100/50 rounded-lg transition-all border border-transparent hover:border-gray-200 hover:shadow-sm mt-auto"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Tạo công việc
+                    </button>
+                )}
             </div>
         </div>
     );
 }
 
-export function KanbanBoard({ tasks, statuses, trackers, priorities, onRefresh, onStatusChange }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, statuses, trackers, priorities, onRefresh, onStatusChange, onCreateTask }: KanbanBoardProps) {
     const [activeId, setActiveId] = useState<string | null>(null);
     const [isMounted, setIsMounted] = useState(false);
 
@@ -191,6 +204,7 @@ export function KanbanBoard({ tasks, statuses, trackers, priorities, onRefresh, 
                         priorities={priorities}
                         onRefresh={onRefresh}
                         statuses={statuses}
+                        onCreateTask={onCreateTask}
                     />
                 ))}
             </div>
@@ -213,6 +227,7 @@ export function KanbanBoard({ tasks, statuses, trackers, priorities, onRefresh, 
                         priorities={priorities}
                         onRefresh={onRefresh}
                         statuses={statuses}
+                        onCreateTask={onCreateTask}
                     />
                 ))}
             </div>

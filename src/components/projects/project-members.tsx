@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus, Trash2, User, Crown, Search } from 'lucide-react';
+import { useConfirm } from '@/providers/confirm-provider';
 import Image from 'next/image';
 import { projectService } from '@/services/project.service';
 
@@ -45,13 +46,15 @@ interface ProjectMembersProps {
 
 export function ProjectMembers({
     projectId,
-    members,
+    members: initialMembers,
     roles,
     availableUsers,
     canManage,
     creatorId,
 }: ProjectMembersProps) {
     const router = useRouter();
+    const { confirm } = useConfirm();
+    const [membersList, setMembersList] = useState<Member[]>(initialMembers);
     const [showAddModal, setShowAddModal] = useState(false);
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
     const [selectedRoleId, setSelectedRoleId] = useState(roles[0]?.id || '');
@@ -59,7 +62,7 @@ export function ProjectMembers({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // Filter available users
+    // Filter available users (exclude already added members)
     const filteredUsers = availableUsers.filter(
         (user) =>
             user.name.toLowerCase().includes(searchUser.toLowerCase()) ||
@@ -72,19 +75,49 @@ export function ProjectMembers({
         setLoading(true);
         setError('');
 
+        const role = roles.find((r) => r.id === selectedRoleId);
+        if (!role) return;
+
+        // Construct optimistic members
+        const newMembers: Member[] = selectedUserIds.map((userId) => {
+            const user = availableUsers.find((u) => u.id === userId);
+            return {
+                id: `temp-${userId}`, // Temporary ID
+                user: {
+                    id: userId,
+                    name: user?.name || 'Unknown',
+                    email: user?.email || '',
+                    avatar: user?.avatar || null,
+                    isActive: true,
+                },
+                role: {
+                    id: role.id,
+                    name: role.name,
+                },
+            };
+        });
+
+        const previousMembers = membersList;
+        setMembersList((prev) => [...prev, ...newMembers]);
+        setShowAddModal(false);
+        const originalUserIds = [...selectedUserIds];
+        setSelectedUserIds([]);
+        setSearchUser('');
+        toast.success('Đã thêm thành viên thành công');
+
         try {
             await projectService.addMembers(projectId, {
-                userIds: selectedUserIds,
+                userIds: originalUserIds,
                 roleId: selectedRoleId,
             });
-
-            setShowAddModal(false);
-            setSelectedUserIds([]);
-            setSearchUser('');
-            toast.success('Đã thêm thành viên thành công');
-            router.refresh();
+            router.refresh(); // Background sync to get real IDs
         } catch (err: any) {
+            // Rollback
+            setMembersList(previousMembers);
             setError(err.message || 'Có lỗi xảy ra');
+            toast.error(err.message || 'Có lỗi xảy ra');
+            setShowAddModal(true);
+            setSelectedUserIds(originalUserIds);
         } finally {
             setLoading(false);
         }
@@ -92,11 +125,19 @@ export function ProjectMembers({
 
     // Update member role
     const handleUpdateRole = async (memberId: string, roleId: string) => {
+        const newRole = roles.find((r) => r.id === roleId);
+        // Optimistic: cập nhật vai trò ngay
+        const previousMembers = membersList;
+        setMembersList((prev) =>
+            prev.map((m) => (m.id === memberId ? { ...m, role: newRole || m.role } : m))
+        );
         try {
             await projectService.updateMemberRole(projectId, memberId, { roleId });
             toast.success('Đã cập nhật vai trò');
-            router.refresh();
+            router.refresh(); // Background sync
         } catch {
+            // Rollback
+            setMembersList(previousMembers);
             toast.error('Lỗi kết nối máy chủ');
         }
     };
@@ -108,18 +149,29 @@ export function ProjectMembers({
             return;
         }
 
-        if (!confirm(`Bạn có chắc muốn xóa ${member.user.name} khỏi dự án?`)) {
-            return;
-        }
+        confirm({
+            title: 'Xóa thành viên',
+            description: `Bạn có chắc muốn xóa ${member.user.name} khỏi dự án?`,
+            confirmText: 'Xóa khỏi dự án',
+            variant: 'danger',
+            onConfirm: async () => {
+                // Optimistic: xóa ngay
+                const previousMembers = membersList;
+                setMembersList((prev) => prev.filter((m) => m.id !== member.id));
+                toast.success('Đã xóa thành viên');
 
-        try {
-            await projectService.removeMember(projectId, member.id);
-            toast.success('Đã xóa thành viên');
-            router.refresh();
-        } catch (err: any) {
-            toast.error(err.message || 'Có lỗi xảy ra');
-        }
+                try {
+                    await projectService.removeMember(projectId, member.id);
+                    router.refresh(); // Background sync
+                } catch (err: any) {
+                    // Rollback
+                    setMembersList(previousMembers);
+                    toast.error(err.message || 'Có lỗi xảy ra');
+                }
+            },
+        });
     };
+
 
     const toggleUser = (userId: string) => {
         if (selectedUserIds.includes(userId)) {
@@ -134,7 +186,7 @@ export function ProjectMembers({
             <div className="bg-white rounded-lg border border-gray-200">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-                    <span className="text-sm text-gray-500">{members.length} thành viên</span>
+                    <span className="text-sm text-gray-500">{membersList.length} thành viên</span>
                     {canManage && (
                         <button
                             onClick={() => setShowAddModal(true)}
@@ -148,7 +200,7 @@ export function ProjectMembers({
 
                 {/* Members List */}
                 <div className="divide-y divide-gray-100">
-                    {members.map((member) => (
+                    {membersList.map((member) => (
                         <div
                             key={member.id}
                             className="flex items-center justify-between px-6 py-4 hover:bg-gray-50"
@@ -223,7 +275,7 @@ export function ProjectMembers({
                     ))}
                 </div>
 
-                {members.length === 0 && (
+                {membersList.length === 0 && (
                     <div className="px-6 py-8 text-center text-gray-500">Chưa có thành viên nào</div>
                 )}
             </div>

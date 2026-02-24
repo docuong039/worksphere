@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Shield, ChevronDown, ChevronRight, Copy } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { RoleTrackerPermissions } from '@/components/roles/role-tracker-permissions';
+import { useConfirm } from '@/providers/confirm-provider';
 import { roleService } from '@/services/role.service';
 import { RoleWithPermissions as Role } from '@/types';
 
@@ -32,6 +33,7 @@ interface RoleListProps {
 
 export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers }: RoleListProps) {
     const router = useRouter();
+    const { confirm } = useConfirm();
     const [roles, setRoles] = useState(initialRoles);
 
     // Sync roles when initialRoles changes (e.g. after add/delete/update)
@@ -50,19 +52,17 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
         name: '',
         description: '',
         assignable: true,
-        canAssignToOther: true,
     });
     const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set());
 
     // Module names in Vietnamese
     const moduleNames: Record<string, string> = {
-        users: 'Người dùng',
-        projects: 'Dự án',
-        tasks: 'Công việc',
-        time: 'Thời gian',
-        reports: 'Báo cáo',
-        system: 'Hệ thống',
+        PROJECTS: 'Dự án',
+        TASKS: 'Công việc',
+        TIMELOGS: 'Ghi nhận thời gian',
+        QUERIES: 'Truy vấn & Bộ lọc',
     };
+
 
     // Create role
     const handleCreate = async () => {
@@ -80,10 +80,13 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
                         permissionIds: Array.from(selectedPermissions),
                     });
                 }
+                // Optimistic: thêm role mới vào state ngay từ response
+                setRoles((prev) => [...prev, { ...response.data, permissions: [], _count: { projectMembers: 0 }, trackers: [] } as unknown as Role]);
                 setIsAdding(false);
-                setFormData({ name: '', description: '', assignable: true, canAssignToOther: true });
+                setFormData({ name: '', description: '', assignable: true });
                 setSelectedPermissions(new Set());
-                router.refresh();
+                toast.success('Đã tạo vai trò mới');
+                router.refresh(); // Background sync để lấy full permissions data
             }
         } catch (err: any) {
             setError(err.message || 'Có lỗi xảy ra');
@@ -98,20 +101,25 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
         setLoading(true);
         setError('');
 
-        try {
-            // Update role info
-            await roleService.update(id, formData);
+        // Optimistic: cập nhật thông tin role ngay
+        const previousRoles = roles;
+        setRoles((prev) =>
+            prev.map((r) =>
+                r.id === id ? { ...r, name: formData.name, description: formData.description, assignable: formData.assignable } : r
+            )
+        );
+        setEditingId(null);
+        setFormData({ name: '', description: '', assignable: true });
+        setSelectedPermissions(new Set());
 
-            // Update permissions
+        try {
+            await roleService.update(id, formData);
             await roleService.updatePermissions(id, {
                 permissionIds: Array.from(selectedPermissions),
             });
-
-            setEditingId(null);
-            setFormData({ name: '', description: '', assignable: true, canAssignToOther: true });
-            setSelectedPermissions(new Set());
-            router.refresh();
+            router.refresh(); // Background sync
         } catch {
+            setRoles(previousRoles); // Rollback
             setError('Có lỗi xảy ra');
         } finally {
             setLoading(false);
@@ -125,16 +133,28 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
             return;
         }
 
-        if (!confirm(`Bạn có chắc muốn xóa role "${name}"?`)) return;
+        confirm({
+            title: 'Xóa vai trò',
+            description: `Bạn có chắc muốn xóa vai trò "${name}"? Thao tác này không thể hoàn tác.`,
+            confirmText: 'Xóa ngay',
+            variant: 'danger',
+            onConfirm: async () => {
+                // Optimistic: xóa ngay
+                const previousRoles = roles;
+                setRoles((prev) => prev.filter((r) => r.id !== id));
+                toast.success('Đã xóa vai trò');
 
-        try {
-            await roleService.delete(id);
-            toast.success('Đã xóa vai trò');
-            router.refresh();
-        } catch (err: any) {
-            toast.error(err.message || 'Có lỗi xảy ra');
-        }
+                try {
+                    await roleService.delete(id);
+                    router.refresh(); // Background sync
+                } catch (err: any) {
+                    setRoles(previousRoles); // Rollback
+                    toast.error(err.message || 'Có lỗi xảy ra');
+                }
+            },
+        });
     };
+
 
     // Clone role
     const handleClone = async (role: Role) => {
@@ -149,7 +169,18 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
                         permissionIds: permIds,
                     });
                 }
-                router.refresh();
+                // Optimistic: thêm clone vào state ngay
+                setRoles((prev) => [
+                    ...prev,
+                    {
+                        ...response.data,
+                        permissions: role.permissions,
+                        _count: { projectMembers: 0 },
+                        trackers: role.trackers ?? [],
+                    } as unknown as Role,
+                ]);
+                toast.success(`Đã sao chép vai trò "${role.name}"`);
+                router.refresh(); // Background sync
             }
         } catch (err) {
             console.error(err);
@@ -187,7 +218,6 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
             name: role.name,
             description: role.description || '',
             assignable: role.assignable !== false,
-            canAssignToOther: role.canAssignToOther !== false
         });
         setSelectedPermissions(new Set(role.permissions.map((p) => p.permission.id)));
     };
@@ -225,7 +255,7 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
                 <button
                     onClick={() => {
                         setIsAdding(true);
-                        setFormData({ name: '', description: '', assignable: true, canAssignToOther: true });
+                        setFormData({ name: '', description: '', assignable: true });
                         setSelectedPermissions(new Set());
                     }}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
@@ -272,17 +302,6 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
 
                     {/* Removed Assignable Checkbox as per user request to simplify. Defaulted to true in logic. */}
 
-                    <div className="mb-4">
-                        <div className="flex items-center gap-2">
-                            <Switch
-                                checked={formData.canAssignToOther}
-                                onChange={(checked) => setFormData({ ...formData, canAssignToOther: checked })}
-                            />
-                            <span className="text-sm text-gray-700">
-                                Có thể gán công việc cho thành viên khác (Can assign to others)
-                            </span>
-                        </div>
-                    </div>
 
                     {/* Permissions */}
                     <div className="mb-4">
@@ -462,18 +481,6 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
                                                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                                                     />
-                                                </div>
-                                            </div>
-
-                                            <div className="mb-4">
-                                                <div className="flex items-center gap-2">
-                                                    <Switch
-                                                        checked={formData.canAssignToOther}
-                                                        onChange={(checked) => setFormData({ ...formData, canAssignToOther: checked })}
-                                                    />
-                                                    <span className="text-sm text-gray-700">
-                                                        Có thể gán công việc cho thành viên khác (Can assign to others)
-                                                    </span>
                                                 </div>
                                             </div>
 

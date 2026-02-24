@@ -110,14 +110,10 @@ export function TaskList({
             if (activeFilters.priorityId) params.priorityId = activeFilters.priorityId;
             if (activeFilters.assigneeId) params.assigneeId = activeFilters.assigneeId;
             if (activeFilters.creatorId) params.creatorId = activeFilters.creatorId;
-            if (activeFilters.showClosed) params.isClosed = 'true'; // Fixed logic: showClosed usually means filter for closed or include closed? The original code said !showClosed -> isClosed='false'. If showClosed is true, we probably don't filter isClosed? Or we filter isClosed=true?
-            // Original logic: if (!activeFilters.showClosed) params.isClosed = 'false';
-            // This implies: Only show open tasks by default. If showClosed is true, we show ALL tasks (remove isClosed param) OR we show only closed?
-            // "Present closed tasks" checkbox usually means "Include closed tasks" or "Show only closed".
-            // Let's assume "Active Filters" means we want to see closed ones.
-            // Actually, Redmine behavior: Default = Open. Check "Closed" = Include Closed? Or Show Closed?
-            // Let's stick to original behavior found in code:
-            if (!activeFilters.showClosed) params.isClosed = 'false'; // Default hide closed
+            // "Hiện đã đóng" = Include closed tasks (show ALL).
+            // When unchecked (default): only show open tasks.
+            // When checked: show everything (don't send isClosed param).
+            if (!activeFilters.showClosed) params.isClosed = 'false';
 
             if (activeFilters.myTasks) params.my = 'true';
             if (activeFilters.startDateFrom) params.startDateFrom = activeFilters.startDateFrom as string;
@@ -182,19 +178,33 @@ export function TaskList({
 
     // Quick Status Update for Kanban
     const handleStatusChange = async (taskId: string, newStatusId: string) => {
+        const newStatus = statuses.find((s) => s.id === newStatusId);
+        // Optimistic: di chuyển task sang cột mới ngay lập tức
+        const previousTasks = tasks;
+        setTasks((prev) =>
+            prev.map((t) =>
+                t.id === taskId
+                    ? { ...t, statusId: newStatusId, status: { ...t.status, ...(newStatus ? { id: newStatus.id, name: newStatus.name, isClosed: newStatus.isClosed ?? false } : {}) } }
+                    : t
+            )
+        );
+        toast.success('Đã cập nhật trạng thái');
+
         try {
             await taskService.update(taskId, { statusId: newStatusId });
-            toast.success('Đã cập nhật trạng thái');
+            // Background sync để lấy data chính xác (doneRatio, etc.)
             fetchTasks();
         } catch (err: any) {
+            // Rollback nếu lỗi
+            setTasks(previousTasks);
             toast.error(err.message || 'Không thể chuyển trạng thái');
         }
     };
 
     // Clear filters
     const clearFilters = () => {
-        setFilters({
-            projectId: '',
+        const resetFilters = {
+            projectId: propProjectId || '',
             trackerId: '',
             statusId: '',
             priorityId: '',
@@ -206,8 +216,10 @@ export function TaskList({
             startDateTo: '',
             dueDateFrom: '',
             dueDateTo: '',
-        });
+        };
+        setFilters(resetFilters);
         setSearch('');
+        fetchTasks(resetFilters);
     };
 
 
@@ -227,6 +239,20 @@ export function TaskList({
         filters.dueDateFrom ||
         filters.dueDateTo ||
         search;
+
+    // Handle create task with initial data (e.g. from Kanban column)
+    const [createModalInitialData, setCreateModalInitialData] = useState<{
+        projectId?: string;
+        statusId?: string;
+    } | undefined>(undefined);
+
+    const handleCreateTask = (statusId?: string) => {
+        setCreateModalInitialData({
+            projectId: propProjectId,
+            statusId,
+        });
+        setShowCreateModal(true);
+    };
 
     return (
         <>
@@ -342,7 +368,7 @@ export function TaskList({
 
                 {/* Create Button */}
                 <button
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={() => handleCreateTask()}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
                 >
                     <Plus className="w-4 h-4" />
@@ -661,6 +687,7 @@ export function TaskList({
                         priorities={priorities.map(p => ({ ...p, color: p.color ?? null }))}
                         onRefresh={() => fetchTasks()}
                         onStatusChange={handleStatusChange}
+                        onCreateTask={handleCreateTask}
                     />
                 )
             }
@@ -674,9 +701,10 @@ export function TaskList({
                 statuses={statuses}
                 priorities={priorities}
                 versions={[]} // Will be fetched dynamically inside the modal
+                initialData={createModalInitialData}
                 onSuccess={() => {
                     setShowCreateModal(false);
-                    router.refresh();
+                    fetchTasks(); // Client-side refresh ngay lập tức
                 }}
                 allowedTrackerIdsByProject={allowedTrackerIdsByProject}
             />

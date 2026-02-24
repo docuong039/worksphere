@@ -1,3 +1,8 @@
+/**
+ * @file validations.ts
+ * @description Định nghĩa các quy tắc kiểm tra dữ liệu đầu vào (Validation Schemas) bằng thư viện Zod.
+ * Đảm bảo dữ liệu gửi từ Frontend lên Backend luôn đúng định dạng và an toàn.
+ */
 import { z } from 'zod';
 
 // ============================================
@@ -50,7 +55,6 @@ export const createRoleSchema = z.object({
     description: z.string().optional(),
     isActive: z.boolean().optional(),
     assignable: z.boolean().optional(),
-    canAssignToOther: z.boolean().optional(),
 });
 
 export const updateRoleSchema = createRoleSchema.partial();
@@ -122,7 +126,6 @@ export const createTaskSchema = z.object({
     startDate: z.string().optional().nullable(),
     dueDate: z.string().optional().nullable(),
     isPrivate: z.boolean().optional(),
-    customFields: z.record(z.string(), z.any()).optional(),
 });
 
 export const updateTaskSchema = createTaskSchema.partial().extend({

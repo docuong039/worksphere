@@ -177,8 +177,10 @@ export function CreateTaskModal({
                 isPrivate: false,
                 parentId: null,
             });
-            router.refresh();
+            // Gọi onSuccess ngay để refresh task list client-side
             if (onSuccess) onSuccess();
+            // background sync từ server
+            router.refresh();
         } catch (err: any) {
             setError(err.message || 'Có lỗi xảy ra');
         } finally {

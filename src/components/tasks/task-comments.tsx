@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { toast } from 'sonner';
@@ -13,6 +13,7 @@ import {
     Trash2,
     Check,
 } from 'lucide-react';
+import { useConfirm } from '@/providers/confirm-provider';
 import { taskService } from '@/services/task.service';
 
 interface Comment {
@@ -28,8 +29,10 @@ interface TaskCommentsProps {
     currentUserId: string;
 }
 
-export function TaskComments({ taskId, comments, currentUserId }: TaskCommentsProps) {
+export function TaskComments({ taskId, comments: initialComments, currentUserId }: TaskCommentsProps) {
     const router = useRouter();
+    const { confirm } = useConfirm();
+    const [commentsList, setCommentsList] = useState<Comment[]>(initialComments);
     const [newComment, setNewComment] = useState('');
     const [addingComment, setAddingComment] = useState(false);
 
@@ -40,14 +43,39 @@ export function TaskComments({ taskId, comments, currentUserId }: TaskCommentsPr
     const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
     const [openMenuCommentId, setOpenMenuCommentId] = useState<string | null>(null);
 
+    // Sync comments with props when server data changes (e.g. after refresh)
+    useEffect(() => {
+        setCommentsList(initialComments);
+    }, [initialComments]);
+
+
+
     const handleAddComment = async () => {
         if (!newComment.trim()) return;
         setAddingComment(true);
+
+        // Optimistic: hiện comment ngay với temp ID
+        const tempId = `temp-${Date.now()}`;
+        const optimisticComment: Comment = {
+            id: tempId,
+            content: newComment,
+            createdAt: new Date(),
+            user: { id: currentUserId, name: 'Bạn', avatar: null },
+        };
+        setCommentsList((prev) => [...prev, optimisticComment]);
+        const commentText = newComment;
+        setNewComment('');
+
         try {
-            await taskService.addComment(taskId, newComment);
-            setNewComment('');
+            await taskService.addComment(taskId, commentText);
+            // Background sync để lấy real comment data (có id thật từ server)
             router.refresh();
+            // Xóa temp comment sau khi router.refresh cập nhật data mới
+            // (router.refresh sẵ re-render component với data mới từ server)
         } catch (err) {
+            // Rollback: xóa temp comment
+            setCommentsList((prev) => prev.filter((c) => c.id !== tempId));
+            setNewComment(commentText);
             console.error(err);
             toast.error('Không thể gửi bình luận');
         }
@@ -63,13 +91,25 @@ export function TaskComments({ taskId, comments, currentUserId }: TaskCommentsPr
     const handleSaveEditComment = async () => {
         if (!editingCommentId || !editingCommentContent.trim()) return;
         setSavingComment(true);
+
+        // Optimistic: cập nhật nội dung ngay
+        const previousComments = commentsList;
+        setCommentsList((prev) =>
+            prev.map((c) =>
+                c.id === editingCommentId ? { ...c, content: editingCommentContent } : c
+            )
+        );
+        const editId = editingCommentId;
+        setEditingCommentId(null);
+        setEditingCommentContent('');
+
         try {
-            await taskService.updateComment(taskId, editingCommentId, editingCommentContent);
+            await taskService.updateComment(taskId, editId, editingCommentContent);
             toast.success('Đã cập nhật bình luận');
-            setEditingCommentId(null);
-            setEditingCommentContent('');
-            router.refresh();
+            router.refresh(); // Background sync
         } catch (err: any) {
+            // Rollback
+            setCommentsList(previousComments);
             toast.error(err.message || 'Có lỗi xảy ra');
         }
         setSavingComment(false);
@@ -81,18 +121,33 @@ export function TaskComments({ taskId, comments, currentUserId }: TaskCommentsPr
     };
 
     const handleDeleteComment = async (commentId: string) => {
-        if (!confirm('Bạn có chắc muốn xóa bình luận này?')) return;
-        setDeletingCommentId(commentId);
-        setOpenMenuCommentId(null);
-        try {
-            await taskService.deleteComment(taskId, commentId);
-            toast.success('Đã xóa bình luận');
-            router.refresh();
-        } catch (err: any) {
-            toast.error(err.message || 'Có lỗi xảy ra');
-        }
-        setDeletingCommentId(null);
+        confirm({
+            title: 'Xóa bình luận',
+            description: 'Bạn có chắc muốn xóa bình luận này? Thao tác này không thể hoàn tác.',
+            confirmText: 'Xóa ngay',
+            variant: 'danger',
+            onConfirm: async () => {
+                setDeletingCommentId(commentId);
+                setOpenMenuCommentId(null);
+
+                // Optimistic: xóa ngay
+                const previousComments = commentsList;
+                setCommentsList((prev) => prev.filter((c) => c.id !== commentId));
+
+                try {
+                    await taskService.deleteComment(taskId, commentId);
+                    toast.success('Đã xóa bình luận');
+                    router.refresh(); // Background sync
+                } catch (err: any) {
+                    // Rollback
+                    setCommentsList(previousComments);
+                    toast.error(err.message || 'Có lỗi xảy ra');
+                }
+                setDeletingCommentId(null);
+            }
+        });
     };
+
 
     return (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -100,14 +155,14 @@ export function TaskComments({ taskId, comments, currentUserId }: TaskCommentsPr
                 <div className="flex items-center gap-3">
                     <MessageSquare className="w-5 h-5 text-purple-600" />
                     <h4 className="font-bold text-gray-800 text-sm">Bình luận</h4>
-                    <span className="bg-purple-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">{comments.length}</span>
+                    <span className="bg-purple-600 text-white px-2 py-0.5 rounded-full text-xs font-bold">{commentsList.length}</span>
                 </div>
             </div>
 
             <div className="p-6">
                 {/* Comments List */}
                 <div className="space-y-4 max-h-[400px] overflow-y-auto mb-5 pr-2">
-                    {comments.map((c) => (
+                    {commentsList.map((c: Comment) => (
                         <div key={c.id} className={`flex gap-3 ${c.user.id === currentUserId ? 'flex-row-reverse' : ''}`}>
                             <div className="w-9 h-9 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-xs shrink-0 overflow-hidden font-bold text-white shadow-sm">
                                 {c.user.avatar ? (
@@ -188,7 +243,7 @@ export function TaskComments({ taskId, comments, currentUserId }: TaskCommentsPr
                             </div>
                         </div>
                     ))}
-                    {comments.length === 0 && (
+                    {commentsList.length === 0 && (
                         <div className="text-center py-10">
                             <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                             <p className="text-sm text-gray-400 font-medium">Chưa có bình luận nào</p>
