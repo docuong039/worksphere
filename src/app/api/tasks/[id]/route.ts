@@ -170,6 +170,7 @@ export const PUT = withAuth(async (req, user, ctx) => {
     // Authorization Policy check
     const userPermissions = await getUserPermissions(user.id, currentTask.projectId);
     const canEdit = TaskPolicy.canUpdateTask(user, currentTask, userPermissions);
+    const canFullEdit = TaskPolicy.canFullyEditTask(user, currentTask, userPermissions);
 
     if (!canEdit) {
         return errorResponse('Không có quyền chỉnh sửa công việc này', 403);
@@ -177,6 +178,23 @@ export const PUT = withAuth(async (req, user, ctx) => {
 
     const body = await req.json();
     const validatedData = updateTaskSchema.parse(body);
+
+    // Nếu chỉ có quyền edit_assigned (không phải toàn quyền), chỉ cho phép cập nhật statusId và doneRatio
+    if (!canFullEdit) {
+        const restrictedFields = ['title', 'description', 'trackerId', 'priorityId',
+            'assigneeId', 'versionId', 'estimatedHours', 'startDate', 'dueDate',
+            'parentId', 'isPrivate'];
+        const hasRestrictedField = restrictedFields.some(
+            f => validatedData[f as keyof typeof validatedData] !== undefined
+        );
+        if (hasRestrictedField) {
+            return errorResponse(
+                'Bạn chỉ được cập nhật trạng thái và % hoàn thành của công việc được giao',
+                403
+            );
+        }
+    }
+
 
 
     // Check status transition if status is being changed

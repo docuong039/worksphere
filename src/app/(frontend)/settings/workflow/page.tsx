@@ -18,9 +18,9 @@ export default async function WorkflowPage() {
         <div>
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-900">Workflow</h1>
+                    <h1 className="text-2xl font-semibold text-gray-900">Quy trình làm việc</h1>
                     <p className="text-gray-500 mt-1">
-                        Cấu hình các chuyển đổi status được phép theo Tracker và Role
+                        Cấu hình các chuyển đổi trạng thái được phép theo loại công việc và vai trò
                     </p>
                 </div>
             </div>

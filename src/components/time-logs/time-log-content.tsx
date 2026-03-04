@@ -36,6 +36,8 @@ interface TimeLog {
     activity: { id: string; name: string };
     task: { id: string; number: number; title: string } | null;
     project: { id: string; name: string; identifier: string };
+    canEdit?: boolean;
+    canDelete?: boolean;
 }
 
 interface Project {
@@ -54,19 +56,19 @@ interface UserOption {
     name: string;
 }
 
-interface SpentTimeContentProps {
+interface TimeLogContentProps {
     initialProjectId?: string;
     initialTaskId?: string;
     hideHeader?: boolean;
     titleSize?: 'sm' | 'md' | 'lg';
 }
 
-export function SpentTimeContent({
+export function TimeLogContent({
     initialProjectId = '',
     initialTaskId = '',
     hideHeader = false,
     titleSize = 'lg',
-}: SpentTimeContentProps) {
+}: TimeLogContentProps) {
     const { confirm } = useConfirm();
     const [loading, setLoading] = useState(true);
     const [timeLogs, setTimeLogs] = useState<TimeLog[]>([]);
@@ -94,12 +96,15 @@ export function SpentTimeContent({
     // Action menu
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
+    // Permission
+    const [canViewAll, setCanViewAll] = useState(false);
+    const [canLogTime, setCanLogTime] = useState(false);
+
     const fetchFilters = async () => {
         try {
-            const [projectsRes, activitiesRes, usersRes] = await Promise.all([
+            const [projectsRes, activitiesRes] = await Promise.all([
                 fetch('/api/projects?limit=100'),
                 fetch('/api/time-entry-activities'),
-                fetch('/api/users?limit=100'),
             ]);
 
             if (projectsRes.ok) {
@@ -109,10 +114,6 @@ export function SpentTimeContent({
             if (activitiesRes.ok) {
                 const data = await activitiesRes.json();
                 setActivities(data.data || []);
-            }
-            if (usersRes.ok) {
-                const data = await usersRes.json();
-                setUsers(data.data?.users || data.data || []);
             }
         } catch (error) {
             console.error('Error fetching filters:', error);
@@ -132,12 +133,17 @@ export function SpentTimeContent({
             params.append('page', page.toString());
             params.append('limit', '25');
 
-            const res = await fetch(`/api/spent-time?${params.toString()}`);
+            const res = await fetch(`/api/time-logs?${params.toString()}`);
             if (res.ok) {
                 const data = await res.json();
                 setTimeLogs(data.data.timeLogs || []);
                 setTotalPages(data.data.pagination?.totalPages || 1);
                 setTotalHours(data.data.totalHours || 0);
+                setCanViewAll(data.data.canViewAll ?? false);
+                setCanLogTime(data.data.canLogTime ?? false);
+                if (data.data.users) {
+                    setUsers(data.data.users);
+                }
             }
         } catch (error) {
             console.error('Error fetching time logs:', error);
@@ -169,7 +175,7 @@ export function SpentTimeContent({
                 toast.success('Đã xóa bản ghi thời gian');
 
                 try {
-                    const res = await fetch(`/api/spent-time/${logId}`, { method: 'DELETE' });
+                    const res = await fetch(`/api/time-logs/${logId}`, { method: 'DELETE' });
                     if (!res.ok) {
                         const data = await res.json();
                         toast.error(data.error || 'Có lỗi xảy ra');
@@ -203,7 +209,7 @@ export function SpentTimeContent({
         if (toDate) params.append('to', toDate);
         params.append('format', 'csv');
 
-        window.open(`/api/spent-time/export?${params.toString()}`, '_blank');
+        window.open(`/api/time-logs/export?${params.toString()}`, '_blank');
     };
 
     // Group time logs by date
@@ -235,13 +241,15 @@ export function SpentTimeContent({
                             <Download className="w-4 h-4" />
                             Xuất CSV
                         </button>
-                        <button
-                            onClick={() => setShowLogTimeModal(true)}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Ghi thời gian
-                        </button>
+                        {canLogTime && (
+                            <button
+                                onClick={() => setShowLogTimeModal(true)}
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Ghi thời gian
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
@@ -294,25 +302,27 @@ export function SpentTimeContent({
                         </div>
                     )}
 
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-gray-500 ml-1">Người thực hiện</label>
-                        <div className="relative">
-                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <select
-                                value={userId}
-                                onChange={(e) => {
-                                    setUserId(e.target.value);
-                                    setPage(1);
-                                }}
-                                className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-transparent rounded-xl text-sm focus:bg-white focus:border-blue-500 outline-none transition-all cursor-pointer appearance-none"
-                            >
-                                <option value="">Tất cả thành viên</option>
-                                {users.map((u) => (
-                                    <option key={u.id} value={u.id}>{u.name}</option>
-                                ))}
-                            </select>
+                    {canViewAll && (
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-semibold text-gray-500 ml-1">Người thực hiện</label>
+                            <div className="relative">
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <select
+                                    value={userId}
+                                    onChange={(e) => {
+                                        setUserId(e.target.value);
+                                        setPage(1);
+                                    }}
+                                    className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-transparent rounded-xl text-sm focus:bg-white focus:border-blue-500 outline-none transition-all cursor-pointer appearance-none"
+                                >
+                                    <option value="">Tất cả thành viên</option>
+                                    {users.map((u) => (
+                                        <option key={u.id} value={u.id}>{u.name}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="space-y-1.5">
                         <label className="text-xs font-semibold text-gray-500 ml-1">Hoạt động</label>
@@ -451,14 +461,20 @@ export function SpentTimeContent({
 
                                             <div className="text-right shrink-0">
                                                 <div className="text-lg font-black text-blue-600">{log.hours.toFixed(1)}h</div>
-                                                <div className="flex items-center justify-end gap-1.5 mt-2 opacity-0 group-hover:opacity-100 transition-all">
-                                                    <button onClick={() => setEditingLog(log)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
-                                                        <Pencil className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={() => handleDelete(log.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
+                                                {(log.canEdit || log.canDelete) && (
+                                                    <div className="flex items-center justify-end gap-1.5 mt-2 opacity-0 group-hover:opacity-100 transition-all">
+                                                        {log.canEdit && (
+                                                            <button onClick={() => setEditingLog(log)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+                                                                <Pencil className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                        {log.canDelete && (
+                                                            <button onClick={() => handleDelete(log.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -499,7 +515,7 @@ export function SpentTimeContent({
                 <LogTimeModal
                     isOpen={showLogTimeModal}
                     onClose={() => setShowLogTimeModal(false)}
-                    projectId={projectId || projects[0]?.id || ''}
+                    projectId={projectId || undefined}
                     taskId={taskId || undefined}
                     onSuccess={fetchTimeLogs}
                 />
@@ -530,7 +546,7 @@ function EditTimeLogModal({ log, activities, onClose, onSuccess }: { log: TimeLo
         e.preventDefault();
         setLoading(true);
         try {
-            const res = await fetch(`/api/spent-time/${log.id}`, {
+            const res = await fetch(`/api/time-logs/${log.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

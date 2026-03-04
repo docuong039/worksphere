@@ -10,6 +10,7 @@ interface Option {
     id: string;
     name: string;
     isClosed?: boolean;
+    isDefault?: boolean;
 }
 
 interface Project {
@@ -66,8 +67,8 @@ export function CreateTaskModal({
         description: '',
         projectId: initialData?.projectId || projects[0]?.id || '',
         trackerId: initialData?.trackerId || trackers[0]?.id || '',
-        statusId: initialData?.statusId || statuses.find((s) => !s.isClosed)?.id || statuses[0]?.id || '',
-        priorityId: initialData?.priorityId || priorities.find((p) => p.name === 'Normal')?.id || priorities[0]?.id || '',
+        statusId: initialData?.statusId || statuses.find((s) => s.isDefault)?.id || statuses.find((s) => !s.isClosed)?.id || statuses[0]?.id || '',
+        priorityId: initialData?.priorityId || priorities.find((p) => p.isDefault)?.id || priorities.find((p) => p.name === 'Bình thường' || p.name === 'Normal')?.id || priorities[0]?.id || '',
         assigneeId: '',
         versionId: initialData?.versionId || '',
         estimatedHours: '',
@@ -166,8 +167,8 @@ export function CreateTaskModal({
                 description: '',
                 projectId: projects[0]?.id || '',
                 trackerId: trackers[0]?.id || '',
-                statusId: statuses.find((s) => !s.isClosed)?.id || statuses[0]?.id || '',
-                priorityId: priorities.find((p) => p.name === 'Normal')?.id || priorities[0]?.id || '',
+                statusId: statuses.find((s) => s.isDefault)?.id || statuses.find((s) => !s.isClosed)?.id || statuses[0]?.id || '',
+                priorityId: priorities.find((p) => p.isDefault)?.id || priorities.find((p) => p.name === 'Bình thường' || p.name === 'Normal')?.id || priorities[0]?.id || '',
                 assigneeId: '',
                 versionId: '',
                 estimatedHours: '',

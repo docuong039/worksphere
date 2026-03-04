@@ -69,6 +69,21 @@ export default async function ProjectTasksPage({ params }: { params: Promise<{ i
         trackers = projectData.trackers.map(pt => pt.tracker).sort((a, b) => a.position - b.position);
     }
 
+    const allowedTrackerIdsByProject: Record<string, string[]> = {};
+    if (session.user.isAdministrator) {
+        allowedTrackerIdsByProject[id] = projectData && projectData.trackers.length > 0
+            ? projectData.trackers.map(pt => pt.trackerId)
+            : allTrackers.map(t => t.id);
+    } else if (member) {
+        const roleTrackers = await prisma.roleTracker.findMany({ where: { roleId: member.roleId } });
+        const roleAllowedIds = roleTrackers.map(rt => rt.trackerId);
+        const projectEnabledIds = projectData?.trackers.map(pt => pt.trackerId) || [];
+        const finalProjectIds = projectEnabledIds.length === 0 ? allTrackers.map(t => t.id) : projectEnabledIds;
+        allowedTrackerIdsByProject[id] = finalProjectIds.filter((tid) => roleAllowedIds.includes(tid));
+    } else {
+        allowedTrackerIdsByProject[id] = [];
+    }
+
     const projects = [{ id: project.id, name: project.name, identifier: project.identifier }];
 
     const where: Prisma.TaskWhereInput = {
@@ -102,6 +117,7 @@ export default async function ProjectTasksPage({ params }: { params: Promise<{ i
             users={users}
             currentUserId={session.user.id}
             projectId={id}
+            allowedTrackerIdsByProject={allowedTrackerIdsByProject}
         />
     );
 }

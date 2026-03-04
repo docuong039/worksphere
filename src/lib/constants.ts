@@ -45,7 +45,6 @@ export const PERMISSIONS = {
         MANAGE_MEMBERS: 'projects.manage_members',
         MANAGE_VERSIONS: 'projects.manage_versions',
         MANAGE_TRACKERS: 'projects.manage_trackers',
-        CREATE_SUBPROJECTS: 'projects.create_subprojects',
     },
     // Queries
     QUERIES: {

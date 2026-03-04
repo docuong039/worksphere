@@ -100,11 +100,3 @@ export function canManageTrackers(user: User, permissions: string[]): boolean {
     return permissions.includes(PERMISSIONS.PROJECTS.MANAGE_TRACKERS);
 }
 
-/**
- * Kiểm tra quyền TẠO DỰ ÁN CON
- */
-export function canCreateSubprojects(user: User, permissions: string[]): boolean {
-    if (user.isAdministrator) return true;
-    return permissions.includes(PERMISSIONS.PROJECTS.CREATE_SUBPROJECTS);
-}
-

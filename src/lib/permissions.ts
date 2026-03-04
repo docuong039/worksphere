@@ -127,7 +127,7 @@ export async function canTransitionStatus(
  */
 export async function getAccessibleProjectIds(
     userId: string,
-    permissionKey: string
+    permissionKey: string | string[]
 ): Promise<string[]> {
     const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -150,7 +150,7 @@ export async function getAccessibleProjectIds(
             permissions: {
                 some: {
                     permission: {
-                        key: permissionKey
+                        key: Array.isArray(permissionKey) ? { in: permissionKey } : permissionKey
                     }
                 }
             },

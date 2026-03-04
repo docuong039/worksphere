@@ -20,7 +20,8 @@ export function Header({ user }: HeaderProps) {
     const menuRef = useRef<HTMLDivElement>(null);
 
     const handleLogout = async () => {
-        await signOut({ callbackUrl: '/login' });
+        await signOut({ redirect: false });
+        window.location.href = '/login';
     };
 
     // Close menu when clicking outside

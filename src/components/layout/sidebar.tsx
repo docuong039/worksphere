@@ -27,19 +27,19 @@ interface SidebarProps {
 }
 
 const mainMenu = [
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/dashboard', label: 'Trang chủ', icon: LayoutDashboard },
     { href: '/projects', label: 'Dự án', icon: FolderKanban },
     { href: '/tasks', label: 'Công việc', icon: ListTodo },
-    { href: '/spent-time', label: 'Thời gian', icon: Timer },
+    { href: '/time-logs', label: 'Thời gian', icon: Timer },
     { href: '/activity', label: 'Hoạt động', icon: Activity },
     { href: '/reports', label: 'Báo cáo', icon: BarChart3 },
 ];
 
 const adminMenu = [
-    { href: '/settings/trackers', label: 'Trackers', icon: Tag },
-    { href: '/settings/statuses', label: 'Statuses', icon: Activity },
-    { href: '/settings/priorities', label: 'Priorities', icon: GitBranch },
-    { href: '/settings/workflow', label: 'Workflow', icon: GitBranch },
+    { href: '/settings/trackers', label: 'Loại công việc', icon: Tag },
+    { href: '/settings/statuses', label: 'Trạng thái', icon: Activity },
+    { href: '/settings/priorities', label: 'Độ ưu tiên', icon: GitBranch },
+    { href: '/settings/workflow', label: 'Quy trình', icon: GitBranch },
     { href: '/settings/time-activities', label: 'Hoạt động thời gian', icon: Timer },
     { href: '/settings/roles', label: 'Vai trò', icon: Shield },
     { href: '/settings/users', label: 'Người dùng', icon: Users },

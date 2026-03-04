@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { BackButton } from '@/components/ui/back-button';
 import { TaskDetail } from '@/components/tasks/task-detail';
 import { TaskWithRelations } from '@/types';
+import { getUserPermissions } from '@/lib/permissions';
+import * as TaskPolicy from '@/modules/task/task.policy';
 
 
 interface Props {
@@ -166,8 +168,11 @@ export default async function TaskDetailPage({ params }: Props) {
     }
 
 
-    const canEdit = session.user.isAdministrator || task.creatorId === session.user.id || task.assigneeId === session.user.id;
-    const canManageWatchers = session.user.isAdministrator || isMember;
+    // RBAC Authorization Check
+    const userPermissions = await getUserPermissions(session.user.id, task.projectId);
+    const canEdit = TaskPolicy.canUpdateTask(session.user, task, userPermissions);
+    const canFullEdit = TaskPolicy.canFullyEditTask(session.user, task, userPermissions);
+    const canManageWatchers = TaskPolicy.canManageWatchers(session.user, task, userPermissions);
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -205,9 +210,9 @@ export default async function TaskDetailPage({ params }: Props) {
                 versions={versions}
                 allowedStatuses={allowedStatuses as unknown as any[]}
                 canEdit={canEdit}
+                canFullEdit={canFullEdit}
                 currentUserId={session.user.id}
                 canManageWatchers={canManageWatchers}
-
             />
         </div>
     );

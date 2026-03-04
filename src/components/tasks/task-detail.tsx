@@ -36,6 +36,7 @@ interface TaskDetailProps {
     versions?: Version[];
     allowedStatuses: Status[];
     canEdit: boolean;
+    canFullEdit: boolean;
     canManageWatchers?: boolean;
     currentUserId: string;
 }
@@ -48,12 +49,14 @@ export function TaskDetail({
     allowedStatuses,
     versions = [],
     canEdit,
+    canFullEdit,
     canManageWatchers = false,
     currentUserId,
 }: TaskDetailProps) {
     const router = useRouter();
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [currentStatusId, setCurrentStatusId] = useState(task.status.id);
 
     const [editData, setEditData] = useState({
         title: task.title,
@@ -117,8 +120,6 @@ export function TaskDetail({
 
     const handleSave = async () => {
         setLoading(true);
-        setIsEditing(false); // Optimistic: đóng edit mode ngay
-        toast.success('Đã cập nhật công việc');
         try {
             await taskService.update(task.id, {
                 title: editData.title,
@@ -133,13 +134,15 @@ export function TaskDetail({
                 startDate: editData.startDate || null,
                 dueDate: editData.dueDate || null,
             });
+            setIsEditing(false);
+            toast.success('Đã cập nhật công việc');
             router.refresh(); // Background sync để lấy data đầy đủ từ server
         } catch (err: any) {
-            // Rollback: quay lại edit mode
             setIsEditing(true);
             toast.error(err.message || 'Có lỗi xảy ra');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const isDateDisabled = false;
@@ -169,6 +172,7 @@ export function TaskDetail({
                         )}
                     </div>
                 </div>
+                {/* Action buttons - chỉ hiển thị khi có quyền (dù đầy đủ hay giới hạn) */}
                 {canEdit && !isEditing && (
                     <div className="flex items-center gap-2">
                         <button
@@ -177,9 +181,34 @@ export function TaskDetail({
                         >
                             <Clock className="w-3.5 h-3.5 text-blue-600" /> Ghi thời gian
                         </button>
-                        <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors">
-                            <Pencil className="w-3.5 h-3.5" /> Chỉnh sửa
-                        </button>
+                        {canFullEdit ? (
+                            <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors">
+                                <Pencil className="w-3.5 h-3.5" /> Chỉnh sửa
+                            </button>
+                        ) : (
+                            // Chỉ có quyền edit_assigned: cho cập nhật trạng thái nhanh
+                            <select
+                                value={currentStatusId}
+                                onChange={async (e) => {
+                                    const newStatusId = e.target.value;
+                                    const prevStatusId = currentStatusId;
+                                    setCurrentStatusId(newStatusId); // optimistic update
+                                    try {
+                                        await taskService.update(task.id, { statusId: newStatusId });
+                                        toast.success('Đã cập nhật trạng thái');
+                                        router.refresh();
+                                    } catch (err: any) {
+                                        setCurrentStatusId(prevStatusId); // rollback đúng cách
+                                        toast.error(err.message || 'Có lỗi xảy ra');
+                                    }
+                                }}
+                                className="px-3 py-2 border border-gray-200 text-gray-700 text-xs font-semibold rounded-lg bg-white shadow-sm cursor-pointer"
+                            >
+                                {allowedStatuses.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                        )}
                     </div>
                 )}
             </div>

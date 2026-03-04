@@ -15,8 +15,8 @@ export default async function StatusesPage() {
         <div>
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-900">Statuses</h1>
-                    <p className="text-gray-500 mt-1">Quản lý trạng thái công việc (New, In Progress, Closed...)</p>
+                    <h1 className="text-2xl font-semibold text-gray-900">Trạng thái</h1>
+                    <p className="text-gray-500 mt-1">Quản lý trạng thái công việc (Mới, Đang xử lý, Đã đóng...)</p>
                 </div>
             </div>
 

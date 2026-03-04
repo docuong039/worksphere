@@ -46,20 +46,31 @@ export function canViewTask(user: User, task: Task, permissions: string[]): bool
 }
 
 /**
- * Kiểm tra quyền CẬP NHẬT công việc
+ * Kiểm tra quyền CẬP NHẬT công việc (bao gồm cả cập nhật trạng thái giới hạn)
+ * → Dùng để xác định có hiện nút "Chỉnh sửa" hay không
  */
 export function canUpdateTask(user: User, task: Task, permissions: string[]): boolean {
     if (user.isAdministrator) return true;
-
-    // RULE 1: Có quyền sửa mọi công việc trong dự án (EDIT_ANY)
     if (permissions.includes(PERMISSIONS.TASKS.EDIT_ANY)) return true;
+    if (task.creatorId === user.id && permissions.includes(PERMISSIONS.TASKS.EDIT_OWN)) return true;
 
-    // RULE 2: Là người thực hiện và có quyền sửa việc được giao (EDIT_ASSIGNED)
+    // Người được giao: chỉ được cập nhật trạng thái + % hoàn thành (không phải toàn quyền)
     if (task.assigneeId === user.id && permissions.includes(PERMISSIONS.TASKS.EDIT_ASSIGNED)) {
         return true;
     }
 
-    // RULE 3: Là người tạo và có quyền sửa việc mình tạo (EDIT_OWN)
+    return false;
+}
+
+/**
+ * Kiểm tra quyền CHỈNH SỬA ĐẦY ĐỦ (tất cả các trường: tiêu đề, deadline, mô tả, ưu tiên...)
+ * → Dùng để quyết định có cho phép sửa toàn bộ form hay chỉ cập nhật trạng thái
+ */
+export function canFullyEditTask(user: User, task: Task, permissions: string[]): boolean {
+    if (user.isAdministrator) return true;
+    if (permissions.includes(PERMISSIONS.TASKS.EDIT_ANY)) return true;
+
+    // Chỉ người TẠO task mới được sửa đầy đủ (tiêu đề, deadline, mô tả...)
     if (task.creatorId === user.id && permissions.includes(PERMISSIONS.TASKS.EDIT_OWN)) {
         return true;
     }

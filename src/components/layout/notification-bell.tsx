@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { Bell, Check, CheckCheck, AlertCircle, MessageSquare, User, Calendar } from 'lucide-react';
+import { Bell, CheckCheck, AlertCircle, MessageSquare, User, Calendar, MailOpen, Mail } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api-fetch';
 
@@ -159,6 +159,29 @@ export function NotificationBell() {
         }
     };
 
+    // ── Toggle read/unread ───────────────────────────────────────
+    const toggleRead = async (notificationId: string, currentIsRead: boolean) => {
+        const newIsRead = !currentIsRead;
+
+        // Optimistic update
+        setNotifications((prev) =>
+            prev.map((n) =>
+                n.id === notificationId ? { ...n, isRead: newIsRead } : n
+            )
+        );
+        setUnreadCount((c) => newIsRead ? Math.max(0, c - 1) : c + 1);
+
+        try {
+            await apiFetch('/api/notifications', {
+                method: 'PUT',
+                body: JSON.stringify({ notificationIds: [notificationId], isRead: newIsRead }),
+            });
+        } catch (error) {
+            console.error('[NotificationBell] toggle read error:', error);
+            await fetchNotifications();
+        }
+    };
+
     // ── Mark all as read ────────────────────────────────────────
     const markAllAsRead = async () => {
         // Optimistic update
@@ -259,15 +282,17 @@ export function NotificationBell() {
                     {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
                         <h3 className="font-semibold text-gray-900">Thông báo</h3>
-                        {unreadCount > 0 && (
-                            <button
-                                onClick={markAllAsRead}
-                                className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                            >
-                                <CheckCheck className="w-4 h-4" />
-                                Đánh dấu tất cả
-                            </button>
-                        )}
+                        <button
+                            onClick={markAllAsRead}
+                            disabled={unreadCount === 0}
+                            className={`text-sm flex items-center gap-1 transition-colors ${unreadCount > 0
+                                ? 'text-blue-600 hover:text-blue-700 cursor-pointer'
+                                : 'text-gray-300 cursor-not-allowed'
+                                }`}
+                        >
+                            <CheckCheck className="w-4 h-4" />
+                            Đánh dấu tất cả đã đọc
+                        </button>
                     </div>
 
                     {/* Notifications List */}
@@ -314,15 +339,20 @@ export function NotificationBell() {
                                             </p>
                                         </div>
 
-                                        {!notification.isRead && (
-                                            <button
-                                                onClick={() => markAsRead([notification.id])}
-                                                className="flex-shrink-0 p-1 text-gray-400 hover:text-green-600 transition-colors"
-                                                title="Đánh dấu đã đọc"
-                                            >
-                                                <Check className="w-4 h-4" />
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={() => toggleRead(notification.id, notification.isRead)}
+                                            className={`flex-shrink-0 p-1 rounded transition-colors ${notification.isRead
+                                                ? 'text-gray-400 hover:text-blue-600'
+                                                : 'text-gray-400 hover:text-green-600'
+                                                }`}
+                                            title={notification.isRead ? 'Đánh dấu chưa đọc' : 'Đánh dấu đã đọc'}
+                                        >
+                                            {notification.isRead ? (
+                                                <Mail className="w-4 h-4" />
+                                            ) : (
+                                                <MailOpen className="w-4 h-4" />
+                                            )}
+                                        </button>
                                     </div>
                                 );
                             })
@@ -335,17 +365,15 @@ export function NotificationBell() {
                     </div>
 
                     {/* Footer */}
-                    {notifications.length > 0 && (
-                        <div className="px-4 py-2 border-t border-gray-200 text-center">
-                            <Link
-                                href="/notifications"
-                                className="text-sm text-blue-600 hover:text-blue-700"
-                                onClick={() => setIsOpen(false)}
-                            >
-                                Xem tất cả thông báo
-                            </Link>
-                        </div>
-                    )}
+                    <div className="px-4 py-2.5 border-t border-gray-200 text-center">
+                        <Link
+                            href="/notifications"
+                            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                            onClick={() => setIsOpen(false)}
+                        >
+                            Xem tất cả thông báo
+                        </Link>
+                    </div>
                 </div>
             )}
         </div>

@@ -57,21 +57,23 @@ export const POST = withAuth(async (req, user, ctx) => {
         return errorResponse('Hệ thống chưa cấu hình trạng thái mặc định', 500);
     }
 
-    // Copy the task
+    // Copy the task with overrides if provided
     const copiedTask = await prisma.task.create({
         data: {
-            title: `${originalTask.title} (Copy)`,
-            description: originalTask.description,
-            trackerId: originalTask.trackerId,
-            statusId: defaultStatus.id,
-            priorityId: originalTask.priorityId,
+            title: body.title || `${originalTask.title} (Copy)`,
+            description: body.description !== undefined ? body.description : originalTask.description,
+            trackerId: body.trackerId || originalTask.trackerId,
+            statusId: body.statusId || defaultStatus.id,
+            priorityId: body.priorityId || originalTask.priorityId,
+            assigneeId: body.assigneeId || null,
+            versionId: body.versionId || null,
             projectId,
             creatorId: user.id,
-            estimatedHours: originalTask.estimatedHours,
-            doneRatio: 0,
-            startDate: originalTask.startDate,
-            dueDate: originalTask.dueDate,
-            isPrivate: originalTask.isPrivate,
+            estimatedHours: body.estimatedHours !== undefined ? body.estimatedHours : originalTask.estimatedHours,
+            doneRatio: body.doneRatio !== undefined ? body.doneRatio : 0,
+            startDate: body.startDate !== undefined ? body.startDate : originalTask.startDate,
+            dueDate: body.dueDate !== undefined ? body.dueDate : originalTask.dueDate,
+            isPrivate: body.isPrivate !== undefined ? body.isPrivate : originalTask.isPrivate,
         },
     });
 

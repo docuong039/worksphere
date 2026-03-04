@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, Check, CheckCheck, AlertCircle, MessageSquare, User, Calendar, ChevronLeft, Loader2 } from 'lucide-react';
+import { Bell, CheckCheck, AlertCircle, MessageSquare, User, Calendar, ChevronLeft, Loader2, MailOpen, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api-fetch';
 
@@ -56,30 +56,73 @@ export default function NotificationsPage() {
         fetchNotifications();
     }, [fetchNotifications]);
 
-    // Mark as read
+    // Toggle read/unread for specific notifications
+    const toggleRead = async (notificationId: string, currentIsRead: boolean) => {
+        const newIsRead = !currentIsRead;
+
+        // Optimistic update
+        setAllNotifications((prev) =>
+            prev.map((n) =>
+                n.id === notificationId ? { ...n, isRead: newIsRead } : n
+            )
+        );
+
+        try {
+            await apiFetch('/api/notifications', {
+                method: 'PUT',
+                body: JSON.stringify({ notificationIds: [notificationId], isRead: newIsRead }),
+            });
+            toast.success(newIsRead ? 'Đã đánh dấu đã đọc' : 'Đã đánh dấu chưa đọc');
+        } catch (error) {
+            console.error(error);
+            toast.error('Không thể cập nhật thông báo');
+            // Rollback
+            setAllNotifications((prev) =>
+                prev.map((n) =>
+                    n.id === notificationId ? { ...n, isRead: currentIsRead } : n
+                )
+            );
+        }
+    };
+
+    // Mark as read (used when clicking notification link)
     const markAsRead = async (notificationIds: string[]) => {
+        // Optimistic update
+        setAllNotifications((prev) =>
+            prev.map((n) =>
+                notificationIds.includes(n.id) ? { ...n, isRead: true } : n
+            )
+        );
+
         try {
             await apiFetch('/api/notifications', {
                 method: 'PUT',
                 body: JSON.stringify({ notificationIds }),
             });
-            await fetchNotifications();
         } catch (error) {
             console.error(error);
+            await fetchNotifications();
         }
     };
 
     // Mark all as read
     const markAllAsRead = async () => {
+        const previousNotifications = [...allNotifications];
+
+        // Optimistic update
+        setAllNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+
         try {
             await apiFetch('/api/notifications', {
                 method: 'PUT',
                 body: JSON.stringify({ markAll: true }),
             });
             toast.success('Đã đánh dấu tất cả là đã đọc');
-            await fetchNotifications();
         } catch (error) {
             console.error(error);
+            toast.error('Không thể cập nhật thông báo');
+            // Rollback
+            setAllNotifications(previousNotifications);
         }
     };
 
@@ -256,7 +299,6 @@ export default function NotificationsPage() {
                                                 }}
                                                 className="text-sm text-gray-900 hover:text-blue-600 font-medium block"
                                             >
-
                                                 {notification.message}
                                             </Link>
                                         ) : (
@@ -267,15 +309,20 @@ export default function NotificationsPage() {
                                         </p>
                                     </div>
 
-                                    {!notification.isRead && (
-                                        <button
-                                            onClick={() => markAsRead([notification.id])}
-                                            className="flex-shrink-0 p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                            title="Đánh dấu đã đọc"
-                                        >
-                                            <Check className="w-4 h-4" />
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={() => toggleRead(notification.id, notification.isRead)}
+                                        className={`flex-shrink-0 p-2 rounded-lg transition-colors ${notification.isRead
+                                            ? 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                                            : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
+                                            }`}
+                                        title={notification.isRead ? 'Đánh dấu chưa đọc' : 'Đánh dấu đã đọc'}
+                                    >
+                                        {notification.isRead ? (
+                                            <Mail className="w-4 h-4" />
+                                        ) : (
+                                            <MailOpen className="w-4 h-4" />
+                                        )}
+                                    </button>
                                 </div>
                             );
                         })}

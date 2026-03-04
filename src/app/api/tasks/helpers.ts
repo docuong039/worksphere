@@ -14,25 +14,57 @@ interface TaskFilterParams {
     userId: string;
     isAdmin: boolean;
     searchParams: URLSearchParams;
+    projectPermissionsMap?: Record<string, string[]>;
 }
 
 /**
  * Build Prisma where clause from search params
  */
 export function buildTaskFilters(params: TaskFilterParams): Prisma.TaskWhereInput {
-    const { projectIds, userId, isAdmin, searchParams } = params;
+    const { projectIds, userId, isAdmin, searchParams, projectPermissionsMap } = params;
 
-    const where: Prisma.TaskWhereInput = {
-        projectId: { in: projectIds },
-    };
+    const where: Prisma.TaskWhereInput = {};
 
-    // Security: Filter private tasks - non-admins can only see their own private tasks
-    if (!isAdmin) {
-        where.OR = [
-            { isPrivate: false },
-            { isPrivate: true, creatorId: userId },
-            { isPrivate: true, assigneeId: userId },
-        ];
+    // Security: Filter private tasks and project task visibility
+    if (isAdmin) {
+        where.projectId = { in: projectIds };
+    } else {
+        const projectOrConditions: Prisma.TaskWhereInput[] = [];
+
+        for (const pid of projectIds) {
+            const perms = projectPermissionsMap?.[pid] || [];
+            if (perms.length === 0) continue;
+
+            const canViewAll = perms.includes('tasks.view_all') || perms.includes('tasks.view_project');
+            const canViewAssigned = perms.includes('tasks.view_assigned');
+
+            if (!canViewAll && !canViewAssigned && searchParams.get('my') !== 'true') continue;
+
+            if (canViewAll) {
+                projectOrConditions.push({
+                    projectId: pid,
+                    OR: [
+                        { isPrivate: false },
+                        { isPrivate: true, creatorId: userId },
+                        { isPrivate: true, assigneeId: userId },
+                    ]
+                });
+            } else if (canViewAssigned || searchParams.get('my') === 'true') {
+                projectOrConditions.push({
+                    projectId: pid,
+                    OR: [
+                        { assigneeId: userId },
+                        { creatorId: userId },
+                    ]
+                });
+            }
+        }
+
+        if (projectOrConditions.length === 0) {
+            return { id: 'no-access-forced-empty' };
+        } else {
+            where.OR = projectOrConditions;
+        }
     }
 
     // Standard Filters

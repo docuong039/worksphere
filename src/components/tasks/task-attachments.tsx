@@ -128,8 +128,7 @@ export function TaskAttachments({
                             <div className="min-w-0">
                                 <a
                                     href={att.path}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                    download={att.filename}
                                     className="text-sm font-medium text-gray-900 hover:text-blue-600 truncate block"
                                 >
                                     {att.filename}

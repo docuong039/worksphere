@@ -167,13 +167,13 @@ export function CopyTaskModal({
             });
 
             if (res.ok) {
-                const data = await res.json();
+                const responseData = await res.json();
                 toast.success('Đã sao chép công việc thành công');
                 onClose();
-                router.push(`/tasks/${data.id}`);
+                router.push(`/tasks/${responseData.data.id}`);
             } else {
-                const data = await res.json();
-                setError(data.error || 'Có lỗi xảy ra');
+                const responseData = await res.json();
+                setError(responseData.error || 'Có lỗi xảy ra');
             }
         } catch {
             setError('Lỗi kết nối máy chủ');

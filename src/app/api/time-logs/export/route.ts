@@ -16,7 +16,7 @@ export const GET = withAuth(async (req, user) => {
     const toDate = searchParams.get('to');
 
     // Authorization Policy check
-    const userPermissions = await getUserPermissions(user.id, projectId || '');
+    const userPermissions = await getUserPermissions(user.id, projectId || undefined);
 
     const canViewAll = userPermissions.includes(PERMISSIONS.TIMELOGS.VIEW_ALL) || user.isAdministrator;
     const canViewOwn = userPermissions.includes(PERMISSIONS.TIMELOGS.VIEW_OWN) || user.isAdministrator;
@@ -82,7 +82,7 @@ export const GET = withAuth(async (req, user) => {
     return new Response(finalCsv, {
         headers: {
             'Content-Type': 'text/csv; charset=utf-8',
-            'Content-Disposition': `attachment; filename="spent-time-${new Date().toISOString().split('T')[0]}.csv"`,
+            'Content-Disposition': `attachment; filename="time-logs-${new Date().toISOString().split('T')[0]}.csv"`,
         },
     });
 });

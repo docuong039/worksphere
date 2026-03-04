@@ -25,7 +25,11 @@ export const GET = withAuth(async (req, user) => {
     const { page, pageSize, sortBy, sortOrder } = parsePaginationParams(searchParams);
 
     // 2. Determine Scope (Project Visibility)
-    const allowedProjectIds = await getAccessibleProjectIds(userId, 'tasks.view_project');
+    const allowedProjectIds = await getAccessibleProjectIds(userId, [
+        PERMISSIONS.TASKS.VIEW_PROJECT,
+        PERMISSIONS.TASKS.VIEW_ALL,
+        PERMISSIONS.TASKS.VIEW_ASSIGNED
+    ]);
 
     // If user explicitly requested a project, verify access
     const requestedProjectId = searchParams.get('projectId');
@@ -43,12 +47,28 @@ export const GET = withAuth(async (req, user) => {
         return successResponse({ tasks: [], pagination: { page, pageSize, total: 0, totalPages: 0 } });
     }
 
+    // 2.5 Map permissions per project for strict task visibility control
+    const projectPermissionsMap: Record<string, string[]> = {};
+    if (!user.isAdministrator && effectiveProjectIds.length > 0) {
+        const memberships = await prisma.projectMember.findMany({
+            where: {
+                userId,
+                projectId: { in: effectiveProjectIds }
+            },
+            include: { role: { include: { permissions: { include: { permission: true } } } } }
+        });
+        for (const m of memberships) {
+            projectPermissionsMap[m.projectId] = m.role.permissions.map(rp => rp.permission.key);
+        }
+    }
+
     // 3. Build Filter Clause using helper
     const where = buildTaskFilters({
         projectIds: effectiveProjectIds,
         userId,
         isAdmin: user.isAdministrator,
         searchParams,
+        projectPermissionsMap,
     });
 
 
@@ -102,11 +122,17 @@ export const POST = withAuth(async (req, user) => {
 
     // 1.5. Validate Tracker (Project & Role restrictions)
     // Check if tracker is enabled for project
-    const projectTracker = await prisma.projectTracker.findUnique({
-        where: { projectId_trackerId: { projectId: validatedData.projectId, trackerId: validatedData.trackerId } }
+    const projectTrackerCount = await prisma.projectTracker.count({
+        where: { projectId: validatedData.projectId }
     });
-    if (!projectTracker) {
-        return errorResponse('Tracker này không được kích hoạt cho dự án hiện tại', 400);
+
+    if (projectTrackerCount > 0) {
+        const projectTracker = await prisma.projectTracker.findUnique({
+            where: { projectId_trackerId: { projectId: validatedData.projectId, trackerId: validatedData.trackerId } }
+        });
+        if (!projectTracker) {
+            return errorResponse('Tracker này không được kích hoạt cho dự án hiện tại', 400);
+        }
     }
 
     // Check if tracker is allowed for user's role

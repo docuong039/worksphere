@@ -78,7 +78,6 @@ async function main() {
         'projects.manage_members': 'Quản lý thành viên',
         'projects.manage_versions': 'Quản lý phiên bản',
         'projects.manage_trackers': 'Quản lý loại công việc',
-        'projects.create_subprojects': 'Tạo dự án con',
         // Queries
         'queries.manage_public': 'Quản lý bộ lọc công khai',
     };

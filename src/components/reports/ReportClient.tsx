@@ -14,6 +14,8 @@ import {
 import { reportService } from '@/services/report.service';
 import type { ReportSummary, ReportProject, ReportUser, ReportTime } from '@/types';
 import { ReportPolicy } from '@/modules/report/report.policy';
+import DistributionChart from '@/components/charts/DistributionChart';
+import TopPerformersChart from '@/components/charts/TopPerformersChart';
 
 interface ReportClientProps {
     user: {
@@ -274,30 +276,11 @@ export default function ReportClient({ user, permissions }: ReportClientProps) {
                                         <PieChart className="w-4 h-4 text-amber-600" />
                                         Cấu trúc loại công việc
                                     </h3>
-                                    <div className="space-y-4">
+                                    <div className="h-[300px] flex items-center justify-center">
                                         {(summaryData as any).trackerBreakdown?.length > 0 ? (
-                                            (summaryData as any).trackerBreakdown.map((item: any, idx: number) => {
-                                                const percentage = Math.round((item.count / summaryData.totalTasks) * 100);
-                                                const colors = ['bg-blue-500', 'bg-red-500', 'bg-amber-500', 'bg-indigo-500', 'bg-gray-500'];
-                                                const colorClass = colors[idx % colors.length];
-
-                                                return (
-                                                    <div key={item.name} className="space-y-1.5">
-                                                        <div className="flex justify-between text-xs font-bold">
-                                                            <span className="text-gray-600">{item.name}</span>
-                                                            <span className="text-gray-900">{item.count} Task ({percentage}%)</span>
-                                                        </div>
-                                                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                            <div
-                                                                className={`h-full ${colorClass} transition-all duration-500`}
-                                                                style={{ width: `${percentage}%` }}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })
+                                            <DistributionChart data={(summaryData as any).trackerBreakdown} />
                                         ) : (
-                                            <div className="h-full flex items-center justify-center text-gray-400 text-sm italic py-8">
+                                            <div className="text-gray-400 text-sm italic py-8">
                                                 Chưa có dữ liệu phân bổ
                                             </div>
                                         )}
@@ -370,52 +353,77 @@ export default function ReportClient({ user, permissions }: ReportClientProps) {
 
                     {/* User Report */}
                     {reportType === 'by-user' && (
-                        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-gray-50/50 border-b border-gray-200">
-                                        <tr>
-                                            <th className="px-6 py-4 text-left font-bold text-gray-500 uppercase tracking-wider">Người dùng</th>
-                                            <th className="px-6 py-4 text-center font-bold text-gray-500 uppercase tracking-wider">Tổng gán</th>
-                                            <th className="px-6 py-4 text-center font-bold text-gray-500 uppercase tracking-wider">Quá hạn</th>
-                                            <th className="px-6 py-4 text-center font-bold text-gray-500 uppercase tracking-wider">Đang mở</th>
-                                            <th className="px-6 py-4 text-center font-bold text-gray-500 uppercase tracking-wider">Đã đóng</th>
-                                            <th className="px-6 py-4 text-center font-bold text-gray-500 uppercase tracking-wider">Hiệu suất</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-200">
-                                        {userReports.map((u: any) => {
-                                            const perf = u.totalAssigned > 0 ? Math.round((u.closedTasks / u.totalAssigned) * 100) : 0;
-                                            return (
-                                                <tr key={u.id} className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-6 py-4">
-                                                        <div>
-                                                            <div className="font-bold text-gray-900">{u.name}</div>
-                                                            <div className="text-xs text-gray-400 font-medium">{u.email}</div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-center font-bold text-gray-900">{u.totalAssigned}</td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <span className={`font-bold ${u.overdueTasks > 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                                                            {u.overdueTasks}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-center font-bold text-orange-600">{u.openTasks}</td>
-                                                    <td className="px-6 py-4 text-center font-bold text-emerald-600">{u.closedTasks}</td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <span className={`px-2 py-1 rounded text-xs font-bold ${perf >= 70 ? 'bg-emerald-50 text-emerald-700' : perf >= 40 ? 'bg-blue-50 text-blue-700' : 'bg-gray-50 text-gray-600'}`}>
-                                                            {perf}%
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
+                        <div className="space-y-6">
+                            {/* Top Performers Chart */}
+                            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                                <h3 className="text-sm font-bold text-gray-900 mb-6 flex items-center gap-2 uppercase tracking-wide">
+                                    <TrendingUp className="w-4 h-4 text-emerald-600" />
+                                    Top thành viên tích cực
+                                </h3>
+                                <div className="h-[350px]">
+                                    {userReports.length > 0 ? (
+                                        <TopPerformersChart
+                                            data={[...userReports]
+                                                .sort((a, b) => b.closedTasks - a.closedTasks)
+                                                .slice(0, 5)
+                                                .map(u => ({ name: u.name, closedTasks: u.closedTasks }))
+                                            }
+                                        />
+                                    ) : (
+                                        <div className="h-full flex items-center justify-center text-gray-400 text-sm italic">
+                                            Chưa có dữ liệu so sánh
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            {userReports.length === 0 && (
-                                <div className="p-12 text-center text-gray-500 font-medium bg-gray-50/30">Chưa có dữ liệu người dùng</div>
-                            )}
+
+                            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-gray-50/50 border-b border-gray-200">
+                                            <tr>
+                                                <th className="px-6 py-4 text-left font-bold text-gray-500 uppercase tracking-wider">Người dùng</th>
+                                                <th className="px-6 py-4 text-center font-bold text-gray-500 uppercase tracking-wider">Tổng gán</th>
+                                                <th className="px-6 py-4 text-center font-bold text-gray-500 uppercase tracking-wider">Quá hạn</th>
+                                                <th className="px-6 py-4 text-center font-bold text-gray-500 uppercase tracking-wider">Đang mở</th>
+                                                <th className="px-6 py-4 text-center font-bold text-gray-500 uppercase tracking-wider">Đã đóng</th>
+                                                <th className="px-6 py-4 text-center font-bold text-gray-500 uppercase tracking-wider">Hiệu suất</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200">
+                                            {userReports.map((u: any) => {
+                                                const perf = u.totalAssigned > 0 ? Math.round((u.closedTasks / u.totalAssigned) * 100) : 0;
+                                                return (
+                                                    <tr key={u.id} className="hover:bg-gray-50 transition-colors">
+                                                        <td className="px-6 py-4">
+                                                            <div>
+                                                                <div className="font-bold text-gray-900">{u.name}</div>
+                                                                <div className="text-xs text-gray-400 font-medium">{u.email}</div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-center font-bold text-gray-900">{u.totalAssigned}</td>
+                                                        <td className="px-6 py-4 text-center">
+                                                            <span className={`font-bold ${u.overdueTasks > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                                                                {u.overdueTasks}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-center font-bold text-orange-600">{u.openTasks}</td>
+                                                        <td className="px-6 py-4 text-center font-bold text-emerald-600">{u.closedTasks}</td>
+                                                        <td className="px-6 py-4 text-center">
+                                                            <span className={`px-2 py-1 rounded text-xs font-bold ${perf >= 70 ? 'bg-emerald-50 text-emerald-700' : perf >= 40 ? 'bg-blue-50 text-blue-700' : 'bg-gray-50 text-gray-600'}`}>
+                                                                {perf}%
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {userReports.length === 0 && (
+                                    <div className="p-12 text-center text-gray-500 font-medium bg-gray-50/30">Chưa có dữ liệu người dùng</div>
+                                )}
+                            </div>
                         </div>
                     )}
 

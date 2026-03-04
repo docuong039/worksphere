@@ -41,7 +41,7 @@ export default async function RolesPage() {
         <div>
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-900">Vai trò (Roles)</h1>
+                    <h1 className="text-2xl font-semibold text-gray-900">Vai trò</h1>
                     <p className="text-gray-500 mt-1">
                         Quản lý các vai trò và quyền hạn trong hệ thống
                     </p>

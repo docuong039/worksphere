@@ -12,9 +12,11 @@ import {
     Calendar,
     Target,
     Zap,
+    TrendingUp,
 } from 'lucide-react';
 import { PERMISSIONS } from '@/lib/constants';
 import * as DashboardPolicy from '@/modules/dashboard/dashboard.policy';
+import ActivityChart from '@/components/charts/ActivityChart';
 
 export default async function DashboardPage() {
     const session = await auth();
@@ -99,6 +101,45 @@ export default async function DashboardPage() {
         })
     ]);
 
+    // 4. Activity Trend (Scope-aware)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    // Filter tasks based on accessibility (Security first!)
+    const trendFilter: any = {
+        status: { isClosed: true },
+        updatedAt: { gte: sevenDaysAgo }
+    };
+
+    if (!isAdmin) {
+        if (isManagerView) {
+            // Manager thấy hoạt động của các dự án mình tham gia
+            trendFilter.projectId = { in: projects.map(p => p.id) };
+        } else {
+            // Nhân viên chỉ thấy xu hướng của chính mình
+            trendFilter.assigneeId = userId;
+        }
+    }
+
+    const closedTasksRaw = await prisma.task.findMany({
+        where: trendFilter,
+        select: { updatedAt: true }
+    });
+
+    const trendData = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        d.setHours(0, 0, 0, 0);
+        const dateStr = d.toLocaleDateString('vi-VN', { weekday: 'short' });
+        const count = closedTasksRaw.filter(t => {
+            const upDate = new Date(t.updatedAt);
+            upDate.setHours(0, 0, 0, 0);
+            return upDate.getTime() === d.getTime();
+        }).length;
+        return { name: dateStr, count };
+    }).reverse();
+
     return (
         <div className="space-y-8 pb-10">
             {/* Header Duy nhất & Sạch sẽ */}
@@ -144,6 +185,22 @@ export default async function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* CỘT TRÁI: DANH SÁCH DỰ ÁN (HIỆN CHO CẢ 2 NHƯNG NỘI DUNG LỌC KHÁC NHAU) */}
                 <div className="lg:col-span-2 space-y-6">
+                    {/* Xu hướng hoạt động */}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden min-h-[350px]">
+                        <div className="px-6 py-5 border-b border-gray-50 flex items-center justify-between">
+                            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                                <TrendingUp className="w-4 h-4 text-blue-600" />
+                                {isManagerView || isAdmin ? 'Xu hướng hoạt động (Team)' : 'Hiệu suất cá nhân (7 ngày qua)'}
+                            </h2>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-2 py-1 rounded">
+                                {isManagerView || isAdmin ? 'Số việc team hoàn thành' : 'Số việc bạn đã xong'}
+                            </span>
+                        </div>
+                        <div className="p-6">
+                            <ActivityChart data={trendData} />
+                        </div>
+                    </div>
+
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                         <div className="px-6 py-5 border-b border-gray-50 flex items-center justify-between bg-gray-50/30">
                             <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">

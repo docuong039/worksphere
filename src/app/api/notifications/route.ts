@@ -30,10 +30,10 @@ export const GET = withAuth(async (req, user) => {
     });
 });
 
-// PUT /api/notifications - Đánh dấu đã đọc
+// PUT /api/notifications - Đánh dấu đã đọc / chưa đọc
 export const PUT = withAuth(async (req, user) => {
     const body = await req.json();
-    const { notificationIds, markAll } = body;
+    const { notificationIds, markAll, isRead = true } = body;
 
     if (markAll) {
         // Mark all as read
@@ -42,13 +42,13 @@ export const PUT = withAuth(async (req, user) => {
             data: { isRead: true },
         });
     } else if (notificationIds && Array.isArray(notificationIds)) {
-        // Mark specific notifications as read
+        // Mark specific notifications as read/unread
         await prisma.notification.updateMany({
             where: {
                 id: { in: notificationIds },
                 userId: user.id,
             },
-            data: { isRead: true },
+            data: { isRead },
         });
     }
 

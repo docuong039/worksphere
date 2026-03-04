@@ -399,7 +399,7 @@ export function TaskList({
                         )}
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Tracker</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Loại công việc</label>
                             <select
                                 value={filters.trackerId}
                                 onChange={(e) => setFilters({ ...filters, trackerId: e.target.value })}

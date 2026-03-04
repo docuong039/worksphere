@@ -282,7 +282,7 @@ export default function TimeEntryActivitiesPage() {
             <div className="mt-6 p-4 bg-amber-50 border border-amber-100 rounded-xl">
                 <h4 className="text-sm font-semibold text-amber-800 mb-2">Hướng dẫn</h4>
                 <ul className="text-sm text-amber-700 space-y-1">
-                    <li>• <strong>Loại hoạt động</strong> được sử dụng khi ghi nhận thời gian làm việc (VD: Development, Testing, Meeting...)</li>
+                    <li>• <strong>Loại hoạt động</strong> được sử dụng khi ghi nhận thời gian làm việc (VD: Phát triển, Kiểm thử, Họp...)</li>
                     <li>• <strong>Mặc định</strong>: Loại hoạt động sẽ được chọn sẵn khi mở form ghi thời gian</li>
                     <li>• <strong>Ẩn</strong>: Loại hoạt động sẽ không hiển thị trong danh sách chọn</li>
                 </ul>

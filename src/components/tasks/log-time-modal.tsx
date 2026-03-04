@@ -2,44 +2,84 @@
 
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Clock, Loader2, X, Calendar, Activity, MessageSquare } from 'lucide-react';
+import { Clock, Loader2, X, Calendar, Activity, MessageSquare, Briefcase, FileText } from 'lucide-react';
 
 interface ActivityType {
     id: string;
     name: string;
+    isDefault?: boolean;
+}
+
+interface ProjectOption {
+    id: string;
+    name: string;
+    identifier: string;
+}
+
+interface TaskOption {
+    id: string;
+    number: number;
+    title: string;
+    tracker: { name: string };
 }
 
 interface LogTimeModalProps {
     isOpen: boolean;
     onClose: () => void;
     taskId?: string;
-    projectId: string;
+    projectId?: string;
     onSuccess?: () => void;
 }
 
 export function LogTimeModal({
     isOpen,
     onClose,
-    taskId,
-    projectId,
+    taskId: initialTaskId,
+    projectId: initialProjectId,
     onSuccess,
 }: LogTimeModalProps) {
     const [loading, setLoading] = useState(false);
     const [activities, setActivities] = useState<ActivityType[]>([]);
     const [fetchingActivities, setFetchingActivities] = useState(false);
 
+    // Projects & Tasks for selection
+    const [projects, setProjects] = useState<ProjectOption[]>([]);
+    const [tasks, setTasks] = useState<TaskOption[]>([]);
+    const [fetchingTasks, setFetchingTasks] = useState(false);
+
     const [formData, setFormData] = useState({
         spentOn: new Date().toISOString().split('T')[0],
         hours: '',
         activityId: '',
         comments: '',
+        projectId: initialProjectId || '',
+        taskId: initialTaskId || '',
     });
+
+    // Xác định xem có cần hiển thị trường chọn project/task hay không
+    const showProjectSelector = !initialProjectId;
+    const showTaskSelector = !initialTaskId;
 
     useEffect(() => {
         if (isOpen) {
             fetchActivities();
+            if (showProjectSelector) {
+                fetchProjects();
+            }
+            if (showTaskSelector && formData.projectId) {
+                fetchTasks(formData.projectId);
+            }
         }
     }, [isOpen]);
+
+    // Khi project thay đổi → fetch lại tasks
+    useEffect(() => {
+        if (isOpen && showTaskSelector && formData.projectId) {
+            fetchTasks(formData.projectId);
+        } else {
+            setTasks([]);
+        }
+    }, [formData.projectId]);
 
     const fetchActivities = async () => {
         setFetchingActivities(true);
@@ -60,20 +100,48 @@ export function LogTimeModal({
         }
     };
 
+    const fetchProjects = async () => {
+        try {
+            const res = await fetch('/api/projects?limit=100');
+            if (res.ok) {
+                const data = await res.json();
+                const projectList = data.data?.projects || data.data || [];
+                setProjects(projectList);
+                // Nếu chưa chọn project → chọn cái đầu tiên
+                if (!formData.projectId && projectList.length > 0) {
+                    setFormData(prev => ({ ...prev, projectId: projectList[0].id }));
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching projects:', error);
+        }
+    };
+
+    const fetchTasks = async (projectId: string) => {
+        setFetchingTasks(true);
+        try {
+            const res = await fetch(`/api/tasks?projectId=${projectId}&limit=100&isClosed=false`);
+            if (res.ok) {
+                const data = await res.json();
+                setTasks(data.data?.tasks || data.data || []);
+            }
+        } catch (error) {
+            console.error('Error fetching tasks:', error);
+        } finally {
+            setFetchingTasks(false);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.hours || !formData.activityId) {
+        if (!formData.hours || !formData.activityId || !formData.projectId) {
             toast.error('Vui lòng điền đầy đủ thông tin');
             return;
         }
 
         setLoading(true);
         try {
-            const endpoint = taskId
-                ? `/api/tasks/${taskId}/time-logs`
-                : `/api/projects/${projectId}/time-logs`;
-
-            const res = await fetch(endpoint, {
+            const res = await fetch('/api/time-logs', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -81,8 +149,8 @@ export function LogTimeModal({
                     spentOn: formData.spentOn,
                     activityId: formData.activityId,
                     comments: formData.comments || null,
-                    taskId: taskId || null,
-                    projectId: projectId,
+                    taskId: formData.taskId || null,
+                    projectId: formData.projectId,
                 }),
             });
 
@@ -96,6 +164,8 @@ export function LogTimeModal({
                     hours: '',
                     activityId: '',
                     comments: '',
+                    projectId: initialProjectId || '',
+                    taskId: initialTaskId || '',
                 });
             } else {
                 const error = await res.json();
@@ -134,6 +204,51 @@ export function LogTimeModal({
                 {/* Content */}
                 <form onSubmit={handleSubmit} className="flex flex-col">
                     <div className="p-6 space-y-5">
+                        {/* Project Selector */}
+                        {showProjectSelector && (
+                            <div className="space-y-1.5">
+                                <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 ml-0.5">
+                                    <Briefcase className="w-3.5 h-3.5" />
+                                    Dự án <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={formData.projectId}
+                                    onChange={(e) => setFormData({ ...formData, projectId: e.target.value, taskId: '' })}
+                                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
+                                    required
+                                >
+                                    <option value="" disabled>Chọn dự án</option>
+                                    {projects.map((p) => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {showTaskSelector && formData.projectId && (
+                            <div className="space-y-1.5">
+                                <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 ml-0.5">
+                                    <FileText className="w-3.5 h-3.5" />
+                                    Công việc <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={formData.taskId}
+                                    onChange={(e) => setFormData({ ...formData, taskId: e.target.value })}
+                                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
+                                    required
+                                >
+                                    <option value="" disabled>
+                                        {fetchingTasks ? "Đang tải..." : "Chọn công việc"}
+                                    </option>
+                                    {tasks.map((t) => (
+                                        <option key={t.id} value={t.id}>
+                                            #{t.number} - [{t.tracker.name}] {t.title}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 ml-0.5">
@@ -215,7 +330,7 @@ export function LogTimeModal({
                         </button>
                         <button
                             type="submit"
-                            disabled={loading || fetchingActivities || !formData.hours || !formData.activityId}
+                            disabled={loading || fetchingActivities || !formData.hours || !formData.activityId || !formData.projectId || (showTaskSelector && !formData.taskId)}
                             className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 shadow-lg shadow-blue-200 transition-all flex items-center justify-center min-w-[120px]"
                         >
                             {loading ? (

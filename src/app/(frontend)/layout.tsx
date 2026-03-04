@@ -1,5 +1,4 @@
 import { auth } from '@/lib/auth';
-import { redirect } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 
@@ -8,11 +7,9 @@ export default async function DashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const session = await auth();
-
-    if (!session) {
-        redirect('/login');
-    }
+    // Middleware đã bảo vệ route, session luôn tồn tại ở đây
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const session = (await auth())!;
 
     return (
         <div className="h-screen flex overflow-hidden bg-white">
