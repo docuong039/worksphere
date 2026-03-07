@@ -17,6 +17,9 @@ interface TaskSubtasksProps {
     statuses: Status[];
     trackers: Tracker[];
     priorities: Priority[];
+    canAssignOthers?: boolean;
+    currentUserId?: string;
+    allowedTrackerIds?: string[];
 }
 
 export function TaskSubtasks({
@@ -26,7 +29,10 @@ export function TaskSubtasks({
     onAddSubtask,
     statuses,
     trackers,
-    priorities
+    priorities,
+    canAssignOthers,
+    currentUserId,
+    allowedTrackerIds
 }: TaskSubtasksProps) {
     const router = useRouter();
 
@@ -57,11 +63,10 @@ export function TaskSubtasks({
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="text-xs text-gray-500 bg-gray-50 font-semibold">
+                            <tr className="text-xs text-gray-700 bg-gray-50 font-semibold">
                                 <th className="px-4 py-3 w-16 text-center">#</th>
                                 <th className="px-4 py-3 text-left">Tiêu đề</th>
                                 <th className="px-4 py-3 w-28 text-center">Trạng thái</th>
-                                <th className="px-4 py-3 w-32">Người thực hiện</th>
                                 <th className="px-4 py-3 w-24 text-center">Bắt đầu</th>
                                 <th className="px-4 py-3 w-24 text-center">Kết thúc</th>
                                 <th className="px-4 py-3 w-20 text-center">%</th>
@@ -71,15 +76,15 @@ export function TaskSubtasks({
                         <tbody className="divide-y divide-gray-100">
                             {subtasks.map((sub) => (
                                 <tr key={sub.id} className="hover:bg-blue-50/50 transition-colors">
-                                    <td className="px-4 py-3 text-gray-400 text-center font-medium">#{sub.number}</td>
+                                    <td className="px-4 py-3 text-gray-600 text-center font-medium">#{sub.number}</td>
                                     <td className="px-4 py-3">
                                         <div className="flex items-center gap-2.5">
-                                            <span className="text-[10px] uppercase font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">
+                                            <span className="text-[10px] uppercase font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">
                                                 {sub.tracker.name}
                                             </span>
                                             <Link
                                                 href={`/tasks/${sub.id}`}
-                                                className={`hover:text-blue-600 font-medium truncate max-w-[300px] transition-colors ${sub.status.isClosed ? 'text-gray-400 line-through' : 'text-gray-900'}`}
+                                                className={`hover:text-blue-600 font-medium truncate max-w-[300px] transition-colors ${sub.status.isClosed ? 'text-gray-500 line-through' : 'text-gray-900'}`}
                                             >
                                                 {sub.title}
                                             </Link>
@@ -90,13 +95,10 @@ export function TaskSubtasks({
                                             {sub.status.name}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-3 text-gray-700 font-medium truncate max-w-[120px]">
-                                        {sub.assignee?.name || <span className="text-gray-400 italic">-</span>}
-                                    </td>
-                                    <td className="px-4 py-3 text-center text-gray-500 text-xs">
+                                    <td className="px-4 py-3 text-center text-gray-700 text-xs">
                                         {formatDate(sub.startDate)}
                                     </td>
-                                    <td className="px-4 py-3 text-center text-gray-500 text-xs">
+                                    <td className="px-4 py-3 text-center text-gray-700 text-xs">
                                         {formatDate(sub.dueDate)}
                                     </td>
                                     <td className="px-4 py-3 text-center">
@@ -113,6 +115,10 @@ export function TaskSubtasks({
                                             currentAssigneeId={sub.assignee?.id || null}
                                             currentDoneRatio={sub.doneRatio || 0}
                                             hasSubtasks={false}
+                                            isSubtask={true}
+                                            canAssignOthers={canAssignOthers}
+                                            currentUserId={currentUserId}
+                                            allowedTrackerIds={allowedTrackerIds}
                                             statuses={statuses}
                                             trackers={trackers}
                                             priorities={priorities}
@@ -126,8 +132,8 @@ export function TaskSubtasks({
                 </div>
             ) : (
                 <div className="text-center py-12">
-                    <GitBranch className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-400 text-sm font-medium">Chưa có công việc con</p>
+                    <GitBranch className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600 text-sm font-medium">Chưa có công việc con</p>
                 </div>
             )}
         </div>

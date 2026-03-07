@@ -44,6 +44,20 @@ export const PUT = withAuth(async (req, user, ctx) => {
         return errorResponse('Vai trò không tồn tại', 400);
     }
 
+    // Check if target member is an administrator
+    const memberToUpdate = await prisma.projectMember.findUnique({
+        where: { id: memberId },
+        include: { user: { select: { isAdministrator: true } } }
+    });
+
+    if (!memberToUpdate) {
+        return errorResponse('Thành viên không tồn tại', 404);
+    }
+
+    if (!user.isAdministrator && memberToUpdate.user.isAdministrator) {
+        return errorResponse('Không thể cập nhật nhân sự là Quản trị viên', 403);
+    }
+
     // Update member role
     const member = await prisma.projectMember.update({
         where: { id: memberId },
@@ -88,12 +102,16 @@ export const DELETE = withAuth(async (_req, user, ctx) => {
     const member = await prisma.projectMember.findUnique({
         where: { id: memberId },
         include: {
-            user: { select: { id: true } },
+            user: { select: { id: true, isAdministrator: true } },
         },
     });
 
     if (!member) {
         return errorResponse('Thành viên không tồn tại', 404);
+    }
+
+    if (!user.isAdministrator && member.user.isAdministrator) {
+        return errorResponse('Không thể xóa Quản trị viên khỏi dự án', 403);
     }
 
     // Check if member is project creator

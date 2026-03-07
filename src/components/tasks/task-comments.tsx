@@ -173,8 +173,8 @@ export function TaskComments({ taskId, comments: initialComments, currentUserId 
                             </div>
                             <div className={`flex flex-col max-w-[75%] ${c.user.id === currentUserId ? 'items-end' : ''}`}>
                                 <div className="flex items-center gap-2 mb-1 px-1">
-                                    <span className="font-semibold text-xs text-gray-700">{c.user.name}</span>
-                                    <span className="text-[10px] text-gray-400">{new Date(c.createdAt).toLocaleString('vi-VN')}</span>
+                                    <span className="text-font-semibold text-xs text-gray-700">{c.user.name}</span>
+                                    <span className="text-[10px] text-gray-500">{new Date(c.createdAt).toLocaleString('vi-VN')}</span>
                                     {/* Menu dropdown for comment owner */}
                                     {c.user.id === currentUserId && (
                                         <div className="relative">
@@ -183,7 +183,7 @@ export function TaskComments({ taskId, comments: initialComments, currentUserId 
                                                 className="p-1 hover:bg-gray-200 rounded-full transition-colors"
                                                 title="Tùy chọn"
                                             >
-                                                <MoreVertical className="w-3.5 h-3.5 text-gray-400" />
+                                                <MoreVertical className="w-3.5 h-3.5 text-gray-600" />
                                             </button>
                                             {openMenuCommentId === c.id && (
                                                 <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[120px]">
@@ -245,9 +245,9 @@ export function TaskComments({ taskId, comments: initialComments, currentUserId 
                     ))}
                     {commentsList.length === 0 && (
                         <div className="text-center py-10">
-                            <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                            <p className="text-sm text-gray-400 font-medium">Chưa có bình luận nào</p>
-                            <p className="text-xs text-gray-300 mt-1">Hãy là người đầu tiên bình luận</p>
+                            <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                            <p className="text-sm text-gray-600 font-medium">Chưa có bình luận nào</p>
+                            <p className="text-xs text-gray-500 mt-1">Hãy là người đầu tiên bình luận</p>
                         </div>
                     )}
                 </div>

@@ -4,6 +4,9 @@ import { TaskList } from '@/components/tasks/task-list';
 import { TaskWithRelations, SavedQueryWithRelations } from '@/types';
 import { notFound, redirect } from 'next/navigation';
 import { Prisma } from '@prisma/client';
+import { buildTaskFilters } from '@/app/api/tasks/helpers';
+import { PERMISSIONS } from '@/lib/constants';
+import * as TaskPolicy from '@/modules/task/task.policy';
 
 export default async function ProjectTasksPage({ params }: { params: Promise<{ id: string }> }) {
     const session = await auth();
@@ -86,10 +89,36 @@ export default async function ProjectTasksPage({ params }: { params: Promise<{ i
 
     const projects = [{ id: project.id, name: project.name, identifier: project.identifier }];
 
-    const where: Prisma.TaskWhereInput = {
-        projectId: id,
-        status: { isClosed: false },
-    };
+    // Prepare project permissions for task filter
+    const projectPermissionsMap: Record<string, string[]> = {};
+    if (!session.user.isAdministrator && member) {
+        const memberships = await prisma.projectMember.findMany({
+            where: { userId: session.user.id, projectId: id },
+            include: { role: { include: { permissions: { include: { permission: true } } } } }
+        });
+        for (const m of memberships) {
+            projectPermissionsMap[m.projectId] = m.role.permissions.map(rp => rp.permission.key);
+        }
+    }
+
+    // Use robust filter builder to match API logic precisely (prevents the 1s flash)
+    // Create an empty URLSearchParams because we just want defaults for initial load
+    const searchParams = new URLSearchParams();
+    searchParams.set('isClosed', 'false');
+
+    const where = buildTaskFilters({
+        projectIds: [id],
+        userId: session.user.id,
+        isAdmin: session.user.isAdministrator,
+        searchParams,
+        projectPermissionsMap,
+    });
+
+    const userMock = session.user as any;
+    const projectPerms = projectPermissionsMap[id] || [];
+
+    const canAssignOthers = TaskPolicy.canAssignOthers(userMock, projectPerms);
+    const canCreateTask = TaskPolicy.canCreateTask(userMock, projectPerms);
 
     const tasks = await prisma.task.findMany({
         where,
@@ -117,6 +146,9 @@ export default async function ProjectTasksPage({ params }: { params: Promise<{ i
             users={users}
             currentUserId={session.user.id}
             projectId={id}
+            canAssignOthers={canAssignOthers}
+            canCreateTask={canCreateTask}
+            projectPermissionsMap={projectPermissionsMap}
             allowedTrackerIdsByProject={allowedTrackerIdsByProject}
         />
     );

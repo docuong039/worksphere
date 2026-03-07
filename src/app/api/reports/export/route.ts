@@ -4,6 +4,7 @@ import { withAuth } from '@/server/middleware/withAuth';
 import { getUserPermissions } from '@/lib/permissions';
 import * as ProjectPolicy from '@/modules/project/project.policy';
 import * as TaskPolicy from '@/modules/task/task.policy';
+import { ReportPolicy } from '@/modules/report/report.policy';
 
 
 // GET /api/reports/export - Export data as CSV
@@ -50,8 +51,14 @@ export const GET = withAuth(async (req, user) => {
             }
 
 
+            const globalPerms = await getUserPermissions(user.id);
             if (userId) {
+                if (!user.isAdministrator && ReportPolicy.getPersonnelVisibilityScope(user, globalPerms) === 'SELF' && userId !== user.id) {
+                    return errorResponse('Không có quyền xuất dữ liệu của người khác', 403);
+                }
                 where.assigneeId = userId;
+            } else if (!user.isAdministrator && ReportPolicy.getPersonnelVisibilityScope(user, globalPerms) === 'SELF') {
+                where.assigneeId = user.id; // Tự động khóa dữ liệu của bản thân nếu không có quyền xem người khác
             }
 
             if (startDate || endDate) {
@@ -86,6 +93,11 @@ export const GET = withAuth(async (req, user) => {
         }
 
         case 'time-logs': {
+            const globalPerms = await getUserPermissions(user.id);
+            if (!ReportPolicy.canViewTimeReports(user, globalPerms)) {
+                return errorResponse('Không có quyền nâng cao để xuất báo cáo thời gian', 403);
+            }
+
             const where: Record<string, unknown> = {};
 
             if (startDate || endDate) {
@@ -104,7 +116,12 @@ export const GET = withAuth(async (req, user) => {
 
 
             if (userId) {
+                if (!user.isAdministrator && ReportPolicy.getPersonnelVisibilityScope(user, globalPerms) === 'SELF' && userId !== user.id) {
+                    return errorResponse('Không có quyền xuất dữ liệu của người khác', 403);
+                }
                 where.userId = userId;
+            } else if (!user.isAdministrator && ReportPolicy.getPersonnelVisibilityScope(user, globalPerms) === 'SELF') {
+                where.userId = user.id; // Tự động khóa dữ liệu của bản thân nếu không có quyền cao
             }
 
             const timeLogs = await prisma.timeLog.findMany({
@@ -128,7 +145,7 @@ export const GET = withAuth(async (req, user) => {
                 csvContent += `"${spentOnStr}","${log.user.name}","${log.project.name}","${taskTitle.replace(/"/g, '""')}","${log.activity.name}",${log.hours},"${comments}"\n`;
             });
 
-            filename = `cham-cong_${formatDateForFilename(startDate, endDate)}`;
+            filename = `thoi-gian_${formatDateForFilename(startDate, endDate)}`;
             break;
         }
 
@@ -183,10 +200,10 @@ export const GET = withAuth(async (req, user) => {
         }
 
         case 'user-summary': {
-            if (!user.isAdministrator) {
-                return errorResponse('Không có quyền truy cập', 403);
+            const globalPerms = await getUserPermissions(user.id);
+            if (ReportPolicy.getPersonnelVisibilityScope(user, globalPerms) !== 'ALL') {
+                return errorResponse('Không có quyền nâng cao để xuất báo cáo người dùng', 403);
             }
-
 
             const userWhere: Record<string, unknown> = { isActive: true };
             if (userId) {

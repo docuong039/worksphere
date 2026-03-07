@@ -19,6 +19,7 @@ export type NotificationType =
   | "task_comment_added"
   | "task_mentioned"
   | "task_due_soon"
+  | "task_watcher_added"
   | "project_created"
   | "project_member_added"
   | "project_member_removed";
@@ -127,22 +128,27 @@ export async function notifyTaskWatchers(
   message: string,
   metadata: Record<string, string | undefined> = {},
 ) {
-  // 1. Lấy danh sách Watchers
+  // 1. Lấy thông tin task và parentId
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { parentId: true, assigneeId: true, creatorId: true, projectId: true },
+  });
+
+  // 2. Lấy danh sách Watchers của task hiện tại VÀ task cha (nếu có)
+  const taskIds = [taskId];
+  if (task?.parentId) {
+    taskIds.push(task.parentId);
+  }
+
   const watchers = await prisma.watcher.findMany({
     where: {
-      taskId,
+      taskId: { in: taskIds },
       userId: { not: actorId },
     },
     select: { userId: true },
   });
 
-  // 2. Lấy Assignee và Creator
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-    select: { assigneeId: true, creatorId: true, projectId: true },
-  });
-
-  // 3. Tập hợp các ID duy nhất
+  // 3. Tập hợp các ID duy nhất (Watchers + Assignee + Creator)
   const userIds = new Set<string>();
   watchers.forEach((w) => userIds.add(w.userId));
 
@@ -181,6 +187,24 @@ export async function notifyTaskAssigned(
     title: "Bạn được gán công việc mới",
     message: `${actorName} đã gán cho bạn công việc: "${taskTitle}"`,
     userId: assigneeId,
+    metadata: { taskId },
+  });
+}
+
+/**
+ * Thông báo khi được thêm vào danh sách theo dõi task
+ */
+export async function notifyWatcherAdded(
+  taskId: string,
+  taskTitle: string,
+  targetUserId: string,
+  actorName: string,
+) {
+  return createNotification({
+    type: "task_watcher_added",
+    title: "Bạn được thêm theo dõi công việc",
+    message: `${actorName} đã thêm bạn vào danh sách theo dõi công việc: "${taskTitle}"`,
+    userId: targetUserId,
     metadata: { taskId },
   });
 }

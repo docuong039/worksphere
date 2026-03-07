@@ -95,16 +95,16 @@ export function TaskAttachments({
     };
 
     return (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
-                    <Paperclip className="w-5 h-5" />
-                    Tài liệu đính kèm ({attachments.length})
-                </h3>
+        <div className="bg-white rounded-lg">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+                <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                    <Paperclip className="w-4 h-4 text-gray-500" />
+                    Tài liệu ({attachments.length})
+                </h4>
                 {canUpload && (
-                    <label className="cursor-pointer text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
-                        <Upload className="w-4 h-4" />
-                        {uploading ? 'Đang tải...' : 'Thêm tài liệu'}
+                    <label className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-[11px] font-bold uppercase tracking-wider rounded-lg hover:bg-blue-700 transition-all shadow-sm active:scale-95">
+                        <Upload className="w-3.5 h-3.5" />
+                        {uploading ? 'Đang tải...' : 'Tải lên'}
                         <input
                             type="file"
                             className="hidden"
@@ -115,44 +115,47 @@ export function TaskAttachments({
                 )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-2.5">
                 {attachments.map((att) => (
                     <div
                         key={att.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-gray-100 group"
+                        className="flex items-center justify-between p-3 bg-gray-50/50 hover:bg-white hover:shadow-md transition-all rounded-xl border border-gray-100 group"
                     >
                         <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center shrink-0">
-                                <FileIcon className="w-4 h-4 text-blue-600" />
+                            <div className="w-10 h-10 bg-blue-100/50 rounded-lg flex items-center justify-center shrink-0">
+                                <FileIcon className="w-5 h-5 text-blue-600" />
                             </div>
                             <div className="min-w-0">
                                 <a
                                     href={att.path}
                                     download={att.filename}
-                                    className="text-sm font-medium text-gray-900 hover:text-blue-600 truncate block"
+                                    className="text-sm font-semibold text-gray-800 hover:text-blue-600 truncate block"
                                 >
                                     {att.filename}
                                 </a>
-                                <p className="text-xs text-gray-500">
-                                    {formatSize(att.size)} • {att.user.name} •{' '}
-                                    {new Date(att.createdAt).toLocaleDateString('vi-VN')}
+                                <p className="text-[10px] text-gray-500 font-medium flex gap-2">
+                                    <span>{formatSize(att.size)}</span>
+                                    <span>•</span>
+                                    <span>{att.user.name}</span>
+                                    <span>•</span>
+                                    <span>{new Date(att.createdAt).toLocaleDateString('vi-VN')}</span>
                                 </p>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <a
                                 href={att.path}
                                 download
-                                className="p-1 text-gray-400 hover:text-blue-600"
+                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                 title="Tải xuống"
                             >
                                 <Download className="w-4 h-4" />
                             </a>
-                            {(currentUserId === att.user.id || currentUserId === 'admin') && ( // simplified admin check
+                            {(currentUserId === att.user.id || currentUserId === 'admin') && (
                                 <button
                                     onClick={() => handleDelete(att.id)}
-                                    className="p-1 text-gray-400 hover:text-red-600"
+                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                     title="Xóa file"
                                 >
                                     <Trash2 className="w-4 h-4" />
@@ -162,7 +165,7 @@ export function TaskAttachments({
                     </div>
                 ))}
                 {attachments.length === 0 && (
-                    <div className="col-span-2 text-center py-4 text-gray-500 text-sm">
+                    <div className="text-center py-6 text-gray-400 text-[13px] italic bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
                         Chưa có tài liệu đính kèm
                     </div>
                 )}

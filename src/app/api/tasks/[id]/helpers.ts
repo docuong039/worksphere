@@ -66,12 +66,87 @@ export async function updateSubtasksPathAndLevel(
     }
 }
 
+/**
+ * Tự động tính toán lại % hoàn thành, estimated hours, và ngày tháng của Task Cha
+ * Tính theo "Bottom-Up" (Cách 1)
+ */
+export async function updateParentTaskAggregates(parentId: string): Promise<void> {
+    const subtasks = await prisma.task.findMany({
+        where: { parentId },
+        select: {
+            doneRatio: true,
+            estimatedHours: true,
+            startDate: true,
+            dueDate: true,
+        }
+    });
+
+    if (subtasks.length === 0) return; // Không còn subtask nào thì giữ nguyên như hiện tại (người dùng tự sửa)
+
+
+    let sumEstimatedHours = 0;
+    let sumWeightedDoneRatio = 0;
+    let sumDoneRatio = 0;
+    let hasEstimatedHours = false;
+    let minStartDate: Date | null = null;
+    let maxDueDate: Date | null = null;
+
+    for (const sub of subtasks) {
+        if (sub.estimatedHours) {
+            hasEstimatedHours = true;
+            sumEstimatedHours += sub.estimatedHours;
+            sumWeightedDoneRatio += (sub.doneRatio * sub.estimatedHours);
+        }
+        sumDoneRatio += sub.doneRatio;
+
+        if (sub.startDate) {
+            if (!minStartDate || sub.startDate < minStartDate) {
+                minStartDate = sub.startDate;
+            }
+        }
+        if (sub.dueDate) {
+            if (!maxDueDate || sub.dueDate > maxDueDate) {
+                maxDueDate = sub.dueDate;
+            }
+        }
+    }
+
+    let calculatedDoneRatio = 0;
+    if (hasEstimatedHours && sumEstimatedHours > 0) {
+        calculatedDoneRatio = Math.round(sumWeightedDoneRatio / sumEstimatedHours);
+    } else {
+        calculatedDoneRatio = Math.round(sumDoneRatio / subtasks.length);
+    }
+
+    const updatedParent = await prisma.task.update({
+        where: { id: parentId },
+        data: {
+            doneRatio: calculatedDoneRatio,
+            // Chỉ ghi è giờ tổng khi subtask thực sự có nhập giờ - giữ nguyên nếu không ai nhập
+            ...(hasEstimatedHours ? { estimatedHours: sumEstimatedHours } : {}),
+            // Chỉ ghi đè ngày khi subtask thực sự có ngày
+            ...(minStartDate ? { startDate: minStartDate } : {}),
+            ...(maxDueDate ? { dueDate: maxDueDate } : {}),
+        },
+        select: {
+            parentId: true
+        }
+    });
+
+    // Đệ quy tính ngược lên cha của cha (nếu có)
+    if (updatedParent.parentId) {
+        await updateParentTaskAggregates(updatedParent.parentId);
+    }
+}
+
 // ==========================================
 // Query Constants
 // ==========================================
 
 /**
  * Standard include for task detail queries
+ * TODO: Hiện tại chưa được dùng trực tiếp (GET route và page.tsx có query riêng).
+ * Cần refactor để dùng chung và tránh trùng lặp (Technical Debt).
  */
 export const TASK_DETAIL_INCLUDE = {
     project: {
@@ -96,6 +171,7 @@ export const TASK_DETAIL_INCLUDE = {
             status: { select: { id: true, name: true, isClosed: true } },
             assignee: { select: { id: true, name: true, avatar: true } },
             priority: { select: { id: true, name: true, color: true } },
+            timeLogs: { select: { hours: true } }, // Để tính tổng giờ thực tế Bottom-Up
         },
         orderBy: { createdAt: 'asc' as const },
     },

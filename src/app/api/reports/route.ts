@@ -19,8 +19,8 @@ export const GET = withAuth(async (req, user) => {
     const perms = await getUserPermissions(user.id, projectId);
 
     // Chuẩn nghiệp vụ: Xác định danh sách nhân sự được phép nhìn thấy
-    // (Admin thấy hết, Manager chỉ thấy người trong dự án mình quản lý)
-    let personnelFilter: any = { isActive: true };
+    // Admin quản lý hệ thống → không hiển thị trong báo cáo nhân sự
+    let personnelFilter: any = { isActive: true, isAdministrator: false };
     if (!isAdmin) {
         personnelFilter.projectMemberships = {
             some: {
@@ -262,6 +262,8 @@ export const GET = withAuth(async (req, user) => {
                 return errorResponse('Không có quyền xem báo cáo thời gian', 403);
             }
 
+            const personnelScope = ReportPolicy.getPersonnelVisibilityScope(user, perms);
+
             let whereClause: any = {};
             if (startDate || endDate) whereClause.spentOn = dateFilter;
 
@@ -270,12 +272,21 @@ export const GET = withAuth(async (req, user) => {
                     return errorResponse('Không có quyền xem nhật ký thời gian dự án này', 403);
                 }
                 whereClause.projectId = projectId;
+
+                // If not admin and only SELF scope, force filter by user.id
+                if (!isAdmin && personnelScope === 'SELF') {
+                    whereClause.userId = user.id;
+                }
             } else if (!isAdmin) {
-                whereClause.project = {
-                    members: { some: { userId: user.id } }
-                };
-                // Personnel visibility in time logs as well
-                whereClause.user = personnelFilter;
+                if (personnelScope === 'SELF') {
+                    whereClause.userId = user.id;
+                } else if (personnelScope === 'PROJECT_MEMBERS') {
+                    whereClause.project = {
+                        members: { some: { userId: user.id } }
+                    };
+                    // Optional: exclude admins if needed, or keep it per personnelFilter logic
+                    whereClause.user = { isAdministrator: false };
+                }
             }
 
             const timeLogs = await prisma.timeLog.findMany({

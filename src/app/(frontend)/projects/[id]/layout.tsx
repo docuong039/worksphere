@@ -4,6 +4,8 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Settings } from 'lucide-react';
 import { ProjectTabs } from '@/components/projects/project-tabs';
+import { getUserPermissions } from '@/lib/permissions';
+import { PERMISSIONS } from '@/lib/constants';
 
 interface Props {
     children: React.ReactNode;
@@ -33,6 +35,10 @@ export default async function ProjectLayout({ children, params }: Props) {
 
     if (!project) notFound();
 
+    // Check project edit permissions for the Settings button
+    const permissions = await getUserPermissions(session.user.id, id);
+    const canEditProject = session.user.isAdministrator || permissions.includes(PERMISSIONS.PROJECTS.EDIT);
+
     return (
         <div className="p-6">
             {/* Header */}
@@ -50,13 +56,15 @@ export default async function ProjectLayout({ children, params }: Props) {
                     </div>
                 </div>
 
-                <Link
-                    href={`/projects/${id}/settings`}
-                    className="flex items-center gap-2 px-4 py-2 text-gray-700 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
-                >
-                    <Settings className="w-4 h-4" />
-                    Cài đặt
-                </Link>
+                {canEditProject && (
+                    <Link
+                        href={`/projects/${id}/settings`}
+                        className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm active:scale-95"
+                    >
+                        <Settings className="w-4 h-4 text-gray-500" />
+                        Cài đặt
+                    </Link>
+                )}
             </div>
 
             {/* Tabs */}

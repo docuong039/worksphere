@@ -14,6 +14,7 @@ import { useState, useEffect } from 'react';
 import { TaskCard } from '@/components/tasks/task-card';
 import { TaskWithRelations, Status, Tracker, Priority } from '@/types';
 import { Plus } from 'lucide-react';
+import { PERMISSIONS } from '@/lib/constants';
 
 interface KanbanBoardProps {
     tasks: TaskWithRelations[];
@@ -21,18 +22,26 @@ interface KanbanBoardProps {
     trackers: Tracker[];
     priorities: Priority[];
     onRefresh: () => void;
+    canAssignOthers?: boolean;
+    currentUserId?: string;
+    projectPermissionsMap?: Record<string, string[]>;
+    allowedTrackerIdsByProject?: Record<string, string[]>;
     onStatusChange: (taskId: string, newStatusId: string) => Promise<void>;
     onCreateTask?: (statusId: string) => void;
 }
 
-function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses, onCreateTask }: {
+function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses, onCreateTask, canAssignOthers, currentUserId, projectPermissionsMap, allowedTrackerIdsByProject }: {
     status: Status,
     tasks: TaskWithRelations[],
     trackers: Tracker[],
     priorities: Priority[],
     onRefresh: () => void,
     statuses: Status[],
-    onCreateTask?: (statusId: string) => void
+    onCreateTask?: (statusId: string) => void,
+    canAssignOthers?: boolean,
+    currentUserId?: string,
+    projectPermissionsMap?: Record<string, string[]>,
+    allowedTrackerIdsByProject?: Record<string, string[]>
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: status.id,
@@ -129,34 +138,31 @@ function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses
                         statuses={statuses}
                         trackers={trackers}
                         priorities={priorities}
+                        canAssignOthers={canAssignOthers || projectPermissionsMap?.[task.projectId]?.includes(PERMISSIONS.TASKS.ASSIGN_OTHERS)}
+                        currentUserId={currentUserId}
+                        allowedTrackerIds={allowedTrackerIdsByProject?.[task.projectId]}
                         onRefresh={onRefresh}
                     />
                 ))}
 
-                {onCreateTask && (
-                    <button
-                        onClick={() => onCreateTask(status.id)}
-                        className="w-full py-2 flex items-center justify-center gap-2 text-sm text-gray-500 hover:text-gray-800 hover:bg-gray-100/50 rounded-lg transition-all border border-transparent hover:border-gray-200 hover:shadow-sm mt-auto"
-                    >
-                        <Plus className="w-4 h-4" />
-                        Tạo công việc
-                    </button>
-                )}
             </div>
         </div>
     );
 }
 
-export function KanbanBoard({ tasks, statuses, trackers, priorities, onRefresh, onStatusChange, onCreateTask }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, statuses, trackers, priorities, canAssignOthers, currentUserId, projectPermissionsMap, allowedTrackerIdsByProject, onRefresh, onStatusChange, onCreateTask }: KanbanBoardProps) {
     const [activeId, setActiveId] = useState<string | null>(null);
     const [isMounted, setIsMounted] = useState(false);
+
+    // CHỈ HIỂN THỊ CÁC TASK GỐC TRÊN BẢNG KANBAN (Ẩn subtask để nó chỉ nằm trong card cha)
+    const topLevelTasks = tasks.filter(t => t.parentId === null);
 
     useEffect(() => {
         // eslint-disable-next-line
         setIsMounted(true);
     }, []);
 
-    const activeTask = tasks.find(t => t.id === activeId);
+    const activeTask = topLevelTasks.find(t => t.id === activeId);
 
     const sensors = useSensors(
         useSensor(MouseSensor, {
@@ -199,12 +205,16 @@ export function KanbanBoard({ tasks, statuses, trackers, priorities, onRefresh, 
                     <KanbanColumn
                         key={status.id}
                         status={status}
-                        tasks={tasks.filter(t => t.status.id === status.id)}
+                        tasks={topLevelTasks.filter(t => t.status.id === status.id)}
                         trackers={trackers}
                         priorities={priorities}
                         onRefresh={onRefresh}
                         statuses={statuses}
                         onCreateTask={onCreateTask}
+                        canAssignOthers={canAssignOthers}
+                        currentUserId={currentUserId}
+                        projectPermissionsMap={projectPermissionsMap}
+                        allowedTrackerIdsByProject={allowedTrackerIdsByProject}
                     />
                 ))}
             </div>
@@ -222,12 +232,16 @@ export function KanbanBoard({ tasks, statuses, trackers, priorities, onRefresh, 
                     <KanbanColumn
                         key={status.id}
                         status={status}
-                        tasks={tasks.filter(t => t.status.id === status.id)}
+                        tasks={topLevelTasks.filter(t => t.status.id === status.id)}
                         trackers={trackers}
                         priorities={priorities}
                         onRefresh={onRefresh}
                         statuses={statuses}
                         onCreateTask={onCreateTask}
+                        canAssignOthers={canAssignOthers}
+                        currentUserId={currentUserId}
+                        projectPermissionsMap={projectPermissionsMap}
+                        allowedTrackerIdsByProject={allowedTrackerIdsByProject}
                     />
                 ))}
             </div>
@@ -239,6 +253,9 @@ export function KanbanBoard({ tasks, statuses, trackers, priorities, onRefresh, 
                         statuses={statuses}
                         trackers={trackers}
                         priorities={priorities}
+                        canAssignOthers={canAssignOthers || projectPermissionsMap?.[activeTask.projectId]?.includes(PERMISSIONS.TASKS.ASSIGN_OTHERS)}
+                        currentUserId={currentUserId}
+                        allowedTrackerIds={allowedTrackerIdsByProject?.[activeTask.projectId]}
                         onRefresh={onRefresh}
                     />
                 ) : null}

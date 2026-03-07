@@ -140,6 +140,11 @@ export function CopyTaskModal({
 
     const handleCopy = async () => {
         if (!formData.title.trim() || !formData.projectId) return;
+        // Bắt buộc chọn người thực hiện
+        if (!formData.assigneeId) {
+            setError('Vui lòng chọn người thực hiện cho công việc');
+            return;
+        }
         setLoading(true);
         setError('');
 
@@ -308,13 +313,16 @@ export function CopyTaskModal({
                         </div>
 
                         <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1.5">Người thực hiện</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                Người thực hiện <span className="text-red-500">*</span>
+                            </label>
                             <select
                                 value={formData.assigneeId}
                                 onChange={(e) => setFormData({ ...formData, assigneeId: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                className={`w-full px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none ${!formData.assigneeId ? 'border-red-300' : 'border-gray-200'
+                                    }`}
                             >
-                                <option value="">Chưa gán</option>
+                                <option value="">-- Chọn người thực hiện --</option>
                                 {members.map((m) => (
                                     <option key={m.user.id} value={m.user.id}>{m.user.name}</option>
                                 ))}
@@ -408,7 +416,7 @@ export function CopyTaskModal({
                     </button>
                     <button
                         onClick={handleCopy}
-                        disabled={loading || !formData.title.trim() || !formData.projectId}
+                        disabled={loading || !formData.title.trim() || !formData.projectId || !formData.assigneeId}
                         className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
                     >
                         <Copy className="w-4 h-4" />

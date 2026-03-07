@@ -57,7 +57,10 @@ export const GET = withAuth(async (req, user, ctx) => {
         where: {
             projectId,
             ...(limitToSelf ? { userId: user.id } : {}),
-            ...(assignableOnly ? { role: { assignable: true } } : {})
+            ...(assignableOnly ? { role: { assignable: true } } : {}),
+            // Không hiển thị Administrator trong danh sách
+            // Admin quản lý hệ thống, không phải nhân viên thực hiện
+            user: { isAdministrator: false },
         },
         include: {
             user: {
@@ -112,6 +115,19 @@ export const POST = withAuth(async (req, user, ctx) => {
     }
 
     const idsToAdd: string[] = userIds || [userId];
+
+    // Prevent non-admins from adding administrators to projects
+    if (!user.isAdministrator) {
+        const adminCount = await prisma.user.count({
+            where: {
+                id: { in: idsToAdd },
+                isAdministrator: true
+            }
+        });
+        if (adminCount > 0) {
+            return errorResponse('Không thể thêm người quản trị hệ thống vào dự án', 403);
+        }
+    }
 
     // Check if role exists
     const role = await prisma.role.findUnique({ where: { id: roleId } });

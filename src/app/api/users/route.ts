@@ -2,16 +2,22 @@ import prisma from '@/lib/prisma';
 import { successResponse } from '@/lib/api-error';
 import { createUserSchema } from '@/lib/validations';
 import bcrypt from 'bcryptjs';
-import { withAdmin } from '@/server/middleware/withAuth';
+import { withAdmin, withAuth } from '@/server/middleware/withAuth';
+import { getUserPermissions } from '@/lib/permissions';
+import { ReportPolicy } from '@/modules/report/report.policy';
 
-// GET /api/users - Lấy danh sách users (admin only)
-export const GET = withAdmin(async (req) => {
+// GET /api/users - Lấy danh sách users (có filter theo quyền)
+export const GET = withAuth(async (req, user) => {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || '';
     const page = parseInt(searchParams.get('page') || '1');
     const pageSize = parseInt(searchParams.get('pageSize') || '20');
+    const excludeAdmins = searchParams.get('excludeAdmins') === 'true';
 
-    const where = search
+    const globalPerms = await getUserPermissions(user.id);
+    const scope = ReportPolicy.getPersonnelVisibilityScope(user, globalPerms);
+
+    const where: any = search
         ? {
             OR: [
                 { name: { contains: search } },
@@ -19,6 +25,26 @@ export const GET = withAdmin(async (req) => {
             ],
         }
         : {};
+
+    if (excludeAdmins) {
+        where.isAdministrator = false;
+    }
+
+    if (!user.isAdministrator) {
+        if (scope === 'SELF') {
+            where.id = user.id;
+        } else if (scope === 'PROJECT_MEMBERS') {
+            where.projectMemberships = {
+                some: {
+                    project: {
+                        members: {
+                            some: { userId: user.id }
+                        }
+                    }
+                }
+            };
+        }
+    }
 
     const [users, total] = await Promise.all([
         prisma.user.findMany({

@@ -21,6 +21,7 @@ import { CreateTaskModal } from '@/components/tasks/create-task-modal';
 import { TaskContextMenu } from '@/components/tasks/task-context-menu';
 import { KanbanBoard } from '@/components/tasks/kanban-board';
 import { taskService } from '@/services/task.service';
+import { PERMISSIONS } from '@/lib/constants';
 
 import type {
     TaskWithRelations as Task,
@@ -49,6 +50,9 @@ interface TaskListProps {
     queries?: SavedQueryWithRelations[]; // Changed from SavedQuery[]
     users?: Array<{ id: string; name: string }>;
     currentUserId?: string;
+    canAssignOthers?: boolean; // Default for global actions
+    canCreateTask?: boolean;
+    projectPermissionsMap?: Record<string, string[]>;
     allowedTrackerIdsByProject?: Record<string, string[]>;
     projectId?: string; // Add this to lock to a project
 }
@@ -62,6 +66,9 @@ export function TaskList({
     queries = [],
     users = [],
     currentUserId,
+    canAssignOthers: defaultCanAssignOthers = false,
+    canCreateTask = false,
+    projectPermissionsMap = {},
     allowedTrackerIdsByProject = {},
     projectId: propProjectId,
 }: TaskListProps) {
@@ -367,13 +374,15 @@ export function TaskList({
                 </div>
 
                 {/* Create Button */}
-                <button
-                    onClick={() => handleCreateTask()}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
-                >
-                    <Plus className="w-4 h-4" />
-                    Tạo công việc
-                </button>
+                {canCreateTask && (
+                    <button
+                        onClick={() => handleCreateTask()}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Tạo công việc
+                    </button>
+                )}
             </div>
 
             {/* Filter Panel */}
@@ -619,7 +628,7 @@ export function TaskList({
                                                             </div>
                                                         )}
                                                         {task._count.comments > 0 && (
-                                                            <div className="flex items-center gap-1 text-xs text-gray-400">
+                                                            <div className="flex items-center gap-1 text-xs text-gray-600">
                                                                 <MessageSquare className="w-3.5 h-3.5" />
                                                                 {task._count.comments}
                                                             </div>
@@ -636,14 +645,14 @@ export function TaskList({
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-right">
-                                                <span className={`text-sm font-bold ${task.estimatedHours ? 'text-gray-800' : 'text-gray-300'}`}>
+                                                <span className={`text-sm font-bold ${task.estimatedHours ? 'text-gray-800' : 'text-gray-500'}`}>
                                                     {task.estimatedHours ? `${task.estimatedHours}h` : '-'}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-center">
                                                 <div className="inline-flex items-center gap-1.5 text-xs text-gray-600 font-medium bg-gray-50 px-2 py-1 rounded border border-gray-100">
                                                     <span>{task.startDate ? new Date(task.startDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '--'}</span>
-                                                    <span className="text-gray-300">→</span>
+                                                    <span className="text-gray-500">→</span>
                                                     <span className={task.dueDate && new Date(task.dueDate) < new Date() && !task.status.isClosed ? 'text-red-600 font-bold' : ''}>
                                                         {task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '--'}
                                                     </span>
@@ -660,6 +669,11 @@ export function TaskList({
                                                     currentAssigneeId={task.assignee?.id || null}
                                                     currentDoneRatio={task.doneRatio}
                                                     hasSubtasks={task._count.subtasks > 0}
+                                                    isSubtask={!!task.parentId}
+                                                    canCreateTask={canCreateTask}
+                                                    canAssignOthers={defaultCanAssignOthers || projectPermissionsMap[task.projectId]?.includes(PERMISSIONS.TASKS.ASSIGN_OTHERS)}
+                                                    currentUserId={currentUserId}
+                                                    allowedTrackerIds={allowedTrackerIdsByProject[task.projectId]}
                                                     statuses={statuses}
                                                     trackers={trackers}
                                                     priorities={priorities}
@@ -671,7 +685,7 @@ export function TaskList({
                                 ) : (
                                     <tr>
                                         <td colSpan={9} className="px-4 py-12 text-center">
-                                            <ListTodo className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                                            <ListTodo className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                                             <p className="text-gray-500 font-medium">Chưa có công việc nào</p>
                                         </td>
                                     </tr>
@@ -685,9 +699,13 @@ export function TaskList({
                         statuses={statuses.map(s => ({ ...s, isClosed: s.isClosed ?? false }))}
                         trackers={trackers}
                         priorities={priorities.map(p => ({ ...p, color: p.color ?? null }))}
+                        canAssignOthers={defaultCanAssignOthers}
+                        currentUserId={currentUserId}
+                        projectPermissionsMap={projectPermissionsMap}
+                        allowedTrackerIdsByProject={allowedTrackerIdsByProject}
                         onRefresh={() => fetchTasks()}
                         onStatusChange={handleStatusChange}
-                        onCreateTask={handleCreateTask}
+                        onCreateTask={canCreateTask ? handleCreateTask : undefined}
                     />
                 )
             }
@@ -707,6 +725,9 @@ export function TaskList({
                     fetchTasks(); // Client-side refresh ngay lập tức
                 }}
                 allowedTrackerIdsByProject={allowedTrackerIdsByProject}
+                projectPermissionsMap={projectPermissionsMap}
+                canAssignOthers={defaultCanAssignOthers}
+                currentUserId={currentUserId}
             />
 
             <SaveQueryModal

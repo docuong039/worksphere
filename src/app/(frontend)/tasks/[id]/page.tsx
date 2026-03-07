@@ -37,6 +37,9 @@ export default async function TaskDetailPage({ params }: Props) {
                     name: true,
                     identifier: true,
                     members: {
+                        where: {
+                            user: { isAdministrator: false }, // Ẩn admin khỏi dropdown gán task
+                        },
                         include: {
                             user: { select: { id: true, name: true, avatar: true } },
                             role: {
@@ -72,6 +75,7 @@ export default async function TaskDetailPage({ params }: Props) {
                     priority: { select: { id: true, name: true, color: true } },
                     tracker: { select: { id: true, name: true } },
                     assignee: { select: { id: true, name: true, avatar: true } },
+                    timeLogs: { select: { hours: true } }, // Bottom-Up: cộng giờ thực tế lên task cha
                 },
                 orderBy: { createdAt: 'asc' },
             },
@@ -173,6 +177,7 @@ export default async function TaskDetailPage({ params }: Props) {
     const canEdit = TaskPolicy.canUpdateTask(session.user, task, userPermissions);
     const canFullEdit = TaskPolicy.canFullyEditTask(session.user, task, userPermissions);
     const canManageWatchers = TaskPolicy.canManageWatchers(session.user, task, userPermissions);
+    const canAssignOthers = TaskPolicy.canAssignOthers(session.user, userPermissions);
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -188,14 +193,14 @@ export default async function TaskDetailPage({ params }: Props) {
                         >
                             {task.project.name}
                         </Link>
-                        <span className="text-gray-300">/</span>
-                        <div className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-gray-200">
+                        <span className="text-gray-500">/</span>
+                        <div className="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-gray-200">
                             {task.tracker.name}
                         </div>
                     </div>
                     <div className="flex items-baseline gap-3">
-                        <span className="text-2xl font-mono font-bold text-gray-300">#{task.number}</span>
-                        <h1 className={`text-2xl font-bold tracking-tight ${task.status.isClosed ? 'text-gray-300 line-through' : 'text-gray-900'}`}>
+                        <span className="text-2xl font-mono font-bold text-gray-500">#{task.number}</span>
+                        <h1 className={`text-2xl font-bold tracking-tight ${task.status.isClosed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
                             {task.title}
                         </h1>
                     </div>
@@ -211,7 +216,9 @@ export default async function TaskDetailPage({ params }: Props) {
                 allowedStatuses={allowedStatuses as unknown as any[]}
                 canEdit={canEdit}
                 canFullEdit={canFullEdit}
+                canAssignOthers={canAssignOthers}
                 currentUserId={session.user.id}
+                allowedTrackerIds={trackers.map(t => t.id)}
                 canManageWatchers={canManageWatchers}
             />
         </div>

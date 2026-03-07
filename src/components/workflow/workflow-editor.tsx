@@ -153,7 +153,7 @@ export function WorkflowEditor({
                     {/* Tracker Select */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Tracker
+                            Loại công việc
                         </label>
                         <select
                             value={selectedTracker}
@@ -171,14 +171,14 @@ export function WorkflowEditor({
                     {/* Role Select */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Role
+                            Vai trò
                         </label>
                         <select
                             value={selectedRole}
                             onChange={(e) => handleRoleChange(e.target.value)}
                             className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                            <option value="">Tất cả Roles</option>
+                            <option value="">Tất cả Vai trò</option>
                             {roles.map((r) => (
                                 <option key={r.id} value={r.id}>
                                     {r.name}
@@ -191,7 +191,7 @@ export function WorkflowEditor({
 
                     {/* Stats */}
                     <div className="text-sm text-gray-500">
-                        {allowedCount} / {totalPossible} transitions được phép
+                        {allowedCount} / {totalPossible} chuyển đổi được phép
                     </div>
 
                     {/* Actions */}
@@ -200,7 +200,7 @@ export function WorkflowEditor({
                         className="flex items-center gap-2 px-3 py-2 text-gray-700 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
                     >
                         <RotateCcw className="w-4 h-4" />
-                        Reset
+                        Đặt lại
                     </button>
 
                     <button
@@ -222,11 +222,11 @@ export function WorkflowEditor({
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
                 <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                 <div className="text-sm text-blue-800">
-                    <strong>Hướng dẫn:</strong> Click vào ô để cho phép/không cho phép chuyển đổi status.
+                    <strong>Hướng dẫn:</strong> Click vào ô để cho phép/không cho phép chuyển đổi trạng thái.
                     <br />
-                    • <strong>Hàng</strong>: Status hiện tại (From)
+                    • <strong>Hàng</strong>: Trạng thái hiện tại (From)
                     <br />
-                    • <strong>Cột</strong>: Status muốn chuyển đến (To)
+                    • <strong>Cột</strong>: Trạng thái muốn chuyển đến (To)
                     <br />
                     • <strong>Ô xanh</strong>: Được phép chuyển
                     <br />

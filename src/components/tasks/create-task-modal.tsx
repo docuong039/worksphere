@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
 import { taskService } from '@/services/task.service';
 import { projectService } from '@/services/project.service';
+import { PERMISSIONS } from '@/lib/constants';
 
 interface Option {
     id: string;
@@ -44,6 +45,9 @@ interface CreateTaskModalProps {
     };
     onSuccess?: () => void;
     allowedTrackerIdsByProject?: Record<string, string[]>;
+    projectPermissionsMap?: Record<string, string[]>;
+    canAssignOthers?: boolean;
+    currentUserId?: string;
 }
 
 export function CreateTaskModal({
@@ -57,6 +61,9 @@ export function CreateTaskModal({
     initialData,
     onSuccess,
     allowedTrackerIdsByProject,
+    projectPermissionsMap = {},
+    canAssignOthers: defaultCanAssignOthers = false,
+    currentUserId,
 }: CreateTaskModalProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
@@ -147,6 +154,11 @@ export function CreateTaskModal({
 
     const handleCreate = async () => {
         if (!formData.title.trim() || !formData.projectId) return;
+        // Bắt buộc phải chọn người thực hiện
+        if (!formData.parentId && !formData.assigneeId) {
+            setError('Vui lòng chọn người thực hiện cho công việc');
+            return;
+        }
         setLoading(true);
         setError('');
 
@@ -157,7 +169,7 @@ export function CreateTaskModal({
                 startDate: formData.startDate || undefined,
                 dueDate: formData.dueDate || undefined,
                 versionId: formData.versionId || undefined,
-                assigneeId: formData.assigneeId || undefined,
+                assigneeId: formData.assigneeId,
                 parentId: formData.parentId || undefined,
             });
 
@@ -214,28 +226,30 @@ export function CreateTaskModal({
                     )}
 
                     {/* Project & Tracker */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                                Dự án <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                value={formData.projectId}
-                                onChange={(e) => {
-                                    const newProjectId = e.target.value;
-                                    const allowedIds = allowedTrackerIdsByProject?.[newProjectId];
-                                    const availableTrackers = trackers.filter(t => !allowedIds || allowedIds.includes(t.id));
-                                    const newTrackerId = availableTrackers.length > 0 ? availableTrackers[0].id : '';
-                                    setFormData({ ...formData, projectId: newProjectId, trackerId: newTrackerId, assigneeId: '' });
-                                }}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                                disabled={!!initialData?.parentId}
-                            >
-                                {projects.map((p) => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                ))}
-                            </select>
-                        </div>
+                    <div className="grid gap-4 grid-cols-2">
+                        {!formData.parentId && (
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                    Dự án <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={formData.projectId}
+                                    onChange={(e) => {
+                                        const newProjectId = e.target.value;
+                                        const allowedIds = allowedTrackerIdsByProject?.[newProjectId];
+                                        const availableTrackers = trackers.filter(t => !allowedIds || allowedIds.includes(t.id));
+                                        const newTrackerId = availableTrackers.length > 0 ? availableTrackers[0].id : '';
+                                        setFormData({ ...formData, projectId: newProjectId, trackerId: newTrackerId, assigneeId: '' });
+                                    }}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+                                    disabled={!!initialData?.parentId}
+                                >
+                                    {projects.map((p) => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
                         <div>
                             <label className="block text-xs font-medium text-gray-600 mb-1.5">Loại công việc</label>
@@ -312,19 +326,30 @@ export function CreateTaskModal({
                             </select>
                         </div>
 
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1.5">Người thực hiện</label>
-                            <select
-                                value={formData.assigneeId}
-                                onChange={(e) => setFormData({ ...formData, assigneeId: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                            >
-                                <option value="">Chưa gán</option>
-                                {members.map((m) => (
-                                    <option key={m.user.id} value={m.user.id}>{m.user.name}</option>
-                                ))}
-                            </select>
-                        </div>
+                        {!formData.parentId && (
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                                    Người thực hiện <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={formData.assigneeId}
+                                    onChange={(e) => setFormData({ ...formData, assigneeId: e.target.value })}
+                                    className={`w-full px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none ${!formData.assigneeId ? 'border-red-300' : 'border-gray-200'
+                                        }`}
+                                >
+                                    <option value="">-- Chọn người thực hiện --</option>
+                                    {members
+                                        .filter(m => (
+                                            defaultCanAssignOthers ||
+                                            (formData.projectId && projectPermissionsMap[formData.projectId]?.includes(PERMISSIONS.TASKS.ASSIGN_OTHERS)) ||
+                                            m.user.id === currentUserId
+                                        ))
+                                        .map((m) => (
+                                            <option key={m.user.id} value={m.user.id}>{m.user.name}</option>
+                                        ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
 
                     {/* Date, Hours, Done Ratio - 4 columns */}
@@ -413,7 +438,7 @@ export function CreateTaskModal({
                     </button>
                     <button
                         onClick={handleCreate}
-                        disabled={loading || !formData.title.trim() || !formData.projectId}
+                        disabled={loading || !formData.title.trim() || !formData.projectId || (!formData.parentId && !formData.assigneeId)}
                         className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                     >
                         {loading ? 'Đang tạo...' : (formData.parentId ? 'Thêm công việc con' : 'Tạo công việc')}

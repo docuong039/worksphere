@@ -5,25 +5,27 @@ import {
     Briefcase,
     CheckSquare,
     ArrowRight,
-    AlertCircle,
     Users,
-    Activity,
     Clock,
-    Calendar,
     Target,
     Zap,
     TrendingUp,
+    AlertTriangle,
+    Calendar,
 } from 'lucide-react';
-import { PERMISSIONS } from '@/lib/constants';
 import * as DashboardPolicy from '@/modules/dashboard/dashboard.policy';
 import ActivityChart from '@/components/charts/ActivityChart';
+import { DashboardFilter } from '@/components/dashboard/dashboard-filter';
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
     const session = await auth();
     if (!session || !session.user) return null;
 
     const userId = session.user.id;
     const isAdmin = session.user.isAdministrator;
+
+    const params = await searchParams;
+    const selectedProjectId = params?.projectId as string | undefined;
 
     // 1. Fetch Projects for visibility & managerial check
     const projects = await prisma.project.findMany({
@@ -35,7 +37,7 @@ export default async function DashboardPage() {
             _count: { select: { tasks: true, members: true } },
             tasks: {
                 where: { status: { isClosed: false } },
-                select: { id: true, dueDate: true, assigneeId: true }
+                select: { id: true, dueDate: true, assigneeId: true, priority: { select: { position: true } } }
             },
             creator: { select: { name: true } },
             members: {
@@ -45,7 +47,8 @@ export default async function DashboardPage() {
                         include: {
                             permissions: { include: { permission: true } }
                         }
-                    }
+                    },
+                    user: { select: { isAdministrator: true } }
                 }
             }
         },
@@ -53,25 +56,50 @@ export default async function DashboardPage() {
     });
 
     // 2. Determine View Mode & Managed Projects using Policy
+    type ProjectData = (typeof projects)[0];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const isManagerView = DashboardPolicy.shouldShowManagementView(session.user as any, projects as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const managedProjects = DashboardPolicy.filterManagedProjects(session.user as any, projects as any);
 
     // 3. Calculate Stats for Manager (if applicable)
+    const baseProjects = isManagerView ? managedProjects : projects;
+    const displayProjects = selectedProjectId
+        ? baseProjects.filter((p) => (p as ProjectData).id === selectedProjectId)
+        : baseProjects;
+
+    // Lọc managedProjects nếu có selectedProjectId
+    const filterProjects = selectedProjectId
+        ? managedProjects.filter(p => (p as ProjectData).id === selectedProjectId)
+        : managedProjects;
+
+    // Lấy thông tin độ ưu tiên mặc định (Sử dụng chung cho cả Manager và Employee)
+    const defaultPriority = await prisma.priority.findFirst({ where: { isDefault: true } });
+    const normalPosition = defaultPriority?.position ?? 2;
+
     const managerStats = {
-        totalProjects: managedProjects.length,
-        totalOverdue: managedProjects.reduce((sum, p) =>
+        totalProjects: filterProjects.length,
+        totalOverdue: filterProjects.reduce((sum, p) =>
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             sum + (p as any).tasks.filter((t: any) => t.dueDate && new Date(t.dueDate) < new Date()).length, 0),
-        totalUnassigned: managedProjects.reduce((sum, p) =>
-            sum + (p as any).tasks.filter((t: any) => !t.assigneeId).length, 0),
-        upcomingEndCount: managedProjects.filter((p: any) =>
-            p.endDate && new Date(p.endDate) >= new Date() &&
-            new Date(p.endDate) <= new Date(new Date().setDate(new Date().getDate() + 7))
-        ).length
+        // Đếm unique thành viên — loại trừ administrator, tránh đếm trùng người tham gia nhiều dự án
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        totalMembers: new Set(filterProjects.flatMap(p => (p as any).members.filter((m: any) => !m.user.isAdministrator).map((m: any) => m.userId))).size,
+        totalUrgent: filterProjects.reduce((sum, p) =>
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            sum + (p as any).tasks.filter((t: any) => t.priority && t.priority.position > normalPosition).length, 0)
     };
 
     // 3. Tính toán Thống kê cho Nhân viên (Cá nhân)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const assigneeFilter: any = { assigneeId: userId, status: { isClosed: false } };
+    if (selectedProjectId) {
+        assigneeFilter.projectId = selectedProjectId;
+    }
+
     const myTasks = await prisma.task.findMany({
-        where: { assigneeId: userId, status: { isClosed: false } },
+        where: assigneeFilter,
         include: {
             project: { select: { name: true } },
             priority: { select: { name: true, color: true } }
@@ -80,26 +108,50 @@ export default async function DashboardPage() {
         take: 5
     });
 
-    // Tìm vị trí của độ ưu tiên mặc định (thường là "Bình thường")
-    const defaultPriority = await prisma.priority.findFirst({ where: { isDefault: true } });
-    const normalPosition = defaultPriority?.position ?? 2;
+    // Lấy ngày mốc 'hôm nay'
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
 
-    const [myOverdueCount, myHighPriorityCount] = await Promise.all([
+    const [myOverdueCount, myHighPriorityCount, myTodayCount] = await Promise.all([
         prisma.task.count({
             where: {
-                assigneeId: userId,
-                status: { isClosed: false },
+                ...assigneeFilter,
                 dueDate: { lt: new Date() }
             }
         }),
         prisma.task.count({
             where: {
-                assigneeId: userId,
-                status: { isClosed: false },
+                ...assigneeFilter,
                 priority: { position: { gt: normalPosition } } // Bất kỳ cái gì cao hơn "Bình thường"
+            }
+        }),
+        prisma.task.count({
+            where: {
+                ...assigneeFilter,
+                dueDate: { gte: todayStart, lte: todayEnd }
             }
         })
     ]);
+
+    // Fetch critical tasks for Manager
+    const criticalTasks = isManagerView ? await prisma.task.findMany({
+        where: {
+            status: { isClosed: false },
+            projectId: { in: filterProjects.map(p => (p as ProjectData).id) },
+            dueDate: { lt: new Date() }
+        },
+        include: {
+            project: { select: { name: true } },
+            priority: { select: { name: true, color: true } }
+        },
+        orderBy: [
+            { priority: { position: 'desc' } },
+            { dueDate: 'asc' }
+        ],
+        take: 8
+    }) : [];
 
     // 4. Activity Trend (Scope-aware)
     const sevenDaysAgo = new Date();
@@ -107,12 +159,18 @@ export default async function DashboardPage() {
     sevenDaysAgo.setHours(0, 0, 0, 0);
 
     // Filter tasks based on accessibility (Security first!)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const trendFilter: any = {
         status: { isClosed: true },
         updatedAt: { gte: sevenDaysAgo }
     };
 
-    if (!isAdmin) {
+    if (selectedProjectId) {
+        trendFilter.projectId = selectedProjectId;
+        if (!isAdmin && !isManagerView) {
+            trendFilter.assigneeId = userId;
+        }
+    } else if (!isAdmin) {
         if (isManagerView) {
             // Manager thấy hoạt động của các dự án mình tham gia
             trendFilter.projectId = { in: projects.map(p => p.id) };
@@ -143,7 +201,7 @@ export default async function DashboardPage() {
     return (
         <div className="space-y-8 pb-10">
             {/* Header Duy nhất & Sạch sẽ */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
                         {isManagerView ? 'Bảng điều hành dự án' : 'Không gian làm việc'}
@@ -154,11 +212,9 @@ export default async function DashboardPage() {
                             : `Chào ${session.user.name}, chúc bạn một ngày làm việc hiệu quả.`}
                     </p>
                 </div>
-                {!isManagerView && (
-                    <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-xl border border-blue-100 italic text-xs font-semibold">
-                        <Zap className="w-4 h-4" /> Đang tham gia {projects.length} dự án
-                    </div>
-                )}
+                <div className="flex items-center gap-4">
+                    <DashboardFilter projects={isManagerView ? managedProjects as ProjectData[] : projects} />
+                </div>
             </div>
 
             {/* PHẦN 1: BỘ THẺ THỐNG KÊ (HIỂN THỊ THEO QUYỀN) */}
@@ -168,8 +224,8 @@ export default async function DashboardPage() {
                     <>
                         <StatCard icon={<Briefcase />} label="Dự án quản lý" value={managerStats.totalProjects} color="blue" />
                         <StatCard icon={<Clock />} label="Việc trễ hạn" value={managerStats.totalOverdue} color="red" />
-                        <StatCard icon={<Users />} label="Việc chưa gán" value={managerStats.totalUnassigned} color="orange" />
-                        <StatCard icon={<Calendar />} label="Dự án sắp đến hạn" value={managerStats.upcomingEndCount} color="purple" />
+                        <StatCard icon={<Users />} label="Tổng thành viên" value={managerStats.totalMembers} color="green" />
+                        <StatCard icon={<AlertTriangle />} label="Việc cấp bách" value={managerStats.totalUrgent} color="purple" highlight={managerStats.totalUrgent > 0} />
                     </>
                 ) : (
                     // VIEW NHÂN VIÊN: Tập trung vào "Năng suất cá nhân"
@@ -177,7 +233,7 @@ export default async function DashboardPage() {
                         <StatCard icon={<CheckSquare />} label="Việc cần làm" value={myTasks.length} color="blue" />
                         <StatCard icon={<Clock />} label="Việc đã quá hạn" value={myOverdueCount} color="red" highlight={myOverdueCount > 0} />
                         <StatCard icon={<Zap />} label="Ưu tiên cao" value={myHighPriorityCount} color="orange" highlight={myHighPriorityCount > 0} />
-                        <StatCard icon={<Target />} label="Đã hoàn thành" value="--" color="green" />
+                        <StatCard icon={<Calendar />} label="Deadline hôm nay" value={myTodayCount} color="green" highlight={myTodayCount > 0} />
                     </>
                 )}
             </div>
@@ -212,21 +268,22 @@ export default async function DashboardPage() {
                             </Link>
                         </div>
                         <div className="divide-y divide-gray-50">
-                            {(isManagerView ? managedProjects : projects).slice(0, 6).map((proj: any) => {
-                                const total = proj._count?.tasks ?? 0;
-                                const open = proj.tasks?.length ?? 0;
+                            {displayProjects.slice(0, 6).map((proj) => {
+                                const p = proj as ProjectData;
+                                const total = p._count?.tasks ?? 0;
+                                const open = p.tasks?.length ?? 0;
                                 const rate = total > 0 ? Math.round(((total - open) / total) * 100) : 0;
                                 return (
-                                    <div key={proj.id} className="p-6 hover:bg-gray-50/50 transition-colors">
+                                    <div key={p.id} className="p-6 hover:bg-gray-50/50 transition-colors">
                                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                             <div className="flex-1 min-w-0">
-                                                <Link href={`/projects/${proj.id}`} className="font-bold text-gray-900 text-[15px] hover:text-blue-600 transition-colors truncate block mb-1">
-                                                    {proj.name}
+                                                <Link href={`/projects/${p.id}`} className="font-bold text-gray-900 text-[15px] hover:text-blue-600 transition-colors truncate block mb-1">
+                                                    {p.name}
                                                 </Link>
                                                 <div className="flex items-center gap-2 text-[11px] text-gray-400 font-bold uppercase tracking-wider">
-                                                    <span>Bởi {proj.creator?.name ?? 'Admin'}</span>
+                                                    <span>Bởi {p.creator?.name ?? 'Admin'}</span>
                                                     <span>•</span>
-                                                    <span className="text-gray-900">{proj._count?.members ?? 0} thành viên</span>
+                                                    <span className="text-gray-900">{p._count?.members ?? 0} thành viên</span>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-6">
@@ -247,33 +304,60 @@ export default async function DashboardPage() {
                     </div>
                 </div>
 
-                {/* CỘT PHẢI: CHI TIẾT CÔNG VIỆC CỦA TÔI */}
+                {/* CỘT PHẢI: CHI TIẾT ĐIỂM NÓNG / CÔNG VIỆC CỦA TÔI */}
                 <div className="space-y-6">
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col">
                         <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
                             <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                                <Target className="w-4 h-4 text-blue-600" />
-                                Công việc của tôi
+                                {isManagerView ? <AlertTriangle className="w-4 h-4 text-red-600" /> : <Target className="w-4 h-4 text-blue-600" />}
+                                {isManagerView ? 'Công việc quá hạn' : 'Công việc của tôi'}
                             </h2>
                         </div>
                         <div className="p-2 space-y-1">
-                            {myTasks.length > 0 ? myTasks.map(task => (
-                                <Link key={task.id} href={`/tasks/${task.id}`} className="block p-3 rounded-xl hover:bg-gray-50 transition-all group">
-                                    <div className="text-[13px] font-bold text-gray-800 group-hover:text-blue-600 mb-1 transition-colors">{task.title}</div>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase">
-                                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: task.priority.color || '#ccc' }} />
-                                            {task.project.name}
+                            {isManagerView ? (
+                                criticalTasks.length > 0 ? criticalTasks.map((task: any) => (
+                                    <Link key={task.id} href={`/tasks/${task.id}`} className="block p-3 rounded-xl hover:bg-red-50/50 transition-all group">
+                                        <div className="text-[13px] font-bold text-gray-800 group-hover:text-red-600 mb-1 transition-colors">{task.title}</div>
+                                        <div className="flex items-center justify-between mt-2">
+                                            <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: task.priority.color || '#ccc' }} />
+                                                {task.project.name}
+                                            </div>
+                                            {task.dueDate && (
+                                                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-red-100 text-red-600">
+                                                    Quá hạn
+                                                </span>
+                                            )}
                                         </div>
-                                        {task.dueDate && (
-                                            <span className={`text-[10px] font-bold ${new Date(task.dueDate) < new Date() ? 'text-red-500' : 'text-gray-400'}`}>
-                                                {new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
-                                            </span>
-                                        )}
+                                    </Link>
+                                )) : (
+                                    <div className="p-8 pb-10 flex flex-col items-center justify-center text-center">
+                                        <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mb-3">
+                                            <CheckSquare className="w-6 h-6 text-green-500" />
+                                        </div>
+                                        <p className="text-sm font-bold text-gray-900 mb-1">Mọi thứ đang ổn định</p>
+                                        <p className="text-xs text-gray-500 font-medium">Không có công việc nào bị trễ hạn</p>
                                     </div>
-                                </Link>
-                            )) : (
-                                <div className="p-8 text-center text-xs text-gray-500 font-medium">Bạn đã hoàn thành hết việc!</div>
+                                )
+                            ) : (
+                                myTasks.length > 0 ? myTasks.map((task: any) => (
+                                    <Link key={task.id} href={`/tasks/${task.id}`} className="block p-3 rounded-xl hover:bg-gray-50 transition-all group">
+                                        <div className="text-[13px] font-bold text-gray-800 group-hover:text-blue-600 mb-1 transition-colors line-clamp-2">{task.title}</div>
+                                        <div className="flex items-center justify-between mt-2">
+                                            <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">
+                                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: task.priority.color || '#ccc' }} />
+                                                <span className="truncate">{task.project.name}</span>
+                                            </div>
+                                            {task.dueDate && (
+                                                <span className={`shrink-0 text-[10px] font-bold ${new Date(task.dueDate) < new Date() ? 'text-red-500' : 'text-gray-400'}`}>
+                                                    {new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </Link>
+                                )) : (
+                                    <div className="p-8 text-center text-xs text-gray-500 font-medium">Bạn đã hoàn thành hết việc!</div>
+                                )
                             )}
                         </div>
                     </div>
@@ -283,9 +367,17 @@ export default async function DashboardPage() {
     );
 }
 
+interface StatCardProps {
+    icon: React.ReactNode;
+    label: string;
+    value: number | string;
+    color: 'blue' | 'red' | 'orange' | 'purple' | 'green';
+    highlight?: boolean;
+}
+
 // Sub-component cho thẻ thống kê (Sạch sẽ & Tái sử dụng)
-function StatCard({ icon, label, value, color }: any) {
-    const colors: any = {
+function StatCard({ icon, label, value, color }: StatCardProps) {
+    const colors: Record<string, string> = {
         blue: 'bg-blue-50 text-blue-600',
         red: 'bg-red-50 text-red-600',
         orange: 'bg-orange-50 text-orange-600',

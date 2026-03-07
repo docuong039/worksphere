@@ -10,7 +10,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
         select: { name: true },
     });
     return {
-        title: project ? `Roadmap - ${project.name} - WorkSphere` : 'Roadmap - WorkSphere',
+        title: project ? `Lộ trình - ${project.name} - WorkSphere` : 'Lộ trình - WorkSphere',
     };
 }
 

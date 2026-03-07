@@ -5,6 +5,7 @@ import type { RouteContext } from '@/server/middleware/withAuth';
 import { getUserPermissions } from '@/lib/permissions';
 import * as TaskPolicy from '@/modules/task/task.policy';
 import { PERMISSIONS } from '@/lib/constants';
+import { notifyWatcherAdded } from '@/lib/notifications';
 
 
 // GET /api/tasks/[id]/watchers - Lấy danh sách watchers
@@ -41,7 +42,7 @@ export const POST = withAuth(async (req, user, ctx) => {
     // Check task exists
     const task = await prisma.task.findUnique({
         where: { id },
-        select: { id: true, projectId: true, creatorId: true, assigneeId: true, isPrivate: true },
+        select: { id: true, projectId: true, creatorId: true, assigneeId: true, isPrivate: true, title: true },
     });
 
     if (!task) return errorResponse('Task không tồn tại', 404);
@@ -81,6 +82,13 @@ export const POST = withAuth(async (req, user, ctx) => {
                 user: { select: { id: true, name: true, avatar: true, email: true } },
             },
         });
+
+        if (!isSelfWatch) {
+            // Non-blocking notification
+            notifyWatcherAdded(id, task.title, targetUserId, user.name).catch(e => {
+                console.error('Failed to send watcher added notification:', e);
+            });
+        }
 
         return successResponse(watcher, 201);
     } catch (error) {

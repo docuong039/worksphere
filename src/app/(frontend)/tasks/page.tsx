@@ -2,6 +2,10 @@ import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { TaskList } from '@/components/tasks/task-list';
 import { TaskWithRelations, SavedQueryWithRelations } from '@/types';
+import { buildTaskFilters } from '@/app/api/tasks/helpers';
+import { getAccessibleProjectIds } from '@/lib/permissions';
+import { PERMISSIONS } from '@/lib/constants';
+import * as TaskPolicy from '@/modules/task/task.policy';
 
 export default async function TasksPage() {
     const session = await auth();
@@ -87,16 +91,46 @@ export default async function TasksPage() {
         }),
     ]);
 
-    // Initial tasks - my assigned, not closed
-    const where = session?.user?.isAdministrator
-        ? { status: { isClosed: false } }
-        : {
-            status: { isClosed: false },
-            OR: [
-                { assigneeId: session?.user?.id },
-                { creatorId: session?.user?.id },
-            ],
-        };
+    // Prepare effective projects for task filtering
+    const effectiveProjectIds = projects.map(p => p.id);
+    const projectPermissionsMap: Record<string, string[]> = {};
+
+    if (session?.user && !session.user.isAdministrator && effectiveProjectIds.length > 0) {
+        const fetchMemberships = await prisma.projectMember.findMany({
+            where: {
+                userId: session.user.id,
+                projectId: { in: effectiveProjectIds }
+            },
+            include: { role: { include: { permissions: { include: { permission: true } } } } }
+        });
+        for (const m of fetchMemberships) {
+            projectPermissionsMap[m.projectId] = m.role.permissions.map(rp => rp.permission.key);
+        }
+    }
+
+    const searchParams = new URLSearchParams();
+    searchParams.set('isClosed', 'false');
+    // Global tasks page default to 'my=true' for non-admin to show assigned/created tasks, exactly like old where clause did
+    if (!session?.user?.isAdministrator) {
+        searchParams.set('my', 'true');
+    }
+
+    let canAssignOthers = session?.user?.isAdministrator || false;
+    let canCreateTask = session?.user?.isAdministrator || false;
+
+    if (session?.user && !session.user.isAdministrator) {
+        canAssignOthers = Object.values(projectPermissionsMap).some(perms => TaskPolicy.canAssignOthers(session.user as any, perms));
+        canCreateTask = Object.values(projectPermissionsMap).some(perms => TaskPolicy.canCreateTask(session.user as any, perms));
+    }
+
+    // Initial tasks filter using robust helper
+    const where = buildTaskFilters({
+        projectIds: effectiveProjectIds,
+        userId: session?.user?.id || '',
+        isAdmin: session?.user?.isAdministrator || false,
+        searchParams,
+        projectPermissionsMap,
+    });
 
     const tasks = await prisma.task.findMany({
         where,
@@ -129,6 +163,9 @@ export default async function TasksPage() {
                 queries={queries as unknown as SavedQueryWithRelations[]}
                 users={users}
                 currentUserId={session?.user?.id}
+                canAssignOthers={canAssignOthers}
+                canCreateTask={canCreateTask}
+                projectPermissionsMap={projectPermissionsMap}
                 allowedTrackerIdsByProject={allowedTrackerIdsByProject}
             />
         </div>

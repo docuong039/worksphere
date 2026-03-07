@@ -42,6 +42,11 @@ export function canViewTask(user: User, task: Task, permissions: string[]): bool
         return true;
     }
 
+    // RULE 5: Luôn cho phép người tạo (creator) xem công việc của chính mình
+    if (task.creatorId === user.id) {
+        return true;
+    }
+
     return false;
 }
 
@@ -92,9 +97,6 @@ export function canDeleteTask(user: User, task: Task, permissions: string[]): bo
         return true;
     }
 
-    // Default: Redmine thường cho phép creator xóa việc của mình nếu không có quy định khác
-    if (task.creatorId === user.id) return true;
-
     return false;
 }
 
@@ -116,12 +118,9 @@ export function canCreateTask(user: User, permissions: string[]): boolean {
 
 /**
  * Kiểm tra quyền QUẢN LÝ người theo dõi
- * Cho phép nếu: Admin, Người tạo task, Người thực hiện task, hoặc có quyền RBAC MANAGE_WATCHERS.
+ * Chỉ cho phép Admin hoặc người có quyền RBAC MANAGE_WATCHERS được thêm/xóa người theo dõi.
  */
 export function canManageWatchers(user: User, task: Task, permissions: string[]): boolean {
     if (user.isAdministrator) return true;
-    if (task.creatorId === user.id) return true;
-    if (task.assigneeId === user.id) return true;
-
     return permissions.includes(PERMISSIONS.TASKS.MANAGE_WATCHERS);
 }

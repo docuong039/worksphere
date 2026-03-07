@@ -90,6 +90,11 @@ interface TaskContextMenuProps {
     currentAssigneeId: string | null;
     currentDoneRatio: number;
     hasSubtasks?: boolean;
+    isSubtask?: boolean;
+    canAssignOthers?: boolean;
+    canCreateTask?: boolean;
+    currentUserId?: string;
+    allowedTrackerIds?: string[];
     statuses: Status[];
     trackers: Tracker[];
     priorities: Priority[];
@@ -104,6 +109,11 @@ export function TaskContextMenu({
     currentPriorityId,
     currentAssigneeId,
     currentDoneRatio,
+    isSubtask = false,
+    canAssignOthers = false,
+    canCreateTask = false,
+    currentUserId,
+    allowedTrackerIds,
     statuses,
     trackers,
     priorities,
@@ -240,7 +250,7 @@ export function TaskContextMenu({
 
                 <DropdownMenuContent align="end" className="w-[180px]">
                     <DropdownMenuItem asChild>
-                        <Link href={`/tasks/${taskId}`} className="flex items-center gap-2 cursor-pointer">
+                        <Link href={`/tasks/${taskId}?edit=true`} className="flex items-center gap-2 cursor-pointer">
                             <Pencil className="w-4 h-4" />
                             Chỉnh sửa
                         </Link>
@@ -278,18 +288,20 @@ export function TaskContextMenu({
                     <DropdownMenuSub>
                         <DropdownMenuSubTrigger>
                             <Layers className="mr-2 h-4 w-4" />
-                            Tracker
+                            Loại công việc
                         </DropdownMenuSubTrigger>
                         <DropdownMenuSubContent className="p-1">
-                            {trackers.map((t) => (
-                                <DropdownMenuItem
-                                    key={t.id}
-                                    onClick={() => handleQuickUpdate('trackerId', t.id)}
-                                    className={t.id === currentTrackerId ? 'bg-blue-50 text-blue-700 font-medium' : ''}
-                                >
-                                    {t.name}
-                                </DropdownMenuItem>
-                            ))}
+                            {trackers
+                                .filter(t => !allowedTrackerIds || allowedTrackerIds.includes(t.id))
+                                .map((t) => (
+                                    <DropdownMenuItem
+                                        key={t.id}
+                                        onClick={() => handleQuickUpdate('trackerId', t.id)}
+                                        className={t.id === currentTrackerId ? 'bg-blue-50 text-blue-700 font-medium' : ''}
+                                    >
+                                        {t.name}
+                                    </DropdownMenuItem>
+                                ))}
                         </DropdownMenuSubContent>
                     </DropdownMenuSub>
 
@@ -317,38 +329,42 @@ export function TaskContextMenu({
                     </DropdownMenuSub>
 
                     {/* Assignee Submenu */}
-                    <DropdownMenuSub onOpenChange={(open) => open && fetchMembers()}>
-                        <DropdownMenuSubTrigger>
-                            <User className="mr-2 h-4 w-4" />
-                            Người thực hiện
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent className="w-48 p-1 max-h-60 overflow-auto">
-                            {loadingMembers ? (
-                                <div className="px-3 py-2 text-sm text-gray-500 flex items-center gap-2">
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Đang tải...
-                                </div>
-                            ) : (
-                                <>
-                                    <DropdownMenuItem
-                                        onClick={() => handleQuickUpdate('assigneeId', null)}
-                                        className={!currentAssigneeId ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-500 italic'}
-                                    >
-                                        -- Chưa gán --
-                                    </DropdownMenuItem>
-                                    {members.map((m) => (
+                    {!isSubtask && (
+                        <DropdownMenuSub onOpenChange={(open) => open && fetchMembers()}>
+                            <DropdownMenuSubTrigger>
+                                <User className="mr-2 h-4 w-4" />
+                                Người thực hiện
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-48 p-1 max-h-60 overflow-auto">
+                                {loadingMembers ? (
+                                    <div className="px-3 py-2 text-sm text-gray-500 flex items-center gap-2">
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Đang tải...
+                                    </div>
+                                ) : (
+                                    <>
                                         <DropdownMenuItem
-                                            key={m.user.id}
-                                            onClick={() => handleQuickUpdate('assigneeId', m.user.id)}
-                                            className={m.user.id === currentAssigneeId ? 'bg-blue-50 text-blue-700 font-medium' : ''}
+                                            onClick={() => handleQuickUpdate('assigneeId', null)}
+                                            className={!currentAssigneeId ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-500 italic'}
                                         >
-                                            {m.user.name}
+                                            -- Chưa gán --
                                         </DropdownMenuItem>
-                                    ))}
-                                </>
-                            )}
-                        </DropdownMenuSubContent>
-                    </DropdownMenuSub>
+                                        {members
+                                            .filter(m => canAssignOthers || m.user.id === currentUserId)
+                                            .map((m) => (
+                                                <DropdownMenuItem
+                                                    key={m.user.id}
+                                                    onClick={() => handleQuickUpdate('assigneeId', m.user.id)}
+                                                    className={m.user.id === currentAssigneeId ? 'bg-blue-50 text-blue-700 font-medium' : ''}
+                                                >
+                                                    {m.user.name}
+                                                </DropdownMenuItem>
+                                            ))}
+                                    </>
+                                )}
+                            </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                    )}
 
                     {/* Done Ratio Submenu */}
                     <DropdownMenuSub>
@@ -372,12 +388,14 @@ export function TaskContextMenu({
                     <DropdownMenuSeparator />
 
                     {/* Add Subtask */}
-                    <DropdownMenuItem asChild>
-                        <Link href={`/tasks/${taskId}#subtasks`} className="flex items-center gap-2 cursor-pointer">
-                            <GitBranch className="w-4 h-4" />
-                            Thêm công việc con
-                        </Link>
-                    </DropdownMenuItem>
+                    {canCreateTask && (
+                        <DropdownMenuItem asChild>
+                            <Link href={`/tasks/${taskId}#subtasks`} className="flex items-center gap-2 cursor-pointer">
+                                <GitBranch className="w-4 h-4" />
+                                Thêm công việc con
+                            </Link>
+                        </DropdownMenuItem>
+                    )}
 
                     {/* Copy Task */}
                     <DropdownMenuItem

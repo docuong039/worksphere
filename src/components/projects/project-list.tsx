@@ -23,9 +23,10 @@ import type { ProjectWithMembers as Project } from '@/types';
 
 interface ProjectListProps {
     projects: Project[];
+    canCreate?: boolean;
 }
 
-export function ProjectList({ projects: initialProjects }: ProjectListProps) {
+export function ProjectList({ projects: initialProjects, canCreate = false }: ProjectListProps) {
     const router = useRouter();
     const { confirm } = useConfirm();
     const [projects, setProjects] = useState(initialProjects);
@@ -214,13 +215,15 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
                 </div>
 
                 {/* Create Button */}
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700"
-                >
-                    <Plus className="w-4 h-4 stroke-[3]" />
-                    Tạo dự án mới
-                </button>
+                {canCreate && (
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700"
+                    >
+                        <Plus className="w-4 h-4 stroke-[3]" />
+                        Tạo dự án mới
+                    </button>
+                )}
             </div>
 
             {/* Project Grid */}
@@ -381,13 +384,15 @@ export function ProjectList({ projects: initialProjects }: ProjectListProps) {
                     <FolderKanban className="w-12 h-12 text-gray-200 mx-auto mb-4" />
                     <h3 className="text-lg font-bold text-gray-900 mb-1">Chưa có dự án nào</h3>
                     <p className="text-gray-500 mb-6">Tạo dự án đầu tiên để bắt đầu làm việc</p>
-                    <button
-                        onClick={() => setShowCreateModal(true)}
-                        className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700"
-                    >
-                        <Plus className="w-4 h-4 stroke-[3]" />
-                        Tạo dự án mới
-                    </button>
+                    {canCreate && (
+                        <button
+                            onClick={() => setShowCreateModal(true)}
+                            className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700"
+                        >
+                            <Plus className="w-4 h-4 stroke-[3]" />
+                            Tạo dự án mới
+                        </button>
+                    )}
                 </div>
             )}
 

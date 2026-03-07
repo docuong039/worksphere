@@ -226,7 +226,7 @@ export default function TimeEntryActivitiesPage() {
                                     <td className="px-4 py-3 text-center">
                                         <button
                                             onClick={() => handleSetDefault(activity.id)}
-                                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${activity.isDefault
+                                            className={`mx-auto w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${activity.isDefault
                                                 ? 'bg-orange-500 border-orange-500'
                                                 : 'border-gray-300 hover:border-orange-400'
                                                 }`}
@@ -236,13 +236,18 @@ export default function TimeEntryActivitiesPage() {
                                     </td>
                                     <td className="px-4 py-3 text-center">
                                         <button
+                                            type="button"
                                             onClick={() => handleUpdate(activity.id, { isActive: !activity.isActive })}
-                                            className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${activity.isActive
-                                                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                            className={`mx-auto relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${activity.isActive ? 'bg-orange-500' : 'bg-gray-200'
                                                 }`}
+                                            role="switch"
+                                            aria-checked={activity.isActive}
                                         >
-                                            {activity.isActive ? 'Hoạt động' : 'Ẩn'}
+                                            <span
+                                                aria-hidden="true"
+                                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${activity.isActive ? 'translate-x-4' : 'translate-x-0'
+                                                    }`}
+                                            />
                                         </button>
                                     </td>
                                     <td className="px-4 py-3 text-right">
@@ -284,7 +289,7 @@ export default function TimeEntryActivitiesPage() {
                 <ul className="text-sm text-amber-700 space-y-1">
                     <li>• <strong>Loại hoạt động</strong> được sử dụng khi ghi nhận thời gian làm việc (VD: Phát triển, Kiểm thử, Họp...)</li>
                     <li>• <strong>Mặc định</strong>: Loại hoạt động sẽ được chọn sẵn khi mở form ghi thời gian</li>
-                    <li>• <strong>Ẩn</strong>: Loại hoạt động sẽ không hiển thị trong danh sách chọn</li>
+                    <li>• <strong>Trạng thái</strong>: Bật/tắt nút gạt để hiện/ẩn loại hoạt động trong danh sách chọn</li>
                 </ul>
             </div>
         </div>

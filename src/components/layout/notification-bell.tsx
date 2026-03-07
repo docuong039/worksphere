@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { Bell, CheckCheck, AlertCircle, MessageSquare, User, Calendar, MailOpen, Mail } from 'lucide-react';
+import { Bell, CheckCheck, AlertCircle, MessageSquare, User, Calendar, MailOpen, Mail, Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api-fetch';
 
@@ -202,6 +202,8 @@ export function NotificationBell() {
     // ── Icon theo loại thông báo ────────────────────────────────
     const getIcon = (type: string) => {
         switch (type.toLowerCase()) {
+            case 'task_watcher_added':
+                return <Eye className="w-4 h-4 text-blue-500" />;
             case 'task_assigned':
                 return <User className="w-4 h-4 text-blue-500" />;
             case 'task_status_changed':

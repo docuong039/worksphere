@@ -115,17 +115,23 @@ export function ProjectTrackerSettings({
             </div>
 
             {canManage && (
-                <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-3">
+                <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-end gap-3 rounded-b-lg">
                     {saved && (
-                        <span className="flex items-center gap-1 text-green-600 text-sm">
+                        <span className="flex items-center gap-1 text-green-600 text-sm font-medium animate-in fade-in slide-in-from-right-2 duration-300">
                             <Check className="w-4 h-4" />
                             Đã lưu
                         </span>
                     )}
                     <button
+                        onClick={() => router.push(`/projects/${projectId}`)}
+                        className="px-5 py-2 text-sm text-gray-700 font-medium hover:bg-gray-200 rounded-lg transition-all active:scale-95"
+                    >
+                        Hủy
+                    </button>
+                    <button
                         onClick={handleSave}
                         disabled={loading || !hasChanges}
-                        className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+                        className="px-6 py-2 bg-blue-600 text-white text-sm font-bold uppercase tracking-wider rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm active:scale-95 shadow-blue-200"
                     >
                         {loading ? 'Đang lưu...' : 'Lưu thay đổi'}
                     </button>

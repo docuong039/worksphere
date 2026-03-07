@@ -117,7 +117,7 @@ export const createTaskSchema = z.object({
     statusId: z.string().min(1, 'Status không được để trống'),
     priorityId: z.string().min(1, 'Priority không được để trống'),
     projectId: z.string().min(1, 'Project không được để trống'),
-    assigneeId: z.string().optional().nullable(),
+    assigneeId: z.string().min(1, 'Người thực hiện không được để trống'),
     parentId: z.string().optional().nullable(),
     versionId: z.string().optional().nullable(),
 

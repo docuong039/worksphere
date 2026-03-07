@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import {
@@ -38,7 +38,9 @@ interface TaskDetailProps {
     canEdit: boolean;
     canFullEdit: boolean;
     canManageWatchers?: boolean;
+    canAssignOthers?: boolean;
     currentUserId: string;
+    allowedTrackerIds?: string[];
 }
 
 export function TaskDetail({
@@ -51,10 +53,13 @@ export function TaskDetail({
     canEdit,
     canFullEdit,
     canManageWatchers = false,
+    canAssignOthers = false,
     currentUserId,
+    allowedTrackerIds,
 }: TaskDetailProps) {
     const router = useRouter();
-    const [isEditing, setIsEditing] = useState(false);
+    const searchParams = useSearchParams();
+    const [isEditing, setIsEditing] = useState(() => searchParams.get('edit') === 'true' && canEdit);
     const [loading, setLoading] = useState(false);
     const [currentStatusId, setCurrentStatusId] = useState(task.status.id);
 
@@ -104,7 +109,13 @@ export function TaskDetail({
         }
     }
 
-    const totalSpentTime = task.timeLogs?.reduce((sum, log) => sum + log.hours, 0) || 0;
+    // Giờ thực tế: cộng giờ của bản thân task + tất cả subtasks (Bottom-Up)
+    const ownSpentTime = task.timeLogs?.reduce((sum, log) => sum + log.hours, 0) || 0;
+    const subtaskSpentTime = task.subtasks?.reduce((sum, sub) => {
+        return sum + (sub.timeLogs?.reduce((s, log) => s + log.hours, 0) || 0);
+    }, 0) || 0;
+    const totalSpentTime = ownSpentTime + subtaskSpentTime;
+    const hasSubtaskTime = subtaskSpentTime > 0;
 
     const formatRelativeTime = (date: string | Date) => {
         const diffDays = Math.floor((new Date().getTime() - new Date(date).getTime()) / (1000 * 60 * 60 * 24));
@@ -127,8 +138,8 @@ export function TaskDetail({
                 trackerId: editData.trackerId,
                 statusId: editData.statusId,
                 priorityId: editData.priorityId,
-                assigneeId: editData.assigneeId || null,
-                versionId: editData.versionId || null,
+                assigneeId: editData.assigneeId || undefined,
+                versionId: editData.versionId || undefined,
                 estimatedHours: editData.estimatedHours ? (typeof editData.estimatedHours === 'string' ? parseFloat(editData.estimatedHours) : editData.estimatedHours) : null,
                 doneRatio: editData.doneRatio,
                 startDate: editData.startDate || null,
@@ -145,9 +156,11 @@ export function TaskDetail({
         }
     };
 
-    const isDateDisabled = false;
-    const isHoursDisabled = false;
-    const isRatioDisabled = false;
+    // Khoá các trường nhập liệu nếu có subtask (Vì áp dụng tính toán Bottom-Up - Cách 1)
+    const hasSubtasks = (task.subtasks?.length || 0) > 0;
+    const isDateDisabled = hasSubtasks;
+    const isHoursDisabled = hasSubtasks;
+    const isRatioDisabled = hasSubtasks;
 
     return (
         <div className="space-y-6">
@@ -156,7 +169,7 @@ export function TaskDetail({
                 <div className="space-y-1.5">
                     {task.parent && (
                         <div className="flex items-center gap-1.5 text-xs">
-                            <span className="text-gray-400 font-medium">Công việc cha:</span>
+                            <span className="text-gray-600 font-medium">Công việc cha:</span>
                             <Link
                                 href={`/tasks/${task.parent.id}`}
                                 className="text-blue-600 hover:text-blue-800 font-medium hover:underline"
@@ -165,10 +178,10 @@ export function TaskDetail({
                             </Link>
                         </div>
                     )}
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                        <span>Tạo bởi <span className="font-medium text-gray-600">{task.creator.name}</span> · {formatRelativeTime(task.createdAt)}</span>
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                        <span>Tạo bởi <span className="font-medium text-gray-800">{task.creator.name}</span> · {formatRelativeTime(task.createdAt)}</span>
                         {task.updatedAt !== task.createdAt && (
-                            <span className="text-gray-300">| Cập nhật {formatRelativeTime(task.updatedAt)}</span>
+                            <span className="text-gray-500">| Cập nhật {formatRelativeTime(task.updatedAt)}</span>
                         )}
                     </div>
                 </div>
@@ -177,9 +190,9 @@ export function TaskDetail({
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => setShowLogTimeModal(true)}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                         >
-                            <Clock className="w-3.5 h-3.5 text-blue-600" /> Ghi thời gian
+                            <Clock className="w-3.5 h-3.5" /> Ghi thời gian
                         </button>
                         {canFullEdit ? (
                             <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors">
@@ -256,7 +269,9 @@ export function TaskDetail({
                                     onChange={(e) => setEditData({ ...editData, trackerId: e.target.value })}
                                     className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none"
                                 >
-                                    {trackers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                    {trackers
+                                        .filter(t => !allowedTrackerIds || allowedTrackerIds.includes(t.id))
+                                        .map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                                 </select>
                             </div>
                             <div>
@@ -279,17 +294,22 @@ export function TaskDetail({
                                     {priorities.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                                 </select>
                             </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-2">Người thực hiện</label>
-                                <select
-                                    value={editData.assigneeId}
-                                    onChange={(e) => setEditData({ ...editData, assigneeId: e.target.value })}
-                                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none"
-                                >
-                                    <option value="">Chưa gán</option>
-                                    {task.project.members?.map((m) => <option key={m.user.id} value={m.user.id}>{m.user.name}</option>)}
-                                </select>
-                            </div>
+                            {!task.parent && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-2">Người thực hiện</label>
+                                    <select
+                                        value={editData.assigneeId}
+                                        onChange={(e) => setEditData({ ...editData, assigneeId: e.target.value })}
+                                        className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none"
+                                    >
+                                        <option value="">Chưa gán</option>
+                                        {(canAssignOthers
+                                            ? task.project.members
+                                            : task.project.members?.filter(m => m.user.id === currentUserId)
+                                        )?.map((m) => <option key={m.user.id} value={m.user.id}>{m.user.name}</option>)}
+                                    </select>
+                                </div>
+                            )}
                             {versions.length > 0 && (
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-700 mb-2">Phiên bản</label>
@@ -343,23 +363,21 @@ export function TaskDetail({
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-semibold text-gray-700 mb-2">Ước tính (h)</label>
-                                <input
-                                    type="number"
-                                    step="0.5"
-                                    value={editData.estimatedHours}
-                                    onChange={(e) => setEditData({ ...editData, estimatedHours: e.target.value })}
-                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none"
-                                    disabled={isHoursDisabled}
-                                    placeholder="0"
-                                />
+                                <label className="block text-xs font-semibold text-gray-700 mb-2">Giờ dự kiến</label>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.5"
+                                        value={editData.estimatedHours}
+                                        onChange={(e) => setEditData({ ...editData, estimatedHours: e.target.value })}
+                                        className="w-full pl-3.5 pr-8 py-2.5 border border-gray-300 rounded-lg text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all"
+                                        placeholder="Ví dụ: 8"
+                                        disabled={isHoursDisabled}
+                                        title={isHoursDisabled ? "Tự động tính từ tổng giờ công việc con" : ""}
+                                    />
+                                </div>
                             </div>
-                        </div>
-
-                        {/* Watchers & Attachments */}
-                        <div className="pt-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <TaskWatchers taskId={task.id} projectId={task.project.id} initialWatchers={task.watchers?.map(w => ({ userId: w.userId, user: w.user })) || []} currentUserId={currentUserId} canManage={canManageWatchers} />
-                            <TaskAttachments taskId={task.id} initialAttachments={task.attachments || []} canUpload={canEdit} currentUserId={currentUserId} />
                         </div>
                     </div>
 
@@ -373,115 +391,156 @@ export function TaskDetail({
                     </div>
                 </div>
             ) : (
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="px-6 py-5">
-                        {/* Description */}
-                        {task.description && (
-                            <div className="mb-6">
-                                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Mô tả</h4>
-                                <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-gray-50 p-4 rounded-lg border border-gray-100">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Left Column: Description, Subtasks, Comments */}
+                    <div className="col-span-1 lg:col-span-8 flex flex-col gap-6">
+                        {/* Description Card */}
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 overflow-hidden">
+                            <div className="flex items-center justify-between mb-4 border-b border-gray-100 pb-3">
+                                <h4 className="text-sm font-bold text-gray-800">Mô tả</h4>
+                            </div>
+                            {task.description ? (
+                                <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-gray-50/50 p-4 rounded-xl border border-gray-100">
                                     {task.description}
                                 </div>
-                            </div>
+                            ) : (
+                                <p className="text-gray-500 text-sm italic py-2">Không có mô tả</p>
+                            )}
+                        </div>
+
+                        {/* ========== KHỐI 2: CÔNG VIỆC CON ========== */}
+                        {!task.parent && (
+                            <TaskSubtasks
+                                subtasks={task.subtasks || []}
+                                projectId={task.project.id}
+                                canEdit={canEdit}
+                                onAddSubtask={() => setShowSubtaskModal(true)}
+                                statuses={statuses}
+                                trackers={trackers}
+                                priorities={priorities}
+                                canAssignOthers={canAssignOthers}
+                                currentUserId={currentUserId}
+                                allowedTrackerIds={trackers.map(t => t.id)}
+                            />
                         )}
 
-                        {/* Properties - Compact 2 Columns */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-1">
-                            <PropertyRow label="Trạng thái">
-                                <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-semibold ${task.status.isClosed ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                                    {task.status.name}
-                                </span>
-                            </PropertyRow>
+                        {/* ========== KHỐI 4: BÌNH LUẬN ========== */}
+                        <TaskComments
+                            taskId={task.id}
+                            comments={task.comments || []}
+                            currentUserId={currentUserId}
+                        />
+                    </div>
 
-                            <PropertyRow label="Độ ưu tiên">
-                                <span className="inline-flex px-2.5 py-1 rounded-md text-xs font-semibold text-white" style={{ backgroundColor: task.priority.color || '#6b7280' }}>
-                                    {task.priority.name}
-                                </span>
-                            </PropertyRow>
+                    {/* Right Column: Properties, Watchers, Attachments */}
+                    <div className="col-span-1 lg:col-span-4 flex flex-col gap-6">
+                        {/* Task Properties Card */}
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 overflow-hidden">
+                            <h4 className="text-sm font-bold text-gray-800 mb-4 border-b border-gray-100 pb-3">Thuộc tính</h4>
 
-                            <PropertyRow label="Người thực hiện">
-                                <span className={`text-sm font-medium ${task.assignee ? 'text-gray-900' : 'text-gray-400 italic'}`}>
-                                    {task.assignee?.name || 'Chưa gán'}
-                                </span>
-                            </PropertyRow>
-
-                            <PropertyRow label="Ngày bắt đầu">
-                                <span className="text-sm text-gray-700 font-medium">{formatDate(task.startDate)}</span>
-                            </PropertyRow>
-
-                            <PropertyRow label="Hạn chót">
-                                <div className="flex flex-col">
-                                    <span className={`text-sm font-medium ${overdueDays > 0 ? 'text-red-600' : 'text-gray-700'}`}>
-                                        {formatDate(task.dueDate)}
+                            <div className="flex flex-col">
+                                <PropertyRow label="Trạng thái">
+                                    <span className={`inline-flex px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${task.status.isClosed ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                                        {task.status.name}
                                     </span>
-                                    {overdueDays > 0 && (
-                                        <span className="text-[11px] text-red-600 font-bold flex items-center mt-1 animate-pulse">
-                                            <AlertTriangle className="w-3.5 h-3.5 mr-1" />
-                                            Trễ {overdueDays} ngày (do subtask)
+                                </PropertyRow>
+
+                                <PropertyRow label="Độ ưu tiên">
+                                    <div className="flex items-center gap-1.5 justify-end">
+                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: task.priority.color || '#6b7280' }}></div>
+                                        <span className="text-xs font-bold text-gray-700" style={{ color: task.priority.color || '#6b7280' }}>
+                                            {task.priority.name}
                                         </span>
-                                    )}
-                                </div>
-                            </PropertyRow>
-
-                            <PropertyRow label="Phiên bản">
-                                <span className={`text-sm font-medium ${task.version ? 'text-gray-900' : 'text-gray-400 italic'}`}>
-                                    {task.version?.name || 'Chưa gán'}
-                                </span>
-                            </PropertyRow>
-
-                            <PropertyRow label="Hoàn thành">
-                                <div className="flex items-center gap-3">
-                                    <div className="flex-1 max-w-[140px] h-2 bg-gray-100 rounded-full overflow-hidden">
-                                        <div className="h-full bg-gradient-to-r from-green-500 to-green-600 transition-all duration-300" style={{ width: `${task.doneRatio}%` }} />
                                     </div>
-                                    <span className="text-sm font-semibold text-gray-700 min-w-[38px]">{task.doneRatio}%</span>
-                                </div>
-                            </PropertyRow>
+                                </PropertyRow>
 
-                            <PropertyRow label="Ước tính">
-                                <span className="text-sm text-gray-700 font-medium">{task.estimatedHours ? `${task.estimatedHours} giờ` : '-'}</span>
-                            </PropertyRow>
+                                {!task.parent && (
+                                    <PropertyRow label="Người thực hiện">
+                                        <div className="flex items-center justify-end gap-2 text-sm font-medium text-gray-900">
+                                            {task.assignee ? (
+                                                <>
+                                                    {task.assignee.avatar ? (
+                                                        <img src={task.assignee.avatar} alt={task.assignee.name} className="w-5 h-5 rounded-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">
+                                                            {task.assignee.name.charAt(0)}
+                                                        </div>
+                                                    )}
+                                                    <span>{task.assignee.name}</span>
+                                                </>
+                                            ) : (
+                                                <span className="text-gray-500 italic text-xs">Chưa gán</span>
+                                            )}
+                                        </div>
+                                    </PropertyRow>
+                                )}
 
-                            <PropertyRow label="Thực tế">
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-sm font-bold ${totalSpentTime > (task.estimatedHours || 0) && task.estimatedHours ? 'text-orange-600' : 'text-blue-700'}`}>
-                                        {totalSpentTime.toFixed(1)} giờ
-                                    </span>
-                                    {task.estimatedHours && totalSpentTime > 0 && (
-                                        <span className="text-[10px] text-gray-400">
-                                            ({Math.round((totalSpentTime / task.estimatedHours) * 100)}% dự kiến)
+                                <PropertyRow label="Ngày bắt đầu">
+                                    <span className="text-xs text-gray-700 font-semibold">{formatDate(task.startDate)}</span>
+                                </PropertyRow>
+
+                                <PropertyRow label="Hạn chót">
+                                    <div className="flex flex-col items-end">
+                                        <span className={`text-xs font-semibold ${overdueDays > 0 ? 'text-red-600' : 'text-gray-700'}`}>
+                                            {formatDate(task.dueDate)} {overdueDays > 0 && '(Trễ)'}
                                         </span>
-                                    )}
+                                    </div>
+                                </PropertyRow>
+
+                                <PropertyRow label="Phiên bản">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded uppercase">{task.version?.name || 'Chưa gán'}</span>
+                                    </div>
+                                </PropertyRow>
+
+                                {/* Progress Group */}
+                                <div className="mt-5 pt-4 border-t border-gray-100">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-semibold text-gray-600">Tiến độ</span>
+                                        <span className="text-xs font-bold text-gray-900">{task.doneRatio || 0}%</span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden mb-5">
+                                        <div className="h-full bg-green-500 rounded-full transition-all duration-300" style={{ width: `${task.doneRatio || 0}%` }} />
+                                    </div>
+
+                                    <div className="flex justify-between items-center gap-4">
+                                        <div className="flex-1 bg-gray-50/80 rounded-xl p-3 text-center border border-gray-100">
+                                            <div className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Dự kiến</div>
+                                            <div className="text-sm font-bold text-gray-800">{task.estimatedHours ? `${task.estimatedHours}h` : '-'}</div>
+                                        </div>
+                                        {/* Divider */}
+                                        <div className="w-1 h-8 rounded-full bg-blue-100"></div>
+                                        <div className="flex-1 bg-blue-50/50 rounded-xl p-3 text-center border border-blue-50">
+                                            <div className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Thực tế</div>
+                                            <div className="text-sm font-bold text-blue-700">{totalSpentTime.toFixed(1)}h</div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </PropertyRow>
+                            </div>
                         </div>
 
                         {/* Watchers & Attachments */}
-                        <div className="mt-8 pt-6 border-t border-gray-100 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <TaskWatchers taskId={task.id} projectId={task.project.id} initialWatchers={task.watchers?.map(w => ({ userId: w.userId, user: w.user })) || []} currentUserId={currentUserId} canManage={canManageWatchers} />
-                            <TaskAttachments taskId={task.id} initialAttachments={task.attachments || []} canUpload={canEdit} currentUserId={currentUserId} />
+                        <div className="flex flex-col gap-6">
+                            {!task.parent && (
+                                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 overflow-hidden">
+                                    <TaskWatchers
+                                        taskId={task.id}
+                                        projectId={task.project.id}
+                                        initialWatchers={task.watchers?.map(w => ({ userId: w.userId, user: w.user })) || []}
+                                        currentUserId={currentUserId}
+                                        canManage={canManageWatchers}
+                                        creatorId={task.creator?.id}
+                                        assigneeId={task.assignee?.id || undefined}
+                                    />
+                                </div>
+                            )}
+                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 overflow-hidden">
+                                <TaskAttachments taskId={task.id} initialAttachments={task.attachments || []} canUpload={canEdit} currentUserId={currentUserId} />
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
-
-            {/* ========== KHỐI 2: CÔNG VIỆC CON ========== */}
-            <TaskSubtasks
-                subtasks={task.subtasks || []}
-                projectId={task.project.id}
-                canEdit={canEdit}
-                onAddSubtask={() => setShowSubtaskModal(true)}
-                statuses={statuses}
-                trackers={trackers}
-                priorities={priorities}
-            />
-
-            {/* ========== KHỐI 4: BÌNH LUẬN ========== */}
-            <TaskComments
-                taskId={task.id}
-                comments={task.comments || []}
-                currentUserId={currentUserId}
-            />
 
             {/* Subtask Modal */}
             {showSubtaskModal && (
@@ -495,6 +554,8 @@ export function TaskDetail({
                     initialData={{ projectId: task.project.id, parentId: task.id, trackerId: task.tracker.id }}
                     onClose={() => setShowSubtaskModal(false)}
                     onSuccess={() => { setShowSubtaskModal(false); router.refresh(); }}
+                    canAssignOthers={canAssignOthers}
+                    currentUserId={currentUserId}
                 />
             )}
 
@@ -509,12 +570,12 @@ export function TaskDetail({
     );
 }
 
-// Helper: Property Row - Horizontal layout
+// Helper: Property Row - Flex Between
 function PropertyRow({ label, children }: { label: string, children: React.ReactNode }) {
     return (
-        <div className="flex items-center py-2.5 min-h-[40px] border-b border-gray-50 last:border-0">
-            <span className="w-36 text-xs font-semibold text-gray-500 shrink-0">{label}</span>
-            <div className="flex-1">
+        <div className="flex justify-between items-center py-2.5 min-h-[40px] border-b border-gray-50 last:border-0 hover:bg-gray-50/50 px-2 -mx-2 rounded transition-colors group">
+            <span className="text-xs font-semibold text-gray-700">{label}</span>
+            <div className="text-right flex items-center justify-end">
                 {children}
             </div>
         </div>

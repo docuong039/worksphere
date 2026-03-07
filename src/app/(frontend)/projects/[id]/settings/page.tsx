@@ -3,7 +3,8 @@ import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { ProjectSettingsClient } from '@/components/projects/project-settings-client';
 import { Project } from '@prisma/client';
-import { ROLES } from '@/lib/constants';
+import { PERMISSIONS } from '@/lib/constants';
+import { getUserPermissions } from '@/lib/permissions';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -37,18 +38,9 @@ export default async function ProjectSettingsPage({ params }: { params: Promise<
         redirect('/dashboard');
     }
 
-    // Check permissions
-    const member = await prisma.projectMember.findFirst({
-        where: { projectId: id, userId: session.user.id },
-        include: { role: true },
-    });
-
-    if (!session.user.isAdministrator && !member) {
-        redirect('/dashboard');
-    }
-
-
-    const canManage = session.user.isAdministrator || member?.role.name === ROLES.MANAGER;
+    // Check permissions using the new permission system
+    const permissions = await getUserPermissions(session.user.id, id);
+    const canManage = session.user.isAdministrator || permissions.includes(PERMISSIONS.PROJECTS.EDIT);
 
     if (!canManage) {
         redirect(`/projects/${id}`);

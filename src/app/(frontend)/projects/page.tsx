@@ -2,6 +2,8 @@ import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { ProjectList } from '@/components/projects/project-list';
 import { ProjectWithMembers } from '@/types';
+import { getUserPermissions } from '@/lib/permissions';
+import * as ProjectPolicy from '@/modules/project/project.policy';
 
 export default async function ProjectsPage() {
     const session = await auth();
@@ -37,6 +39,9 @@ export default async function ProjectsPage() {
         },
     });
 
+    const permissions = session?.user?.id ? await getUserPermissions(session.user.id) : [];
+    const canCreate = session?.user ? ProjectPolicy.canCreateProject(session.user as any, permissions) : false;
+
     return (
         <div>
             <div className="flex items-center justify-between mb-6">
@@ -46,7 +51,10 @@ export default async function ProjectsPage() {
                 </div>
             </div>
 
-            <ProjectList projects={projects as unknown as ProjectWithMembers[]} />
+            <ProjectList
+                projects={projects as unknown as ProjectWithMembers[]}
+                canCreate={canCreate}
+            />
         </div>
     );
 }

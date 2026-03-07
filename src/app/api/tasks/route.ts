@@ -11,6 +11,7 @@ import { PERMISSIONS } from '@/lib/constants';
 import { buildTaskFilters, TASK_LIST_INCLUDE, parsePaginationParams } from './helpers';
 import { getUserPermissions } from '@/lib/permissions';
 import * as TaskPolicy from '@/modules/task/task.policy';
+import { updateParentTaskAggregates } from './[id]/helpers';
 
 
 // ==========================================
@@ -156,6 +157,11 @@ export const POST = withAuth(async (req, user) => {
     }
 
     // 1.6. Validate Assignee (Role restriction)
+    // Bắt buộc phải có người thực hiện khi tạo công việc
+    if (!validatedData.assigneeId) {
+        return errorResponse('Người thực hiện không được để trống', 400);
+    }
+
     if (validatedData.assigneeId) {
         const assigneeMember = await prisma.projectMember.findUnique({
             where: {
@@ -191,7 +197,8 @@ export const POST = withAuth(async (req, user) => {
         if (parent.projectId !== validatedData.projectId) {
             return errorResponse('Công việc cha phải thuộc cùng một dự án', 400);
         }
-        if (parent.level >= 4) return errorResponse('Vượt quá độ sâu tối đa của công việc con (tối đa 5 cấp)', 400);
+        // Giới hạn 1 cấp subtask: Subtask không thể tạo subtask con
+        if (parent.level >= 1) return errorResponse('Không thể tạo công việc con của công việc con. Chỉ được phép 1 cấp subtask.', 400);
 
         level = parent.level + 1;
         path = parent.path ? `${parent.path}.${parent.id}` : parent.id;
@@ -231,6 +238,11 @@ export const POST = withAuth(async (req, user) => {
         title: task.title,
         projectId: task.projectId
     });
+
+    // 5. Tính toán tự động cho Task Cha (nếu là Subtask)
+    if (task.parentId) {
+        await updateParentTaskAggregates(task.parentId);
+    }
 
     return successResponse(task, 201);
 });

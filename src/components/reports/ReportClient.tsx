@@ -484,7 +484,7 @@ export default function ReportClient({ user, permissions }: ReportClientProps) {
                                 </table>
                             </div>
                             {timeReports.length === 0 && (
-                                <div className="p-12 text-center text-gray-500 font-medium bg-gray-50/30">Chưa có dữ liệu chấm công</div>
+                                <div className="p-12 text-center text-gray-500 font-medium bg-gray-50/30">Chưa có dữ liệu</div>
                             )}
                         </div>
                     )}

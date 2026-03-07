@@ -6,6 +6,7 @@ import * as TaskPolicy from '@/modules/task/task.policy';
 import { withAuth } from '@/server/middleware/withAuth';
 import type { RouteContext } from '@/server/middleware/withAuth';
 import { PERMISSIONS } from '@/lib/constants';
+import { updateParentTaskAggregates } from '@/app/api/tasks/[id]/helpers';
 
 
 export const dynamic = 'force-dynamic';
@@ -108,6 +109,12 @@ export const POST = withAuth(async (req, user, ctx) => {
     }
 
 
+    // Load task để có parentId (cần cho Bottom-Up)
+    const taskFull = await prisma.task.findUnique({
+        where: { id },
+        select: { parentId: true },
+    });
+
     const timeLog = await prisma.timeLog.create({
         data: {
             hours: validatedData.hours,
@@ -123,6 +130,11 @@ export const POST = withAuth(async (req, user, ctx) => {
             activity: { select: { id: true, name: true } },
         },
     });
+
+    // Trigger tính lại Task Cha nếu task này là Subtask (Bottom-Up)
+    if (taskFull?.parentId) {
+        await updateParentTaskAggregates(taskFull.parentId);
+    }
 
     return successResponse(timeLog);
 });

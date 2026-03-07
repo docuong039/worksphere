@@ -113,6 +113,7 @@ export type SubtaskWithRelations = Task & {
     assignee: SafeUser | null;
     priority: Priority;
     tracker: Tracker;
+    timeLogs?: Array<{ hours: number }>; // Bottom-Up: cộng giờ thực tế lên task cha
 };
 
 export type AttachmentWithUser = Attachment & {

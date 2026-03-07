@@ -15,11 +15,14 @@ export default async function ProjectMembersPage({ params }: Props) {
         redirect('/login');
     }
 
-    // Get project with members
+    // Get project with members (ẩn Administrator - họ quản lý hệ thống, không phải thành viên dự án)
     const project = await prisma.project.findUnique({
         where: { id },
         include: {
             members: {
+                where: {
+                    user: { isAdministrator: false }, // Ẩn admin khỏi danh sách thành viên
+                },
                 include: {
                     user: {
                         select: { id: true, name: true, email: true, avatar: true, isActive: true },
@@ -37,8 +40,11 @@ export default async function ProjectMembersPage({ params }: Props) {
         notFound();
     }
 
-    // Check access
-    const isMember = project.members.some((m) => m.user.id === session.user.id);
+    // Check access - dùng query riêng để check access kể cả khi admin bị ẩn khỏi danh sách
+    const isMember = await prisma.projectMember.count({
+        where: { projectId: id, userId: session.user.id }
+    }) > 0;
+
     if (!session.user.isAdministrator && !isMember) {
         notFound();
     }
@@ -53,12 +59,13 @@ export default async function ProjectMembersPage({ params }: Props) {
                     m.role.name === 'Manager') // or has Manager role
         );
 
-    // Get all active roles and users for adding
+    // Get all active roles and users for adding (ẩn admin khỏi danh sách có thể thêm)
     const [roles, users] = await Promise.all([
         prisma.role.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
         prisma.user.findMany({
             where: {
                 isActive: true,
+                isAdministrator: false, // Không thêm admin vào dự án
                 id: { notIn: project.members.map((m) => m.user.id) },
             },
             orderBy: { name: 'asc' },

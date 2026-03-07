@@ -27,14 +27,9 @@ export const ReportPolicy = {
         return userPermissions.includes(PERMISSIONS.PROJECTS.EDIT);
     },
 
-    /**
-     * Có thể xem báo cáo chấm công/thời gian không?
-     * Quy tắc: Admin hoặc Project Managers
-     */
     canViewTimeReports: (user: User, userPermissions: string[]): boolean => {
-        if (user.isAdministrator) return true;
-        return userPermissions.includes(PERMISSIONS.TIMELOGS.VIEW_ALL) ||
-            userPermissions.includes(PERMISSIONS.PROJECTS.EDIT);
+        // Mọi người đều có thể xuất báo cáo thời gian (hệ thống sẽ tự động lọc dữ liệu của MÌNH)
+        return true;
     },
 
     /**

@@ -11,6 +11,7 @@ import type { RouteContext } from '@/server/middleware/withAuth';
 import {
     resolveTaskId,
     updateSubtasksPathAndLevel,
+    updateParentTaskAggregates,
 } from './helpers';
 import { getUserPermissions } from '@/lib/permissions';
 import * as TaskPolicy from '@/modules/task/task.policy';
@@ -60,6 +61,7 @@ export const GET = withAuth(async (_req, user, ctx) => {
                     priority: { select: { id: true, name: true, color: true } },
                     tracker: { select: { id: true, name: true } },
                     assignee: { select: { id: true, name: true, avatar: true } },
+                    timeLogs: { select: { hours: true } }, // Để cộng giờ thực tế lên Task Cha
                 },
                 orderBy: { createdAt: 'asc' },
             },
@@ -307,8 +309,9 @@ export const PUT = withAuth(async (req, user, ctx) => {
             if (newParent.projectId !== currentTask.projectId) {
                 return errorResponse('Công việc cha phải thuộc cùng một dự án', 400);
             }
-            if (newParent.level >= 4) {
-                return errorResponse('Vượt quá độ sâu tối đa của công việc con (tối đa 5 cấp)', 400);
+            // Giới hạn 1 cấp subtask
+            if (newParent.level >= 1) {
+                return errorResponse('Không thể tạo công việc con của công việc con. Chỉ được phép 1 cấp subtask.', 400);
             }
             // Prevent circular reference
             if (validatedData.parentId === id) {
@@ -326,6 +329,10 @@ export const PUT = withAuth(async (req, user, ctx) => {
         updateData.doneRatio = validatedData.doneRatio;
     }
 
+    // Kiểm tra task có subtask không (để quyết định có áp dụng status-based doneRatio hay không)
+    const subtaskCount = await prisma.task.count({ where: { parentId: id } });
+    const hasSubtasks = subtaskCount > 0;
+
     // Handle status change with auto done ratio
     if (validatedData.statusId !== undefined) {
         updateData.statusId = validatedData.statusId;
@@ -342,15 +349,26 @@ export const PUT = withAuth(async (req, user, ctx) => {
         });
 
         if (newStatus) {
-            // FORCE doneRatio=100 for closed statuses (Redmine standard behavior)
-            if (newStatus.isClosed) {
-                updateData.doneRatio = 100;
-            } else if (oldStatus?.isClosed && !newStatus.isClosed) {
-                // Chuyển từ CLOSED sang OPEN -> reset doneRatio về mặc định hoặc 0
-                updateData.doneRatio = newStatus.defaultDoneRatio ?? 0;
-            } else if (validatedData.doneRatio === undefined && newStatus.defaultDoneRatio !== null) {
-                // If done ratio not manually set, use status default
-                updateData.doneRatio = newStatus.defaultDoneRatio;
+            if (hasSubtasks) {
+                // Nếu có subtasks: KHÔNG ghi đè doneRatio từ status
+                // % hoàn thành sẽ được tính lại bởi updateParentTaskAggregates sau khi update
+                // Ngoại lệ: khi chuyển về CLOSED → vẫn force 100% để hiển thị đúng
+                if (newStatus.isClosed) {
+                    updateData.doneRatio = 100;
+                }
+                // Khi mở lại (closed → open): KHÔNG reset về 0, giữ nguyên % tính từ subtasks
+            } else {
+                // Không có subtasks: áp dụng logic mặc định theo status
+                if (newStatus.isClosed) {
+                    // FORCE 100% khi đóng (Redmine standard)
+                    updateData.doneRatio = 100;
+                } else if (oldStatus?.isClosed && !newStatus.isClosed) {
+                    // Chuyển từ CLOSED → OPEN: reset về defaultDoneRatio
+                    updateData.doneRatio = newStatus.defaultDoneRatio ?? 0;
+                } else if (validatedData.doneRatio === undefined && newStatus.defaultDoneRatio !== null) {
+                    // Dùng giá trị mặc định của trạng thái nếu không set thủ công
+                    updateData.doneRatio = newStatus.defaultDoneRatio;
+                }
             }
         }
     }
@@ -375,6 +393,23 @@ export const PUT = withAuth(async (req, user, ctx) => {
         const newPath = updateData.path as string | null;
         const newLevel = updateData.level as number;
         await updateSubtasksPathAndLevel(id, newPath, newLevel);
+
+        // Calculate aggregates for old and new parents
+        if (currentTask.parentId) {
+            await updateParentTaskAggregates(currentTask.parentId);
+        }
+        if (task.parentId) {
+            await updateParentTaskAggregates(task.parentId);
+        }
+    } else if (task.parentId) {
+        // Luôn tính lại cha mỗi khi subtask được update
+        await updateParentTaskAggregates(task.parentId);
+    }
+
+    // Nếu task CÓ subtask và status vừa thay đổi → tính lại doneRatio từ subtasks
+    // (Vì khi đổi về OPEN, doneRatio bị set từ status default, cần tính lại từ subtasks)
+    if (hasSubtasks && validatedData.statusId && validatedData.statusId !== currentTask.statusId) {
+        await updateParentTaskAggregates(id);
     }
 
     // Get actor name for notifications
@@ -454,7 +489,10 @@ export const PUT = withAuth(async (req, user, ctx) => {
 
 // DELETE /api/tasks/[id] - Xóa task
 export const DELETE = withAuth(async (_req, user, ctx) => {
-    const { id } = await (ctx as RouteContext<{ id: string }>).params;
+    const { id: rawId } = await (ctx as RouteContext<{ id: string }>).params;
+    const id = await resolveTaskId(rawId);
+
+    if (!id) return errorResponse('Công việc không tồn tại', 404);
 
     // Load task for Policy check
     const task = await prisma.task.findUnique({
@@ -511,6 +549,11 @@ export const DELETE = withAuth(async (_req, user, ctx) => {
 
     // Log delete (async)
     logDelete('task', id, user.id, { title: task.title, projectId: task.projectId });
+
+    // Cập nhật lại Task Parent nếu task bị xóa là subtask
+    if (task.parentId) {
+        await updateParentTaskAggregates(task.parentId);
+    }
 
     return successResponse({ message: 'Đã xóa công việc' });
 });
