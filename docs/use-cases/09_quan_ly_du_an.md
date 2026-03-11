@@ -7,17 +7,18 @@ Các thao tác với Dự án.
 left to right direction
 actor "Administrator/User" as User
 
-usecase "đăng nhập" as UC_Login
 usecase "quản lý dự án" as UC_ManageProject
 
 ' Các use case con
-usecase "tạo dự án mới" as UC01
-usecase "cập nhật thông tin dự án" as UC02
-usecase "cấu hình module dự án" as UC03
-usecase "xem danh sách dự án" as UC04
+usecase "xem danh sách" as UC01
+usecase "tạo dự án mới" as UC02
+usecase "cập nhật thông tin" as UC03
+usecase "lưu trữ / khôi phục" as UC04
+usecase "xóa dự án" as UC05
+usecase "cấu hình Trackers" as UC06
 
 ' Note
-note "user phải có role \n= manager" as N1
+note "user phải có quyền quản lý \nhoặc là Admin" as N1
 
 User --> UC_ManageProject
 UC_ManageProject .. N1
@@ -26,8 +27,8 @@ UC_ManageProject --> UC01
 UC_ManageProject --> UC02
 UC_ManageProject --> UC03
 UC_ManageProject --> UC04
-
-UC_ManageProject ..> UC_Login : <<Include>>
+UC_ManageProject --> UC05
+UC_ManageProject --> UC06
 
 @enduml
 ```
@@ -37,12 +38,12 @@ UC_ManageProject ..> UC_Login : <<Include>>
 | Mục | Nội dung |
 | :--- | :--- |
 | **Tên Use Case** | Quản lý Dự án (Project Management) |
-| **Mô tả** | Cho phép người dùng tạo lập dự án mới, thiết lập các thuộc tính cơ bản (tên, mô tả, định danh), cấu hình các module chức năng được phép sử dụng (như theo dõi công việc, chấm công, wiki...) và quản lý trạng thái hoạt động của dự án. |
-| **Tác nhân chính** | Administrator, Project Manager (Người dùng có quyền tạo/quản lý) |
-| **Tác nhân phụ** | Hệ thống (Validations, Storage) |
-| **Tiền điều kiện** | - Đã đăng nhập.<br>- Để tạo dự án: Phải là Admin hoặc có quyền `create_project`.<br>- Để sửa dự án: Phải là thành viên dự án với Role có quyền `edit_project` (thường là Manager). |
-| **Đảm bảo tối thiểu** | - Không cho phép tạo dự án có `Identifier` (Mã định danh) trùng lặp.<br>- Dự án lưu lại lịch sử người tạo. |
-| **Đảm bảo thành công** | - Dự án mới được lưu vào CSDL.<br>- Các module chức năng được kích hoạt theo cấu hình. |
+| **Mô tả** | Cho phép người dùng tạo lập dự án mới, cập nhật thông tin tên dự án và định danh, lưu trữ/xóa các dự án không hoạt động và cấu hình loại công việc (Trackers) cho dự án. |
+| **Tác nhân chính** | Administrator, Người dùng có quyền quản lý dự án (thành viên được gán Role có quyền tương ứng). |
+| **Tác nhân phụ** | Hệ thống (Database) |
+| **Tiền điều kiện** | - Đã đăng nhập.<br>- Để tạo dự án: Phải có quyền hệ thống `projects.create` (Administrator hoặc được cấp quyền).<br>- Để sửa/xóa/lưu trữ/cấu hình: Phải có quyền tương ứng trong dự án (`projects.edit`, `projects.delete`). |
+| **Đảm bảo tối thiểu** | - Không cho phép tạo/cập nhật dự án có mã định danh (`identifier`) bị trùng lặp. |
+| **Đảm bảo thành công** | - Dự án mới được lưu vào CSDL, người tạo mặc định được gán cho một Vai trò có quyền quản lý (ưu tiên Role tên "Manager" hoặc Role mặc định). Các thông tin thay đổi được áp dụng ngay lập tức. |
 
 ### Chuỗi sự kiện chính (Main Flow)
 
@@ -50,56 +51,57 @@ UC_ManageProject ..> UC_Login : <<Include>>
 
 #### A. Xem danh sách dự án
 1.  **Người dùng** truy cập trang `/projects`.
-2.  **Hệ thống** hiển thị danh sách các dự án:
-    *   Với Admin: Thấy toàn bộ, bao gồm cả dự án đã đóng (Closed).
-    *   Với User thường: Chỉ thấy dự án Public và dự án Private mà mình là thành viên.
-3.  **Hệ thống** hiển thị trạng thái từng dự án (Active/Closed).
+2.  **Hệ thống** hiển thị bộ lọc: Theo từ khóa tìm kiếm (Search) và theo trạng thái (Đang hoạt động, Đã lưu trữ, Tất cả).
+3.  **Hệ thống** hiển thị danh sách dạng Card theo dữ liệu đã lọc tương ứng với quyền của người dùng (Chỉ thấy dự án mình tham gia hoặc là Admin thì thấy hết).
 
-#### B. Tạo dự án mới
-4.  **Người dùng** nhấn nút **"New Project"**.
-5.  **Hệ thống** hiển thị Form tạo mới:
-    *   **Name** (Tên dự án - Bắt buộc).
-    *   **Identifier** (Mã định danh - Bắt buộc, dùng trên URL, ví dụ: `my-project-1`).
-    *   **Description** (Mô tả - Tùy chọn).
-    *   **Public** (Công khai?): Checkbox (Nếu chọn, ai cũng xem được).
-    *   **Modules** (Tính năng): Checkbox list (Issue tracking, Time tracking, News, Documents, Wiki...).
-6.  **Người dùng** nhập thông tin và chọn các module muốn sử dụng.
-7.  **Người dùng** nhấn **"Create"**.
-8.  **Hệ thống (Backend)**:
-    *   Validate: Name không rỗng, Identifier đúng định dạng (a-z, 0-9, dashboard).
-    *   Check Unique: Identifier chưa tồn tại.
-    *   Lưu Project vào DB.
-    *   Thêm người tạo vào làm thành viên đầu tiên với Role quản trị (Manager).
-    *   Bật các Module đã chọn (`enabled_modules`).
-9.  **Hệ thống** thông báo thành công và chuyển hướng về trang Overview của dự án vừa tạo.
+#### B. Thêm Dự án mới
+4.  **Người dùng** nhấn nút **"Tạo dự án mới"**.
+5.  **Hệ thống** mở Modal tạo dự án.
+6.  **Người dùng** điền Form:
+    *   **Tên dự án** (Bắt buộc): Khi nhập tên, hệ thống tự động sinh `identifier` theo dạng slug.
+    *   **Định danh** (Bắt buộc): `identifier` (Định danh URL).
+    *   **Mô tả**: Ghi chú tóm tắt (Tùy chọn).
+7.  **Người dùng** nhấn **"Tạo dự án"**.
+8.  **Hệ thống (Backend API)**:
+    *   Kiểm tra tính hợp lệ và duy nhất của `identifier`.
+    *   Tạo mới dự án vào DB trong Transaction. Gán User hiện tại làm thành viên dự án và tự động cấp cho User này một Role quản lý (hệ thống sẽ tìm kiếm Role có tên "Manager", "Project Manager" hoặc lấy Role bất kỳ đầu tiên làm mặc định).
+    *   Tự động bật tất cả các Trackers mặc định cho dự án.
+9.  **Hệ thống** đóng Modal, tối ưu hóa (Optimistic UI) hiển thị card mới lên danh sách và hiện thông báo thành công.
 
-#### C. Cập nhật thông tin & Cấu hình Module
-10. **Project Manager** truy cập vào dự án -> Tab **"Settings"** (Cài đặt).
-11. **Hệ thống** load thông tin hiện tại.
-12. **Project Manager** thực hiện thay đổi:
-    *   Sửa Tên, Mô tả.
-    *   Bật/Tắt các Module (Ví dụ: Tắt Wiki nếu không dùng).
-13. **Project Manager** nhấn **"Save"**.
-14. **Hệ thống** cập nhật bản ghi Project.
+#### C. Sửa thông tin dự án
+10. Tại Card dự án, **Người dùng** nhấn vào menu "Ba dấu chấm" -> Chọn **"Chỉnh sửa"**.
+11. **Hệ thống** hiển thị cửa sổ Modal "Chỉnh sửa dự án" với dữ liệu Tên, Định danh, Mô tả hiện tại.
+12. **Người dùng** chỉnh sửa và nhấn **"Lưu thay đổi"**.
+13. **Hệ thống** gửi API `PUT /api/projects/[id]`, cập nhật trong database và refresh danh sách UI.
 
-#### D. Đóng / Lưu trữ dự án (Close/Archive)
-15. **Project Manager** tại trang Settings nhấn nút **"Close Project"** hoặc **"Archive"**.
-16. **Hệ thống** hiển thị xác nhận.
-17. **Project Manager** xác nhận.
-18. **Hệ thống** cập nhật trạng thái `status = closed`.
-    *   *Hệ quả:* Dự án chuyển sang chế độ "Chỉ xem" (Read-only), không thể thêm task, log time hay sửa đổi gì nữa.
+#### D. Thay đổi Trạng thái Lưu trữ (Archive/Restore)
+14. Tại Card dự án, **Người dùng** nhấn vào menu dropdown -> Chọn **"Lưu trữ"** (Hoặc "Khôi phục" nếu dự án đang ẩn).
+15. **Hệ thống** tự động thay đổi cờ `isArchived` của Project mà không cần qua Modal xác nhận.
+16. *Hệ quả:* Dự án bị lưu trữ sẽ có thẻ màu cam hiển thị "Đã lưu trữ" trên Grid và bị loại bỏ khỏi danh sách Filter "Đang hoạt động".
+
+#### E. Xóa dự án (Delete)
+17. Tại Card dự án, **Người dùng** nhấn vào menu dropdown -> Chọn thao tác cuối cùng **"Xóa dự án"** (chữ màu đỏ).
+18. **Hệ thống** hiển thị Alert cảnh báo: "Tất cả tasks, comments và dữ liệu liên quan sẽ bị xóa vĩnh viễn!".
+19. **Người dùng** nhấn "Xóa ngay".
+20. **Hệ thống** gửi API `DELETE /api/projects/[id]`. Toàn bộ dữ liệu của dự án sẽ bị gỡ bỏ theo logic Cascade bằng Transaction và ghi Audit logs. Dự án dọn sạch khỏi Frontend.
+
+#### F. Cấu hình Trackers (Loại công việc)
+21. Tại Card dự án, **Người dùng** nhấn vào menu dropdown -> Chọn **"Cài đặt"**.
+22. **Hệ thống** điều hướng sang trang Cài đặt dự án (`/projects/[id]/settings`).
+23. **Hệ thống** hiển thị danh sách tất cả các Trackers có trong hệ thống dạng Checkbox:
+    * Nếu dự án chưa được cấu hình các Tracker cụ thể (chưa lưu lần nào/mảng rỗng), hệ thống tự động đánh dấu Tất cả Trackers đều khả dụng (được Check xanh toàn bộ).
+24. **Người dùng** tích chọn hoặc bỏ chọn (Check/Uncheck) các loại công việc muốn áp dụng riêng cho Project của mình.
+25. **Người dùng** nhấn **"Lưu thay đổi"**.
+26. **Hệ thống (Backend API)** lưu danh sách ID các Tracker đã chọn xuống Database.
+27. **Hệ thống** hiển thị nhãn "Đã lưu" (màu xanh lá) cạnh nút lưu và thông báo dạng Toast "Đã lưu cấu hình trackers".
 
 ### Luồng ngoại lệ (Exception Flows)
 
 **E1. Mã định danh trùng lặp**
-*   *Tại bước B8:* Nếu Identifier đã được sử dụng bởi một dự án khác, API trả về lỗi. Frontend hiển thị: "Identifier has already been taken".
+*   *Tại bước B8 hoặc C13:* Nếu Identifier đã được sử dụng bởi một dự án khác, API trả về lỗi code 400. Frontend hiển thị thông báo ngay trên Modal: "Định danh dự án đã tồn tại". Không cho phép lưu cho đến khi đổi giá trị hợp lệ.
 
-**E2. Identifier sai định dạng**
-*   *Tại bước B8:* Nếu nhập ký tự đặc biệt, viết hoa hoặc khoảng trắng. Frontend/Backend báo lỗi: "Identifier is invalid (only lowercase letters, numbers, dashes)".
+**E2. Không có cấu hình Role**
+*   *Tại bước B8:* Nếu hệ thống WorkSphere chưa từng tạo Role nào dưới database, API sẽ không thể gán User làm quản lý cho dự án. Quá trình tạo dự án bị hủy (rollback transaction) và trả lỗi 500 yêu cầu Admin cấu hình Role trước. 
 
-**E3. Không có quyền truy cập Settings**
-*   Nếu user không phải Manager cố truy cập `/projects/[id]/settings`, Middleware chặn và trả về 403 Forbidden.
-
-### Quy tắc nghiệp vụ (Business Rules)
-*   **Module Activation:** Chỉ những Module được bật (`enabled_modules`) mới hiển thị tab tương ứng trên giao diện dự án. Ví dụ: Nếu tắt "Time tracking", tab "Spent time" và nút "Log time" sẽ ẩn đi.
-*   **Public vs Private:** Dự án Public cho phép mọi user đã đăng nhập đều xem được (nhưng quyền sửa xóa vẫn cần phải là thành viên). Dự án Private ẩn hoàn toàn với người ngoài.
+**E3. Chế độ truy cập**
+*   *Về tính bảo mật:* Không tồn tại dự án "Public" (Cho phép toàn thế giới xem chung) trong hệ thống như hệ thống cũ. Thay vào đó, API Backend kiểm tra policy người dùng: user là Administrator hoặc user có thẻ Project Member trong dự án liên quan thì dự án mới được hiện ra. Do đó tránh được các lỗi phơi bày dữ liệu ra ngoài.

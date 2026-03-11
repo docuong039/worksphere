@@ -5,16 +5,16 @@ Ghi nhận giờ làm việc.
 ```plantuml
 @startuml
 left to right direction
-actor "user" as User
+actor "Administrator/User" as User
 
-usecase "đăng nhập" as UC_Login
-usecase "quản lý thời gian" as UC_ManageTime
+usecase "quản lý nhật ký thời gian" as UC_ManageTime
 
 ' Các use case con
-usecase "ghi thời gian" as UC01
-usecase "sửa log thời gian" as UC02
-usecase "xóa log thời gian" as UC03
-usecase "xuất dữ liệu" as UC04
+usecase "xem danh sách log" as UC01
+usecase "ghi thời gian" as UC02
+usecase "sửa bản ghi" as UC03
+usecase "xóa bản ghi" as UC04
+usecase "xuất dữ liệu (CSV)" as UC05
 
 User --> UC_ManageTime
 
@@ -22,8 +22,7 @@ UC_ManageTime --> UC01
 UC_ManageTime --> UC02
 UC_ManageTime --> UC03
 UC_ManageTime --> UC04
-
-UC_ManageTime ..> UC_Login : <<Include>>
+UC_ManageTime --> UC05
 
 @enduml
 ```
@@ -54,12 +53,12 @@ UC_ManageTime ..> UC_Login : <<Include>>
     *   Ghi chú (Comment).
 3.  **Người dùng** nhập thông tin và nhấn "Lưu".
 4.  **Hệ thống (Frontend)** kiểm tra dữ liệu:
-    *   Số giờ phải là số dương.
-    *   Hoạt động là bắt buộc.
+    *   Số giờ phải là số dương lớn hơn 0.
+    *   Ngày thực hiện, Hoạt động và Dự án là bắt buộc.
 5.  **Hệ thống (Backend)**:
-    *   Lưu bản ghi vào bảng `TimeLog`.
-    *   Tính toán lại tổng thời gian đã làm cho công việc đó.
-6.  **Hệ thống** hiển thị thông báo thành công và cập nhật hiển thị tổng giờ trên giao diện.
+    *   Tiến hành kiểm tra phân quyền bảo mật (`canLogTime`).
+    *   Lưu bản ghi thời gian vào cơ sở dữ liệu (Bảng `TimeLog`).
+6.  **Hệ thống** hiển thị thông báo thành công và Client tự động tổng hợp lại (Aggregate) tổng số giờ đã làm cho công việc đó ngay trên giao diện.
 
 #### B. Sửa/Xóa Log thời gian
 7.  **Người dùng** xem danh sách các bản ghi thời gian ("Spent time" tab).
@@ -68,31 +67,26 @@ UC_ManageTime ..> UC_Login : <<Include>>
 9.  **Hệ thống** thực hiện cập nhật hoặc xóa bản ghi trong CSDL.
 10. **Hệ thống** tính toán lại tổng thời gian cho công việc và cập nhật giao diện.
 
-#### C. Xuất dữ liệu (Export)
+#### C. Xuất dữ liệu (Export CSV)
 11. **Người dùng** truy cập trang Báo cáo hoặc Time Logs.
-12. **Người dùng** sử dụng bộ lọc (Dự án, Ngày tháng, Thành viên) để chọn dữ liệu cần xuất.
-13. **Người dùng** nhấn nút "Xuất dữ liệu" (Export CSV/Excel).
-14. **Hệ thống** tổng hợp dữ liệu và tạo file tải xuống.
-15. **Hệ thống** gửi file về trình duyệt của người dùng.
+12. **Người dùng** sử dụng bộ lọc (Dự án, Ngày tháng, Thành viên, Hoạt động) để chọn vùng dữ liệu cần xuất.
+13. **Người dùng** nhấn nút "Xuất dữ liệu" (Export).
+14. **Hệ thống (API: GET `/api/time-logs/export`)** xác thực quyền (`canViewAll` hoặc `canViewOwn`) và tiến hành truy vấn lọc dữ liệu từ CSDL.
+15. **Hệ thống** tạo ra file dữ liệu định dạng `.CSV` (đã nhúng BOM để xuất tiếng Việt chuẩn trên Excel) và đẩy về trình duyệt của người dùng để tải xuống tự động.
 
 ### Luồng ngoại lệ (Exception Flows)
 
-**E1. Dữ liệu thời gian không hợp lệ**
-*   *Rẽ nhánh tại Bước 4:*
-    *   **E1.1.** Người dùng nhập số giờ là ký tự chữ hoặc số âm.
-    *   **E1.2.** Frontend báo lỗi: "Định dạng thời gian không hợp lệ".
+**E1. Dữ liệu đầu vào không hợp lệ (Validation & Integrity)**
+*   *Thông tin bắt buộc bị thiếu:* Nếu một trong các thuộc tính cần thiết (`Ngày thực hiện`, `Hoạt động` hoặc `Dự án`) bị gửi lên rỗng, API lập tức từ chối và trả về lỗi 400 tương ứng.
+*   *Khối lượng công việc vi phạm logic:* Nếu `Số giờ (hours)` là số âm hoặc bằng 0, hệ thống chặn lại và báo mã lỗi 400: "Số giờ phải lớn hơn 0".
 
-**E2. Không có quyền sửa/xóa**
-*   *Rẽ nhánh tại Bước 8:*
-    *   **E2.1.** Người dùng cố gắng sửa log time của người khác (thông qua API hoặc thủ thuật).
-    *   **E2.2.** Backend kiểm tra quyền sở hữu (`user_id` của log phải trùng với `currentr_user_id`).
-    *   **E2.3.** Trả về lỗi 403 Forbidden.
+**E2. Vi phạm phân quyền xử lý Nhật ký thời gian (Authorization & RBAC)**
+*   *Lỗi không có quyền ghi:* API tạo mới kiểm tra quyền `timelogs.log_time`. Nếu User không có cờ này, trả về lỗi 403: "Bạn không có quyền ghi nhận thời gian cho dự án này".
+*   *Lỗi rò rỉ khi truy cập dữ liệu (Xem/Lọc danh sách):* Nếu User truy xuất danh sách chung mà thiếu cả chốt chặn `view_all` lẫn `view_own`, API từ chối toàn bộ request với lỗi 403: "Không có quyền xem nhật ký thời gian".
+*   *Lỗi xâm phạm bản ghi người khác:* Khi thực hiện sửa hoặc xóa bản ghi do đồng nghiệp tạo, nếu User không được cấp đặc quyền can thiệp cấp cao (`edit_all` hoặc `delete_all`), hàm Check Policy sẽ từ chối và báo lỗi 403: "Không có quyền chỉnh sửa/xóa bản ghi thời gian này".
 
-**E3. Dự án đã đóng (Closed)**
-*   *Rẽ nhánh tại Bước 5:*
-    *   **E3.1.** Backend kiểm tra trạng thái dự án là "Archived" hoặc "Closed".
-    *   **E3.2.** Từ chối ghi nhận thêm thời gian.
-    *   **E3.3.** Hiển thị thông báo: "Dự án này đã đóng, không thể ghi nhận thời gian."
+**E3. Bản ghi không còn tồn tại (Not Found)**
+*   Nếu cố gắng xem, cập nhật hoặc xóa một nhật ký dựa trên một dãy ID giả hoặc bị người khác xóa đi tước đó, hệ thống văng ra lỗi 404: "Không tìm thấy bản ghi thời gian".
 
 ### Ghi chú (Notes)
 *   **Roll-up Calculations:** Khi log time vào một Sub-task (công việc con), thời gian này cũng nên được cộng dồn (roll-up) lên Parent Task (công việc cha) để phản ánh tổng thể tiến độ.

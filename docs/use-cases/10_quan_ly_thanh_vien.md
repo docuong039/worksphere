@@ -5,21 +5,18 @@ Thao tác nhân sự trong dự án.
 ```plantuml
 @startuml
 left to right direction
-actor "Administrator/user" as User
-
-usecase "đăng nhập" as UC_Login
-usecase "quản lý dự án" as UC_ManageProject
+actor "Administrator / Người dùng" as User
 
 usecase "quản lý thành viên" as UC_ManageMember
 
 ' Các use case con
 usecase "xem danh sách" as UC01
-usecase "thêm" as UC02
-usecase "cập nhật role" as UC03
-usecase "xóa" as UC04
+usecase "thêm thành viên" as UC02
+usecase "đổi vai trò (Role)" as UC03
+usecase "xóa thành viên" as UC04
 
 ' Note
-note "user phải có role \n= manager" as N1
+note "user phải có quyền quản lý nhân sự\nhoặc là Admin" as N1
 
 User --> UC_ManageMember
 UC_ManageMember .. N1
@@ -28,10 +25,6 @@ UC_ManageMember --> UC01
 UC_ManageMember --> UC02
 UC_ManageMember --> UC03
 UC_ManageMember --> UC04
-
-' Quan hệ include
-UC_ManageMember ..> UC_ManageProject : <<Include>>
-UC_ManageProject ..> UC_Login : <<Include>>
 
 @enduml
 ```
@@ -42,10 +35,10 @@ UC_ManageProject ..> UC_Login : <<Include>>
 | :--- | :--- |
 | **Tên Use Case** | Quản lý Thành viên (Project Member Management) |
 | **Mô tả** | Cho phép người quản lý dự án (Project Manager) thêm người dùng vào dự án và phân quyền cho họ thông qua việc gán một hoặc nhiều Vai trò (Roles). |
-| **Tác nhân chính** | Project Manager (Thành viên có quyền quản lý nhân sự) |
+| **Tác nhân chính** | Administrator, Người dùng có quyền quản trị thành viên dự án. |
 | **Tác nhân phụ** | Hệ thống (Database) |
-| **Tiền điều kiện** | - Đã đăng nhập.<br>- Đang truy cập trang Cài đặt (Settings) của một dự án.<br>- Người dùng có quyền `manage_members` trong dự án hiện tại. |
-| **Đảm bảo tối thiểu** | - Không thể thêm một người dùng đã là thành viên của dự án.<br>- Một thành viên phải có ít nhất một Role (tùy logic validate). |
+| **Tiền điều kiện** | - Đã đăng nhập.<br>- Đang truy cập trang Cài đặt (Settings) của một dự án.<br>- Người dùng có quyền Manage Members trên dự án hiện tại. |
+| **Đảm bảo tối thiểu** | - Không thể thêm một người dùng đã là thành viên của dự án (hệ thống tự lọc bỏ).<br>- Không được phép gỡ bỏ người dùng tạo ra dự án. |
 | **Đảm bảo thành công** | - Quan hệ giữa User và Project được thiết lập/cập nhật.<br>- Quyền hạn tương ứng với Role mới được áp dụng ngay lập tức cho thành viên đó. |
 
 ### Chuỗi sự kiện chính (Main Flow)
@@ -53,50 +46,50 @@ UC_ManageProject ..> UC_Login : <<Include>>
 **Ngữ cảnh:** Tab "Members" trong trang Settings của dự án (`/projects/[id]/settings/members`).
 
 #### A. Xem danh sách thành viên hiện tại
-1.  **Project Manager** truy cập tab Members.
-2.  **Hệ thống** hiển thị bảng danh sách thành viên gồm: Avatar, Tên User, Các Role hiện tại, Ngày tham gia, Nút Edit/Delete.
+1.  **Người dùng có quyền (Manager)** truy cập tab Members.
+2.  **Hệ thống** hiển thị bảng danh sách thành viên gồm: Avatar, Tên User, Email, Dropdown danh sách các Role hiện tại cài đặt cho User đó và Nút Delete (Thùng rác).
+3.  Cạnh Tên User, nếu là Người tạo dự án sẽ có **Icon Vương miện** (Crown).
 
 #### B. Thêm thành viên mới (Add Member)
-3.  **Project Manager** nhấn nút **"New Member"**.
-4.  **Hệ thống** hiển thị ô tìm kiếm "Search for a user".
-5.  **Project Manager** nhập tên hoặc email.
-6.  **Hệ thống** tìm trong bảng User toàn cục và hiển thị danh sách gợi ý (đã loại bỏ những người đang là thành viên dự án).
-7.  **Project Manager** chọn một (hoặc nhiều) User từ danh sách gợi ý.
-8.  **Project Manager** tích chọn các **Role** muốn gán (Ví dụ: Developer, Reporter).
-    *   *Lưu ý: Có thể chọn nhiều Role cùng lúc.*
-9.  **Project Manager** nhấn **"Add"**.
-10. **Hệ thống (API POST /members)**:
-    *   Tạo bản ghi liên kết `Member` cho từng User được chọn.
-    *   Lưu danh sách `member_roles` tương ứng.
-11. **Hệ thống** làm mới danh sách hiển thị thành viên vừa thêm.
+4.  **Người dùng** nhấn nút **"Thêm thành viên"** góc trên bên phải.
+5.  **Hệ thống** hiển thị Modal "Thêm thành viên".
+6.  **Người dùng** thực hiện chọn:
+    *   **Vai trò (Role):** Chọn 1 Role duy nhất từ dropdown (Role này sẽ áp dụng cho tất cả những người được chọn bên dưới).
+    *   **Người dùng:** Tìm qua thanh Search theo tên hoặc Email. Hệ thống hiển thị list gồm các user khả dụng chưa nằm trong dự án.
+7.  **Người dùng** tích chọn (Multiple Checkbox) vào những User muốn gán vào Project.
+8.  **Người dùng** nhấn **"Thêm X thành viên"**.
+9.  **Hệ thống (API POST /members)**:
+    *   Tạo bản ghi liên kết `ProjectMember` cho tất cả User mong muốn và gán chung một `roleId`.
+    *   Sử dụng UI Optimistic Update để hiển thị list luôn mà không chờ fetch.
+10. **Hệ thống** gửi notification ngầm báo cho những người đó biết họ được add vào (Audit logs).
 
-#### C. Cập nhật Role (Edit Roles)
-12. **Project Manager** nhấn nút **"Edit"** trên dòng của một thành viên.
-13. **Hệ thống** hiển thị danh sách Checkbox các Role, với các Role hiện tại đang được tích.
-14. **Project Manager** thay đổi lựa chọn (tích thêm hoặc bỏ bớt Role).
-15. **Project Manager** nhấn **"Save"**.
-16. **Hệ thống (API PATCH /members/[id])**:
-    *   Xóa các Role cũ không còn được chọn.
-    *   Thêm các Role mới được chọn.
-17. **Hệ thống** thông báo thành công.
+#### C. Cập nhật Vai trò (Role)
+11. Ngay trên dòng Tên thành viên ở danh sách (Không cần ấn nút Edit), **Người dùng** bấm vào Dropdown Role.
+12. **Người quản lý** chọn Vai trò mới khác Vai trò hiện tại.
+13. **Hệ thống (API PUT /members/[id])** tự động cập nhật Vai trò mà không cần ấn lưu thao tác lại.
+14. Hệ thống hiện thông báo "Đã cập nhật vai trò". Trạng thái được đồng bộ dưới local React State.
 
 #### D. Xóa thành viên (Remove Member)
-18. **Project Manager** nhấn nút **"Delete"** (icon thùng rác) cạnh tên thành viên.
-19. **Hệ thống** hiển thị Confirm Dialog.
-20. **Project Manager** xác nhận.
-21. **Hệ thống (API DELETE /members/[id])**:
-    *   Xóa bản ghi `Member`.
-    *   *Hệ quả:* User đó không còn quyền truy cập vào các tài nguyên nội bộ của dự án này nữa.
-22. **Hệ thống** cập nhật lại danh sách.
+15. **Người dùng** nhấn icon **"Thùng rác" (Delete)** ở cuối hàng tên người muốn xoá.
+16. **Hệ thống** gọi hook hộp thoại xác nhận (Confirm modal).
+17. **Người dùng** bấm "Xóa khỏi dự án" (Màu đỏ).
+18. **Hệ thống (API DELETE /members/[id])**:
+    *   Kiểm tra Validations chống xoá bậy.
+    *   Xóa bản ghi `ProjectMember`.
+19. **Hệ thống** báo "Đã xóa thành viên" và bốc hàng người đó ra khỏi List.
 
 ### Luồng ngoại lệ (Exception Flows)
 
-**E1. Không tìm thấy User**
-*   *Tại bước B6:* Nếu từ khóa không khớp với User nào trong hệ thống, dropdown hiển thị "No users found".
+**E1. Thao tác trên Founder (Người tạo)**
+*   *Tại bước C11 và D15:* Nếu cố tình đổi Role hoặc Xóa thành viên có ID trùng với `project.creatorId` (Có icon Vương miện), Frontend sẽ vô hiệu hoá (Disable/Hide) các nút hành động đối với người quản lý dự án thông thường. Nếu cố tình vượt rào, API backend cũng chặn cứng bằng việc trả về 400: "Không thể xóa người tạo dự án khỏi danh sách thành viên". 
+*   *Ngoại lệ:* Admin hệ thống (System Administrator) có thẩm quyền tối cao, được phép điều chỉnh Role hoặc xóa bỏ Founder khỏi dự án.
 
-**E2. User đã tồn tại (Race condition)**
-*   Nếu 2 Manager cùng thêm 1 người vào 1 thời điểm. Người thứ 2 nhấn Add sẽ bị Backend chặn lại do ràng buộc Unique (ProjectID + UserID). Hệ thống báo lỗi "User is already a member".
+**E2. Xóa thành viên đang cầm việc (Assigned Tasks)**
+*   *Tại bước D18:* Khi người dùng gỡ một người khỏi dự án, API Backend gọi lệnh Count task của user này. Nếu lớn hơn 0, tiến trình xóa bị ngắt, API trả mã lỗi 400: "Không thể xóa thành viên đang được gán X công việc. Vui lòng reassign trước".
+
+**E3. Administrator lạm quyền (Bảo vệ Server Admin)**
+*   *Tại bước B9, C13, D18:* Một người dùng (Role không phải System Admin nhưng có quyền trong Dự án) không thể can thiệp thêm/sửa/xoá các User đang là **Server Administrator** vào dự án của mình (API sẽ phản hồi code 403: "Không thể thêm / gỡ bỏ / cập nhật nhân sự Quản trị viên"). Điều này chống phân quyền lạm dụng từ cấp dưới lên cấp trên.
 
 ### Quy tắc nghiệp vụ (Business Rules)
-*   User phải có tài khoản hệ thống (System User) trước (được tạo bởi Admin ở UC-002) thì mới có thể được tìm thấy và thêm vào Dự án ở UC này.
-*   Quyền hạn thực tế của thành viên là **tập hợp (Union)** của tất cả các quyền (Permissions) thuộc về các Role mà họ đang nắm giữ trong dự án.
+*   Mỗi một **Người dùng** trong 1 Dự Án chỉ nắm giữ đúng **1 Vai trò (Role)** (Khác quy tắc Multiple Role cũ).
+*   Administrator luôn có quyền thay đổi thông tin dự án kể cả khi ẩn danh hoặc chỉ thao tác ngoài Grid. Mọi thay đổi đều lưu Log Cảnh báo ở API.

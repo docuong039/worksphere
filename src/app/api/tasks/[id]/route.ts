@@ -90,30 +90,6 @@ export const GET = withAuth(async (_req, user, ctx) => {
                 },
                 orderBy: { spentOn: 'desc' },
             },
-            relationsFrom: {
-                include: {
-                    issueTo: {
-                        select: {
-                            id: true,
-                            title: true,
-                            status: { select: { name: true, isClosed: true } },
-                            tracker: { select: { name: true } },
-                        },
-                    },
-                },
-            },
-            relationsTo: {
-                include: {
-                    issueFrom: {
-                        select: {
-                            id: true,
-                            title: true,
-                            status: { select: { name: true, isClosed: true } },
-                            tracker: { select: { name: true } },
-                        },
-                    },
-                },
-            },
         },
     });
 
@@ -513,44 +489,38 @@ export const DELETE = withAuth(async (_req, user, ctx) => {
     }
 
 
-    // 1. Fetch direct children
-    const children = await prisma.task.findMany({
-        where: { parentId: id },
+    // 1. Tìm tất cả các task con và cháu (dựa trên path và id)
+    const descendants = await prisma.task.findMany({
+        where: {
+            OR: [
+                { path: id },
+                { path: { startsWith: `${id}.` } }
+            ]
+        },
         select: { id: true }
     });
 
-    // 2. Perform deletion and root-level updates in a transaction
+    const allIdsToDelete = [id, ...descendants.map(d => d.id)];
+
+    // 2. Thực hiện xóa toàn bộ trong transaction
     await prisma.$transaction(async (tx) => {
-        // Delete related data
-        await tx.comment.deleteMany({ where: { taskId: id } });
-        await tx.attachment.deleteMany({ where: { taskId: id } });
-        await tx.watcher.deleteMany({ where: { taskId: id } });
+        // Gỡ liên kết TimeLog (vì không có onDelete: Cascade trong schema cho TimeLog)
+        await tx.timeLog.updateMany({
+            where: { taskId: { in: allIdsToDelete } },
+            data: { taskId: null }
+        });
 
-        // Move direct children to root
-        if (children.length > 0) {
-            await tx.task.updateMany({
-                where: { id: { in: children.map(c => c.id) } },
-                data: {
-                    parentId: null,
-                    path: null,
-                    level: 0
-                }
-            });
-        }
-
-        // Delete the task itself
-        await tx.task.delete({ where: { id } });
+        // Xóa task (Cascade sẽ tự động xóa Comment, Attachment, Watcher nếu DB hỗ trợ, 
+        // nhưng ở đây ta dùng deleteMany cho chắc chắn và đồng bộ)
+        await tx.task.deleteMany({
+            where: { id: { in: allIdsToDelete } }
+        });
     });
 
-    // 3. Recursively update all sub-levels for each child (now at root)
-    for (const child of children) {
-        await updateSubtasksPathAndLevel(child.id, null, 0);
-    }
-
-    // Log delete (async)
+    // Log delete (async) - Log cho task chính bị xóa
     logDelete('task', id, user.id, { title: task.title, projectId: task.projectId });
 
-    // Cập nhật lại Task Parent nếu task bị xóa là subtask
+    // Cập nhật lại Task Parent nếu task bị xóa (cha) vốn dĩ là subtask của một task khác
     if (task.parentId) {
         await updateParentTaskAggregates(task.parentId);
     }

@@ -46,6 +46,7 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState<'general' | 'trackers'>('general');
+    const [selectedTrackerIds, setSelectedTrackerIds] = useState<string[]>([]);
 
     // Form data
     const [formData, setFormData] = useState({
@@ -74,17 +75,26 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
             const response = await roleService.create(formData);
 
             if (response.success && response.data) {
+                const newRole = response.data;
                 // Update permissions if any selected
                 if (selectedPermissions.size > 0) {
-                    await roleService.updatePermissions(response.data.id, {
+                    await roleService.updatePermissions(newRole.id, {
                         permissionIds: Array.from(selectedPermissions),
                     });
                 }
+                // Update trackers if any selected
+                if (selectedTrackerIds.length > 0) {
+                    await roleService.updateTrackers(newRole.id, {
+                        trackerIds: selectedTrackerIds,
+                    });
+                }
                 // Optimistic: thêm role mới vào state ngay từ response
-                setRoles((prev) => [...prev, { ...response.data, permissions: [], _count: { projectMembers: 0 }, trackers: [] } as unknown as Role]);
+                setRoles((prev) => [...prev, { ...newRole, permissions: [], _count: { projectMembers: 0 }, trackers: selectedTrackerIds.map(id => ({ trackerId: id, roleId: newRole.id })) } as unknown as Role]);
                 setIsAdding(false);
                 setFormData({ name: '', description: '', assignable: true });
                 setSelectedPermissions(new Set());
+                setSelectedTrackerIds([]);
+                setActiveTab('general');
                 toast.success('Đã tạo vai trò mới');
                 router.refresh(); // Background sync để lấy full permissions data
             }
@@ -257,6 +267,8 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
                         setIsAdding(true);
                         setFormData({ name: '', description: '', assignable: true });
                         setSelectedPermissions(new Set());
+                        setSelectedTrackerIds([]);
+                        setActiveTab('general');
                     }}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
                 >
@@ -277,74 +289,162 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
                 <div className="bg-white rounded-lg border border-gray-200 p-6">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Thêm vai trò mới</h3>
 
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Tên vai trò</label>
-                            <input
-                                type="text"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                                placeholder="VD: Senior Developer"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
-                            <input
-                                type="text"
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                                placeholder="Mô tả vai trò..."
-                            />
-                        </div>
+                    {/* Tabs */}
+                    <div className="flex border-b border-gray-200 mb-4">
+                        <button
+                            onClick={() => setActiveTab('general')}
+                            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'general'
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            Thông tin chung
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('trackers')}
+                            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'trackers'
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                }`}
+                        >
+                            Trackers
+                            {selectedTrackerIds.length > 0 && (
+                                <span className="ml-1.5 px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
+                                    {selectedTrackerIds.length}
+                                </span>
+                            )}
+                        </button>
                     </div>
 
-                    {/* Removed Assignable Checkbox as per user request to simplify. Defaulted to true in logic. */}
-
-
-                    {/* Permissions */}
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Quyền hạn</label>
-                        <div className="border border-gray-200 rounded-md max-h-64 overflow-y-auto">
-                            {Object.entries(groupedPermissions).map(([module, perms]) => (
-                                <div key={module} className="border-b border-gray-100 last:border-0">
-                                    <div
-                                        className="flex items-center gap-2 px-3 py-2 bg-gray-50 cursor-pointer hover:bg-gray-100"
-                                        onClick={() => toggleModule(module)}
+                    {activeTab === 'trackers' ? (
+                        /* Tracker selection for new role */
+                        <div className="mb-4">
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-sm text-gray-500">Chọn các tracker mà vai trò này được phép sử dụng</p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setSelectedTrackerIds(allTrackers.map(t => t.id))}
+                                        className="text-sm text-blue-600 hover:text-blue-700"
                                     >
-                                        <input
-                                            type="checkbox"
-                                            checked={perms.every((p) => selectedPermissions.has(p.id))}
-                                            onChange={() => toggleModule(module)}
-                                            className="w-4 h-4 rounded"
-                                        />
-                                        <span className="font-medium text-sm text-gray-700">
-                                            {moduleNames[module] || module}
-                                        </span>
-                                        <span className="text-xs text-gray-400">({perms.length})</span>
-                                    </div>
-                                    <div className="px-6 py-2 grid grid-cols-2 gap-2">
-                                        {perms.map((perm) => (
-                                            <label key={perm.id} className="flex items-center gap-2 text-sm">
+                                        Chọn tất cả
+                                    </button>
+                                    <span className="text-gray-300">|</span>
+                                    <button
+                                        onClick={() => setSelectedTrackerIds([])}
+                                        className="text-sm text-gray-600 hover:text-gray-700"
+                                    >
+                                        Bỏ chọn
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                {allTrackers.map((tracker) => {
+                                    const isSelected = selectedTrackerIds.includes(tracker.id);
+                                    return (
+                                        <label
+                                            key={tracker.id}
+                                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${isSelected
+                                                ? 'bg-blue-50 border-blue-300'
+                                                : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                                                }`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={() => {
+                                                    setSelectedTrackerIds(prev =>
+                                                        prev.includes(tracker.id)
+                                                            ? prev.filter(id => id !== tracker.id)
+                                                            : [...prev, tracker.id]
+                                                    );
+                                                }}
+                                                className="w-4 h-4 rounded border-gray-300 text-blue-600"
+                                            />
+                                            <span className={`text-sm ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-700'}`}>
+                                                {tracker.name}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                            {allTrackers.length === 0 && (
+                                <p className="text-center text-gray-500 py-4">
+                                    Chưa có tracker nào trong hệ thống.
+                                </p>
+                            )}
+                            <p className="text-sm text-gray-500 mt-3">
+                                Đã chọn: {selectedTrackerIds.length}/{allTrackers.length} trackers
+                            </p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tên vai trò</label>
+                                    <input
+                                        type="text"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                        placeholder="VD: Senior Developer"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
+                                    <input
+                                        type="text"
+                                        value={formData.description}
+                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                                        placeholder="Mô tả vai trò..."
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Permissions */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Quyền hạn</label>
+                                <div className="border border-gray-200 rounded-md max-h-64 overflow-y-auto">
+                                    {Object.entries(groupedPermissions).map(([module, perms]) => (
+                                        <div key={module} className="border-b border-gray-100 last:border-0">
+                                            <div
+                                                className="flex items-center gap-2 px-3 py-2 bg-gray-50 cursor-pointer hover:bg-gray-100"
+                                                onClick={() => toggleModule(module)}
+                                            >
                                                 <input
                                                     type="checkbox"
-                                                    checked={selectedPermissions.has(perm.id)}
-                                                    onChange={() => togglePermission(perm.id)}
+                                                    checked={perms.every((p) => selectedPermissions.has(p.id))}
+                                                    onChange={() => toggleModule(module)}
                                                     className="w-4 h-4 rounded"
                                                 />
-                                                <span className="text-gray-600">{perm.name}</span>
-                                            </label>
-                                        ))}
-                                    </div>
+                                                <span className="font-medium text-sm text-gray-700">
+                                                    {moduleNames[module] || module}
+                                                </span>
+                                                <span className="text-xs text-gray-400">({perms.length})</span>
+                                            </div>
+                                            <div className="px-6 py-2 grid grid-cols-2 gap-2">
+                                                {perms.map((perm) => (
+                                                    <label key={perm.id} className="flex items-center gap-2 text-sm">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedPermissions.has(perm.id)}
+                                                            onChange={() => togglePermission(perm.id)}
+                                                            className="w-4 h-4 rounded"
+                                                        />
+                                                        <span className="text-gray-600">{perm.name}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                    </div>
+                            </div>
+                        </>
+                    )}
 
                     <div className="flex justify-end gap-2">
                         <button
-                            onClick={() => setIsAdding(false)}
+                            onClick={() => { setIsAdding(false); setActiveTab('general'); }}
                             className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md text-sm hover:bg-gray-50"
                         >
                             Hủy

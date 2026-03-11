@@ -115,7 +115,7 @@ export const DELETE = withAuth(async (_req, user, ctx) => {
     }
 
     // Check if member is project creator
-    if (project.creatorId === member.user.id) {
+    if (!user.isAdministrator && project.creatorId === member.user.id) {
         return errorResponse('Không thể xóa người tạo dự án khỏi danh sách thành viên', 400);
     }
 

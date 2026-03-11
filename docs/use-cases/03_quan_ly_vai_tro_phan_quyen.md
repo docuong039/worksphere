@@ -7,16 +7,17 @@ Chi tiết chức năng định nghĩa Roles và Permissions.
 left to right direction
 actor "Administrator" as Admin
 
-usecase "đăng nhập" as UC_Login
 usecase "quản lý vai trò" as UC_ManageRole
 
 ' Các use case con
 usecase "xem danh sách" as UC01
 usecase "thêm" as UC02
-usecase "cập nhật role" as UC03
+usecase "cập nhật thông tin" as UC03
 usecase "xóa" as UC04
 usecase "cấu hình quyền hạn" as UC05
 usecase "cấu hình role-tracker" as UC06
+usecase "khóa/kích hoạt vai trò" as UC07
+usecase "nhân bản vai trò" as UC08
 
 Admin --> UC_ManageRole
 
@@ -26,8 +27,8 @@ UC_ManageRole --> UC03
 UC_ManageRole --> UC04
 UC_ManageRole --> UC05
 UC_ManageRole --> UC06
-
-UC_ManageRole ..> UC_Login : <<Include>>
+UC_ManageRole --> UC07
+UC_ManageRole --> UC08
 
 @enduml
 ```
@@ -48,29 +49,33 @@ UC_ManageRole ..> UC_Login : <<Include>>
 **Ngữ cảnh:** Trang Administration -> Roles & Permissions.
 
 #### A. Quản lý danh sách Vai trò (CRUD Role)
-1.  **Administrator** xem danh sách các Role hiện có (ví dụ: Manager, Developer, Reporter).
-2.  **Administrator** chọn "Tạo vai trò mới" (Create new role).
-3.  **Hệ thống** hiển thị form nhập Tên vai trò.
-4.  **Hệ thống** cung cấp tùy chọn: "Copy workflow từ vai trò khác" để tiết kiệm thời gian cấu hình.
-5.  **Administrator** nhấn "Lưu".
+1.  **Administrator** truy cập trang `/roles` để xem danh sách các Role hiện có. Mỗi Role hiển thị: Tên, Mô tả, Số lượng quyền, Số người đang sử dụng, và Trạng thái.
+2.  **Thêm mới**: Nhấn "Thêm vai trò", nhập Tên và Mô tả. Nhấn "Tạo vai trò". Hệ thống gọi `POST /api/roles`.
+3.  **Cập nhật**: Administrator nhấn icon Sửa (Pencil) của một Role để mở form chỉnh sửa nội tuyến. Cập nhật Tên/Mô tả và gọi `PUT /api/roles/[id]`.
+4.  **Nhân bản (Clone)**: Administrator nhấn icon Nhân bản (Copy). Hệ thống tự động tạo một role mới với tên "[Tên Role] (Copy)" và sao chép toàn bộ mô tả cũng như danh sách quyền hạn sang role mới.
 
-#### B. Cấu hình Quyền hạn (Permissions Matrix)
-6.  **Administrator** nhấn vào "Permissions Report" hoặc "Cấu hình quyền" của một Role.
-7.  **Hệ thống** hiển thị danh sách tất cả các quyền (Permissions) được chia theo nhóm chức năng:
-    *   **Project:** Create project, Edit project...
-    *   **Task:** View tasks, Add tasks, Edit own tasks, Edit others' tasks...
-    *   **Time Tracking:** Log time, View time entries...
-    *   **Wiki/Documents:** Manage wiki, View documents...
-8.  **Administrator** tích chọn (Check) các quyền muốn cấp cho Role này.
-9.  **Administrator** nhấn "Lưu".
-10. **Hệ thống** cập nhật bảng map `Role_Permissions`.
+#### B. Khóa/Kích hoạt Vai trò (Toggle Active)
+5.  **Administrator** nhấn nút Toggle (Switch) trên role tương ứng.
+6.  **Hệ thống** gọi `PUT /api/roles/[id]` để cập nhật cờ `isActive`.
+
+#### C. Cấu hình Quyền hạn và Tracker
+7.  **Administrator** click vào dòng của Role để mở rộng panel cấu hình nội tuyến (Inline Expansion).
+8.  **Hệ thống** hiển thị panel với 2 tab: "Thông tin chung" và "Trackers".
+9.  **Tab Thông tin chung (Permissions)**:
+    *   Hệ thống hiển thị danh sách quyền được nhóm theo module (Dự án, Công việc, Ghi nhận thời gian, Truy vấn & Bộ lọc).
+    *   Administrator tích chọn các quyền cụ thể hoặc chọn cả nhóm module.
+    *   Nhấn "Lưu thay đổi", hệ thống gọi `POST /api/roles/[id]/permissions` để ghi đè `Role_Permissions`.
+10. **Tab Trackers**:
+    *   Administrator chọn các loại công việc (Tracker) mà Role này được phép thao tác.
+    *   Hệ thống cập nhật bảng map `Role_Tracker` qua `PUT /api/roles/[id]/trackers`.
 
 ### Luồng ngoại lệ (Exception Flows)
 
 **E1. Xóa Role đang sử dụng**
-*   Nếu Admin cố gắng xóa một Role đang được gán cho bất kỳ thành viên nào trong bất kỳ dự án nào.
-*   **Hệ thống** ngăn chặn và báo lỗi: "Không thể xóa vai trò này vì đang có thành viên sử dụng".
-*   *Giải pháp:* Admin phải gán lại Role khác cho các thành viên đó trước khi xóa.
+*   Nếu Administrator cố gắng xóa một Role bằng cách nhấn nút Xóa (Trash).
+*   **Hệ thống (Frontend + Backend)** kiểm tra số lượng thành viên đang dùng Role này (`projectMembers`).
+*   Nếu > 0: Hệ thống năng chặn và báo lỗi `"Không thể xóa role đang được sử dụng bởi [N] thành viên"`.
+*   *Lưu ý backend (DELETE /api/roles/[id]):* Khi xóa thành công, hệ thống cũng tự động dọn dẹp các rule workflow (bảng `WorkflowTransition`) và sơ đồ quyền (`RolePermission`) liên quan đến Role này.
 
 ### Quy tắc nghiệp vụ (Business Rules)
 *   **Non-Admin Roles:** Role được tạo ở đây áp dụng trong phạm vi Dự án (Project-level roles).

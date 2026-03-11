@@ -155,8 +155,6 @@ export type TaskWithRelations = Task & {
         activity: { id: string; name: string };
         user: { id: string; name: string };
     }>;
-    relationsFrom?: any[]; // Allow for detailed view relations
-    relationsTo?: any[];
 };
 
 export type TaskListItem = Task & {

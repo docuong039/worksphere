@@ -5,7 +5,7 @@ Chức năng xác thực người dùng vào hệ thống.
 ```plantuml
 @startuml
 left to right direction
-actor "Administrator/user" as User
+actor "User" as User
 
 usecase "đăng nhập" as UC_Login
 
@@ -43,10 +43,9 @@ User --> UC_Login
     *   Nếu tìm thấy, so sánh Mật khẩu nhập vào với Mật khẩu đã mã hóa (BCrypt) trong cơ sở dữ liệu.
     *   Kiểm tra trạng thái tài khoản (`isActive`).
 7.  **Hệ thống** xác thực thành công:
-    *   Tạo phiên làm việc và Token phiên.
-    *   Trả về thông tin người dùng cơ bản (ID, Email, Tên, Role).
+    *   Tạo phiên làm việc và Token phiên (JWT).
+    *   Trả về thông tin người dùng cơ bản (ID, Email, Tên, isAdministrator).
 8.  **Hệ thống (Frontend)** nhận kết quả thành công:
-    *   Hiển thị thông báo (Toast) "Đăng nhập thành công".
     *   Chuyển hướng người dùng đến trang `/dashboard`.
 9.  **Kết thúc Use Case.**
 
@@ -70,15 +69,15 @@ User --> UC_Login
 *   *Rẽ nhánh tại Bước 6 (Backend xác thực):*
     *   **E1.1.** Backend không tìm thấy Email hoặc Mật khẩu không khớp.
     *   **E1.2.** Backend trả về lỗi xác thực (`Invalid credentials`).
-    *   **E1.3.** Frontend hiển thị thông báo lỗi: "Email hoặc mật khẩu không chính xác."
+    *   **E1.3.** Frontend hiển thị thông báo lỗi: "Email hoặc mật khẩu không đúng."
     *   **Quay lại Bước 3** để người dùng thử lại.
 
 **E2. Tài khoản bị vô hiệu hóa (Inactive)**
 *   *Rẽ nhánh tại Bước 6 (Backend kiểm tra trạng thái):*
-    *   **E2.1.** Backend xác thực mật khẩu đúng, nhưng phát hiện trường `isActive = false` (hoặc `status` không active).
-    *   **E2.2.** Backend từ chối đăng nhập và trả về thông báo lỗi cụ thể.
-    *   **E2.3.** Frontend hiển thị thông báo: "Tài khoản của bạn đã bị khóa hoặc ngừng hoạt động. Vui lòng liên hệ quản trị viên."
-    *   **Kết thúc Use Case** (Người dùng không thể đăng nhập).
+    *   **E2.1.** Backend phát hiện trường `isActive = false`.
+    *   **E2.2.** Backend từ chối đăng nhập và trả về lỗi xác thực (cùng phản hồi với E1 — hệ thống cố ý không phân biệt để tránh lộ thông tin tài khoản).
+    *   **E2.3.** Frontend hiển thị thông báo lỗi: "Email hoặc mật khẩu không đúng."
+    *   **Quay lại Bước 3** để người dùng thử lại.
 
 **E3. Dữ liệu đầu vào không hợp lệ (Validation Error)**
 *   *Rẽ nhánh tại Bước 4 (Frontend Validation):*

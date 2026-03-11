@@ -42,7 +42,6 @@ model Role {
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   assignable          Boolean              @default(true)
-  canAssignToOther    Boolean              @default(true)
   projectMembers      ProjectMember[]
   permissions         RolePermission[]
   trackers            RoleTracker[]
@@ -190,12 +189,9 @@ model Project {
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   isPublic    Boolean          @default(false)
-  parentId    String?
   members     ProjectMember[]
   trackers    ProjectTracker[]
   creator     User             @relation("ProjectCreator", fields: [creatorId], references: [id])
-  parent      Project?         @relation("ProjectHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
-  children    Project[]        @relation("ProjectHierarchy")
   queries     Query[]
   tasks       Task[]
   timeLogs    TimeLog[]
@@ -203,7 +199,6 @@ model Project {
 
   @@index([identifier])
   @@index([creatorId])
-  @@index([parentId])
   @@index([isArchived])
   @@index([isPublic])
   @@map("projects")
@@ -216,7 +211,6 @@ model ProjectMember {
   roleId               String
   createdAt            DateTime                   @default(now())
   updatedAt            DateTime                   @updatedAt
-  notificationSettings MemberNotificationSetting?
   project              Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   role                 Role                       @relation(fields: [roleId], references: [id])
   user                 User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -228,20 +222,6 @@ model ProjectMember {
   @@map("project_members")
 }
 
-model MemberNotificationSetting {
-  id              String        @id @default(cuid())
-  projectMemberId String        @unique
-  notifyOnNew     Boolean       @default(true)
-  notifyOnUpdate  Boolean       @default(true)
-  notifyOnClose   Boolean       @default(true)
-  notifyOnNote    Boolean       @default(true)
-  notifyOnAssign  Boolean       @default(true)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  projectMember   ProjectMember @relation(fields: [projectMemberId], references: [id], onDelete: Cascade)
-
-  @@map("member_notification_settings")
-}
 
 model Version {
   id          String    @id @default(cuid())
@@ -286,8 +266,6 @@ model Task {
   number         Int             @unique @default(autoincrement())
   attachments    Attachment[]
   comments       Comment[]
-  relationsFrom  IssueRelation[] @relation("RelationFrom")
-  relationsTo    IssueRelation[] @relation("RelationTo")
   assignee       User?           @relation("AssignedTasks", fields: [assigneeId], references: [id])
   creator        User            @relation("CreatedTasks", fields: [creatorId], references: [id])
   parent         Task?           @relation("Subtasks", fields: [parentId], references: [id], onDelete: Restrict)
@@ -313,22 +291,6 @@ model Task {
   @@map("tasks")
 }
 
-model IssueRelation {
-  id           String   @id @default(cuid())
-  issueFromId  String
-  issueToId    String
-  relationType String
-  delay        Int?
-  createdAt    DateTime @default(now())
-  issueFrom    Task     @relation("RelationFrom", fields: [issueFromId], references: [id], onDelete: Cascade)
-  issueTo      Task     @relation("RelationTo", fields: [issueToId], references: [id], onDelete: Cascade)
-
-  @@unique([issueFromId, issueToId, relationType])
-  @@index([issueFromId])
-  @@index([issueToId])
-  @@index([relationType])
-  @@map("issue_relations")
-}
 
 model Watcher {
   id        String   @id @default(cuid())

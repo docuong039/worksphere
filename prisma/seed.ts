@@ -26,7 +26,7 @@ async function main() {
     await prisma.roleTracker.deleteMany();
     await prisma.rolePermission.deleteMany();
 
-    await prisma.project.updateMany({ data: { parentId: null } });
+
     await prisma.project.deleteMany();
 
     await prisma.user.deleteMany();
@@ -130,11 +130,11 @@ async function main() {
     console.log('👥 Khởi tạo vai trò chuẩn...');
 
     const roleManager = await prisma.role.create({
-        data: { name: ROLES.MANAGER, canAssignToOther: true, description: 'Quản lý toàn bộ dự án' }
+        data: { name: ROLES.MANAGER, description: 'Quản lý toàn bộ dự án' }
     });
 
     const roleDev = await prisma.role.create({
-        data: { name: ROLES.DEVELOPER, canAssignToOther: false, description: 'Thực hiện các công việc kỹ thuật' }
+        data: { name: ROLES.DEVELOPER, description: 'Thực hiện các công việc kỹ thuật' }
     });
 
     // Manager có tất cả quyền

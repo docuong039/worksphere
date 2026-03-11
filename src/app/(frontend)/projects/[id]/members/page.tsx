@@ -81,6 +81,7 @@ export default async function ProjectMembersPage({ params }: Props) {
             availableUsers={users}
             canManage={canManage}
             creatorId={project.creatorId}
+            isAdministrator={session.user.isAdministrator}
         />
     );
 }

@@ -42,6 +42,7 @@ interface ProjectMembersProps {
     availableUsers: AvailableUser[];
     canManage: boolean;
     creatorId: string;
+    isAdministrator?: boolean;
 }
 
 export function ProjectMembers({
@@ -51,6 +52,7 @@ export function ProjectMembers({
     availableUsers,
     canManage,
     creatorId,
+    isAdministrator = false,
 }: ProjectMembersProps) {
     const router = useRouter();
     const { confirm } = useConfirm();
@@ -144,7 +146,7 @@ export function ProjectMembers({
 
     // Remove member
     const handleRemoveMember = async (member: Member) => {
-        if (member.user.id === creatorId) {
+        if (!isAdministrator && member.user.id === creatorId) {
             toast.error('Không thể xóa người tạo dự án');
             return;
         }
@@ -247,7 +249,7 @@ export function ProjectMembers({
                                         value={member.role.id}
                                         onChange={(e) => handleUpdateRole(member.id, e.target.value)}
                                         className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        disabled={member.user.id === creatorId}
+                                        disabled={!isAdministrator && member.user.id === creatorId}
                                     >
                                         {roles.map((role) => (
                                             <option key={role.id} value={role.id}>
@@ -261,7 +263,7 @@ export function ProjectMembers({
                                     </span>
                                 )}
 
-                                {canManage && member.user.id !== creatorId && (
+                                {canManage && (isAdministrator || member.user.id !== creatorId) && (
                                     <button
                                         onClick={() => handleRemoveMember(member)}
                                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"

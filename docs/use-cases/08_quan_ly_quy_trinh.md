@@ -7,19 +7,18 @@ Thiết lập luồng trạng thái công việc.
 left to right direction
 actor "Administrator" as Admin
 
-usecase "đăng nhập" as UC_Login
 usecase "quản lý Workflow" as UC_ManageWorkflow
 
 ' Các use case con
-usecase "Xem Workflow hiện tại" as UC01
-usecase "Định nghĩa chuyển trạng thái" as UC02
+usecase "xem Workflow hiện tại" as UC01
+usecase "định nghĩa chuyển trạng thái" as UC02
+usecase "đặt lại quy trình (Reset)" as UC03
 
 Admin --> UC_ManageWorkflow
 
 UC_ManageWorkflow --> UC01
 UC_ManageWorkflow --> UC02
-
-UC_ManageWorkflow ..> UC_Login : <<Include>>
+UC_ManageWorkflow --> UC03
 
 @enduml
 ```
@@ -32,35 +31,40 @@ UC_ManageWorkflow ..> UC_Login : <<Include>>
 | **Mô tả** | Cho phép Administrator định nghĩa các quy tắc chuyển đổi trạng thái (Transitions) của công việc, dựa trên sự kết hợp giữa **Vai trò (Role)** của người thực hiện và **Loại công việc (Tracker)** tương ứng. |
 | **Tác nhân chính** | Administrator (Quản trị viên) |
 | **Tác nhân phụ** | Hệ thống (Database) |
-| **Tiền điều kiện** | - Đã đăng nhập tài khoản Administrator (`is_admin = true`).<br>- Các danh mục `Role`, `Tracker` và `Status` đã được định nghĩa sẵn trong hệ thống. |
-| **Đảm bảo tối thiểu** | - Không làm mất dữ liệu workflow hiện tại nếu người dùng hủy thao tác. |
-| **Đảm bảo thành công** | - Các quy tắc chuyển đổi trạng thái mới được cập nhật vào bảng `WorkflowTransition` trong CSDL.<br>- Người dùng bị giới hạn ngay lập tức bởi các quy tắc mới khi thao tác cập nhật trạng thái công việc. |
+| **Tiền điều kiện** | - Đã đăng nhập tài khoản Administrator.<br>- Các danh mục `Role`, `Tracker` và `Status` đã được định nghĩa sẵn trong hệ thống. |
+| **Đảm bảo tối thiểu** | - Không làm mất dữ liệu workflow hiện tại nếu người dùng hủy hoặc chưa bấm lưu. |
+| **Đảm bảo thành công** | - Các quy tắc chuyển đổi trạng thái (cho từng cặp Tracker-Role) mới được cập nhật vào bảng `WorkflowTransition` trong CSDL.<br>- Người dùng bị giới hạn ngay lập tức bởi các quy tắc mới khi thao tác cập nhật trạng thái công việc. |
 
 ### Chuỗi sự kiện chính (Main Flow)
 
 **Ngữ cảnh:** Admin truy cập trang Administration -> Workflow.
 
 #### A. Xem và Lọc ma trận Workflow
-1.  **Administrator** truy cập trang cấu hình Workflow.
+1.  **Administrator** truy cập trang cấu hình Workflow (`/settings/workflow`).
 2.  **Hệ thống** hiển thị bộ lọc bắt buộc ở đầu trang:
-    *   Dropdown chọn **Role** (Vai trò).
-    *   Dropdown chọn **Tracker** (Loại công việc).
-3.  **Administrator** chọn một Role (ví dụ: `Developer`) và một Tracker (ví dụ: `Bug`).
-4.  **Administrator** nhấn nút **"Edit"** (hoặc Load).
-5.  **Hệ thống** truy vấn bảng `WorkflowTransition` và hiển thị **Ma trận chuyển đổi (Matrix)**:
-    *   **Hàng ngang (Rows):** Danh sách "Trạng thái hiện tại" (Current Status).
-    *   **Cột dọc (Columns):** Danh sách "Trạng thái mới được phép chuyển đến" (New Status allowed).
-    *   **Giao điểm (Cells):** Checkbox thể hiện quyền chuyển đổi (Checked = Được phép, Unchecked = Bị chặn).
+    *   Dropdown chọn **Loại công việc (Tracker)**: Mặc định chọn tracker đầu tiên.
+    *   Dropdown chọn **Vai trò (Role)**: Mặc định chọn "Tất cả Vai trò" (All Roles `roleId = null`).
+3.  **Administrator** thay đổi lựa chọn Role hoặc Tracker.
+4.  **Hệ thống (Frontend)** tự động lọc lại danh sách transitions hiện tại trên RAM và render **Ma trận chuyển đổi (Matrix)** trạng thái tương ứng ngay lập tức (không cần truy vấn CSDL):
+    *   **Hàng ngang (Rows):** Danh sách "Trạng thái hiện tại" (From).
+    *   **Cột dọc (Columns):** Danh sách "Trạng thái muốn chuyển đến" (To).
+    *   **Giao điểm (Cells):** Các ô giao điểm được click có màu Xanh (thể hiện "Được phép chuyển") hoặc Trắng (không được phép).
 
 #### B. Cấu hình chuyển đổi trạng thái (Define Transitions)
-6.  **Administrator** thực hiện tích chọn (Check) hoặc bỏ chọn (Uncheck) vào các ô trong ma trận để định nghĩa quy trình.
-    *   *Ví dụ:* Tích vào ô giao giữa hàng "New" và cột "In Progress" có nghĩa là: Role Developer được phép chuyển Tracker Bug từ trạng thái New sang In Progress.
-7.  **Administrator** bỏ chọn các ô không hợp lệ theo quy trình nghiệp vụ (ví dụ: không cho phép Developer chuyển thẳng từ New sang Closed).
-8.  **Administrator** nhấn nút **"Save"** (Lưu).
-9.  **Hệ thống (Backend API)**:
-    *   Xóa toàn bộ các transition cũ của cặp Role-Tracker hiện tại.
-    *   Thêm mới các transition tương ứng với các ô Checkbox được chọn.
-10. **Hệ thống** hiển thị thông báo "Workflow updated successfully".
+5.  **Administrator** thực hiện click vào các ô giao điểm trên ma trận để chốt (allow) hoặc chặn (deny) quá trình chuyển đổi.
+    *   *Ví dụ:* Click vào ô giao diện biến thành màu Xanh: Cho phép chuyển từ New sang In Progress.
+6.  **Hệ thống** lưu trữ cấu trúc Map này vào State tạm thời. Cờ thay đổi chưa được lưu vào Backend.
+7.  **Administrator** nhấn nút **"Lưu thay đổi"**.
+8.  **Hệ thống (API POST /api/workflow)**:
+    *   Xóa toàn bộ các transition cũ của cặp `Tracker` - `Role` hiển thị tương đối (`roleId` có thể là `null` nếu áp dụng tất cả).
+    *   Bulk Insert (Thêm mới) hàng loạt các transition mới từ thông tin ma trận.
+9.  **Hệ thống** hiển thị thông báo "Đã lưu quy trình thành công".
+
+#### C. Đặt lại toàn bộ Quy trình (Reset)
+10. **Administrator** nhấn vào nút **"Đặt lại"** (Reset).
+11. **Hệ thống** hiển thị cảnh báo từ confirm hook: "Bạn có chắc muốn đặt lại về trạng thái cho phép tất cả các chuyển đổi? Các thay đổi chưa lưu sẽ không bị mất cho đến khi bạn nhấn Lưu."
+12. **Administrator** chọn "Đặt lại".
+13. **Hệ thống** vẽ lại ma trận Front-end thành tất cả ô màu xanh (lấp đầy toàn bộ các cho phép chuyển đổi). Người dùng phải nhấn "Lưu thay đổi" để áp dụng lên Database.
 
 ### Luồng thay thế (Alternate Flows)
 

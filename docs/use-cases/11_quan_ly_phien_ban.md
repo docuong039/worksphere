@@ -1,25 +1,23 @@
-# Use Case: Quản lý Phiên bản
+# Use Case: Quản lý Phiên bản (Version/Roadmap)
 
-Quản lý lộ trình (Roadmap).
+Thiết lập, theo dõi và quản lý các Version (Phiên bản phát hành) của dự án.
 
 ```plantuml
 @startuml
 left to right direction
-actor "Administrator/user" as User
+actor "Administrator/User" as User
 
-usecase "đăng nhập" as UC_Login
-usecase "quản lý dự án" as UC_ManageProject
 usecase "quản lý phiên bản" as UC_ManageVersion
 
 ' Các use case con
-usecase "xem" as UC01
-usecase "thêm" as UC02
-usecase "sửa" as UC03
-usecase "khóa/đóng/mở phiên bản" as UC04
-usecase "xóa" as UC05
+usecase "xem danh sách & tiến độ" as UC01
+usecase "thêm phiên bản" as UC02
+usecase "cập nhật thông tin" as UC03
+usecase "cập nhật trạng thái (mở/khóa/đóng)" as UC04
+usecase "xóa phiên bản" as UC05
 
 ' Note
-note "user phải có role \n= manager" as N1
+note "user phải có quyền quản lý \nphiên bản hoặc là Admin" as N1
 
 User --> UC_ManageVersion
 UC_ManageVersion .. N1
@@ -30,9 +28,9 @@ UC_ManageVersion --> UC03
 UC_ManageVersion --> UC04
 UC_ManageVersion --> UC05
 
-' Includes
-UC_ManageVersion ..> UC_ManageProject : <<Include>>
-UC_ManageProject ..> UC_Login : <<Include>>
-
 @enduml
 ```
+
+### Quy tắc nghiệp vụ (Business Rules)
+*   Tiến độ (Progress) của một Phiên bản hoàn toàn thuộc dạng Logic "Đọc động" (Computed Reading), nó không lưu % cứng dưới db mà được API tính toán trực tiếp vào thời điểm Load data: `Progress = ClosedTasks / TotalTasks`
+*   Xóa Version là kiểu hành vi **Unlink (Gỡ bỏ liên kết)**, các Tasks trực thuộc nó sẽ không bị xóa Cascade theo. Mất Version thì task bị trạng thái trở thành tác vụ tự do (Bảo vệ tính toàn vẹn).
