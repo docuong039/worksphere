@@ -1,11 +1,11 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Check, GripVertical } from 'lucide-react';
 import { useConfirm } from '@/providers/confirm-provider';
-import { trackerService } from '@/services/tracker.service';
+import { trackerService } from '@/api-client/tracker.service';
 
 interface Tracker {
     id: string;

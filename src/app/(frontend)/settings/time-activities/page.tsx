@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -12,7 +12,7 @@ import {
     X,
     Loader2,
 } from 'lucide-react';
-import { timeActivityService } from '@/services/time-activity.service';
+import { timeActivityService } from '@/api-client/time-activity.service';
 import { useConfirm } from '@/providers/confirm-provider';
 import type { TimeEntryActivity } from '@/types';
 

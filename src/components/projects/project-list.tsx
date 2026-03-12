@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -18,7 +18,7 @@ import {
 import Image from 'next/image';
 import { useConfirm } from '@/providers/confirm-provider';
 import type { DateLike } from '@/lib/date-utils';
-import { projectService } from '@/services/project.service';
+import { projectService } from '@/api-client/project.service';
 import type { ProjectWithMembers as Project } from '@/types';
 
 interface ProjectListProps {

@@ -1,11 +1,11 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Check, GripVertical } from 'lucide-react';
 import { useConfirm } from '@/providers/confirm-provider';
-import { priorityService } from '@/services/priority.service';
+import { priorityService } from '@/api-client/priority.service';
 
 interface Priority {
     id: string;

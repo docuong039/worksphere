@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -20,7 +20,7 @@ import { SavedQueriesList, SaveQueryModal } from '@/components/tasks/saved-queri
 import { CreateTaskModal } from '@/components/tasks/create-task-modal';
 import { TaskContextMenu } from '@/components/tasks/task-context-menu';
 import { KanbanBoard } from '@/components/tasks/kanban-board';
-import { taskService } from '@/services/task.service';
+import { taskService } from '@/api-client/task.service';
 import { PERMISSIONS } from '@/lib/constants';
 
 import type {

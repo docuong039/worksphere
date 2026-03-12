@@ -1,10 +1,10 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Tag, Check } from 'lucide-react';
-import { projectService } from '@/services/project.service';
+import { projectService } from '@/api-client/project.service';
 
 interface Tracker {
     id: string;

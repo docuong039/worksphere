@@ -1,11 +1,11 @@
-'use client';
+﻿'use client';
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Save, RotateCcw, Info } from 'lucide-react';
 import { useConfirm } from '@/providers/confirm-provider';
-import { workflowService } from '@/services/workflow.service';
+import { workflowService } from '@/api-client/workflow.service';
 import { WorkflowTransition as Transition, Tracker, Status, Role } from '@/types';
 
 interface WorkflowEditorProps {

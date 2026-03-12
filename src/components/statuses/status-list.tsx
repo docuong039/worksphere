@@ -1,11 +1,11 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Check, GripVertical, Lock } from 'lucide-react';
 import { useConfirm } from '@/providers/confirm-provider';
-import { statusService } from '@/services/status.service';
+import { statusService } from '@/api-client/status.service';
 
 interface Status {
     id: string;

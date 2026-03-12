@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useDraggable } from '@dnd-kit/core';
 import { MessageSquare, GitBranch, Clock, User, ChevronDown, ChevronRight, CheckCircle2, Circle } from 'lucide-react';
@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { TaskContextMenu } from '@/components/tasks/task-context-menu';
-import { taskService } from '@/services/task.service';
+import { taskService } from '@/api-client/task.service';
 
 import {
     TaskWithRelations as Task,

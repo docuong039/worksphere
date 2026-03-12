@@ -1,10 +1,10 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
-import { taskService } from '@/services/task.service';
-import { projectService } from '@/services/project.service';
+import { taskService } from '@/api-client/task.service';
+import { projectService } from '@/api-client/project.service';
 import { PERMISSIONS } from '@/lib/constants';
 
 interface Option {

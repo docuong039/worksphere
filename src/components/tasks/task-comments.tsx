@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -14,7 +14,7 @@ import {
     Check,
 } from 'lucide-react';
 import { useConfirm } from '@/providers/confirm-provider';
-import { taskService } from '@/services/task.service';
+import { taskService } from '@/api-client/task.service';
 
 interface Comment {
     id: string;

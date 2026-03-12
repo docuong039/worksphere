@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,7 +16,7 @@ import {
     List,
     X,
 } from 'lucide-react';
-import { projectService } from '@/services/project.service';
+import { projectService } from '@/api-client/project.service';
 import { useConfirm } from '@/providers/confirm-provider';
 import { VersionWithStats as Version } from '@/types';
 

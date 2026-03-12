@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -14,7 +14,7 @@ import { TaskWatchers } from '@/components/tasks/task-watchers';
 import { TaskAttachments } from '@/components/tasks/task-attachments';
 import { CreateTaskModal } from '@/components/tasks/create-task-modal';
 import { LogTimeModal } from '@/components/tasks/log-time-modal';
-import { taskService } from '@/services/task.service';
+import { taskService } from '@/api-client/task.service';
 import { TaskComments } from '@/components/tasks/task-comments';
 import { TaskSubtasks } from '@/components/tasks/task-subtasks';
 

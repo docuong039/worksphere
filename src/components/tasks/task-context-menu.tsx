@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -19,8 +19,8 @@ import {
     Copy,
 } from 'lucide-react';
 
-import { taskService } from '@/services/task.service';
-import { projectService } from '@/services/project.service';
+import { taskService } from '@/api-client/task.service';
+import { projectService } from '@/api-client/project.service';
 import { useConfirm } from '@/providers/confirm-provider';
 import { CopyTaskModal } from '@/components/tasks/copy-task-modal';
 

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Plus, Trash2, User, Crown, Search } from 'lucide-react';
 import { useConfirm } from '@/providers/confirm-provider';
 import Image from 'next/image';
-import { projectService } from '@/services/project.service';
+import { projectService } from '@/api-client/project.service';
 
 interface Member {
     id: string;

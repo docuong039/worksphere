@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -7,7 +7,7 @@ import { Plus, Pencil, Trash2, Shield, ChevronDown, ChevronRight, Copy } from 'l
 import { Switch } from '@/components/ui/switch';
 import { RoleTrackerPermissions } from '@/components/roles/role-tracker-permissions';
 import { useConfirm } from '@/providers/confirm-provider';
-import { roleService } from '@/services/role.service';
+import { roleService } from '@/api-client/role.service';
 import { RoleWithPermissions as Role } from '@/types';
 
 interface Tracker {

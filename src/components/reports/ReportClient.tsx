@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
@@ -11,7 +11,7 @@ import {
     TrendingUp,
     ArrowRight
 } from 'lucide-react';
-import { reportService } from '@/services/report.service';
+import { reportService } from '@/api-client/report.service';
 import type { ReportSummary, ReportProject, ReportUser, ReportTime } from '@/types';
 import { ReportPolicy } from '@/modules/report/report.policy';
 import DistributionChart from '@/components/charts/DistributionChart';

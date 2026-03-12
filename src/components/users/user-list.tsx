@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Shield, User } from 'lucide-react';
 import { useConfirm } from '@/providers/confirm-provider';
 import { Switch } from '@/components/ui/switch';
-import { userService } from '@/services/user.service';
+import { userService } from '@/api-client/user.service';
 import { UserForm, UserFormData } from '@/components/users/user-form';
 import type { DateLike } from '@/lib/date-utils';
 import { ApiClientError } from '@/lib/api-fetch';
