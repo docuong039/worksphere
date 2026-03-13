@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import Link from 'next/link';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/UI/Avatar';
 import { MessageSquare, PlusCircle } from 'lucide-react';
 import { ProjectServerService } from '@/server/services/project.server';
 

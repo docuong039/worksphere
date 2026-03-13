@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { StatusList } from '@/components/statuses/status-list';
+import { StatusList } from '@/app/(frontend)/settings/components/StatusList';
 import { SystemServerService } from '@/server/services/system.server';
 
 export default async function StatusesPage() {

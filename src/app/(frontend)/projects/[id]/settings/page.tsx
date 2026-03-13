@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { ProjectSettingsClient } from '@/components/projects/project-settings-client';
+import { ProjectSettingsClient } from '@/app/(frontend)/projects/components/ProjectSettingsClient';
 import { ProjectServerService } from '@/server/services/project.server';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {

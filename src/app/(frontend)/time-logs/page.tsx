@@ -1,6 +1,6 @@
 'use client';
 
-import { TimeLogContent } from '@/components/time-logs/time-log-content';
+import { TimeLogContent } from '@/components/TimeLogs/TimeLogContent';
 
 export default function TimeLogPage() {
     return (

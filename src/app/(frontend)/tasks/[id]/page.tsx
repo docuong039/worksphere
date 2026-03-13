@@ -1,8 +1,8 @@
 import { auth } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { BackButton } from '@/components/ui/back-button';
-import { TaskDetail } from '@/components/tasks/task-detail';
+import { BackButton } from '@/components/UI/BackButton';
+import { TaskDetail } from '@/app/(frontend)/tasks/components/TaskDetail';
 import { TaskWithRelations } from '@/types';
 import { TaskServerService } from '@/server/services/task.server';
 

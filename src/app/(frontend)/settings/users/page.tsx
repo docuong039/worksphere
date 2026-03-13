@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { UserList } from '@/components/users/user-list';
+import { UserList } from '@/app/(frontend)/settings/components/UserList';
 import { UserServerService } from '@/server/services/user.server';
 
 export default async function UsersPage() {

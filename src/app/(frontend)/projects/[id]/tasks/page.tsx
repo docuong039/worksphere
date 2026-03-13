@@ -1,5 +1,5 @@
 import { auth } from '@/lib/auth';
-import { TaskList } from '@/components/tasks/task-list';
+import { TaskList } from '@/components/Tasks/TaskList';
 import { TaskWithRelations, SavedQueryWithRelations } from '@/types';
 import { notFound, redirect } from 'next/navigation';
 import { TaskServerService } from '@/server/services/task.server';

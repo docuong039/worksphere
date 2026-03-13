@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
-import { VersionsManager } from '@/components/projects/versions-manager';
+import { VersionsManager } from '@/app/(frontend)/projects/components/VersionsManager';
 import { ProjectServerService } from '@/server/services/project.server';
 
 interface PageProps {

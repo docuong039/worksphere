@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { TrackerList } from '@/components/trackers/tracker-list';
+import { TrackerList } from '@/app/(frontend)/settings/components/TrackerList';
 import { SystemServerService } from '@/server/services/system.server';
 
 export default async function TrackersPage() {

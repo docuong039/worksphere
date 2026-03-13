@@ -1,13 +1,18 @@
 /**
  * @file withAuth.ts
- * @description Middleware tập trung xác thực cho API Routes.
- * Thay thế pattern lặp `const session = await auth(); if (!session) return errorResponse(401)`
- * xuất hiện ~52 lần trong project.
+ * @description 
+ * ĐÂY LÀ "Ổ KHÓA" NHÚNG VÀO TỪNG CÁNH CỬA CỦA BACKEND (API ROUTE MIDDLEWARE).
+ * 
+ * Vai trò:
+ * File này chứa các Function Wrapper (hàm bọc ngoài) chạy trên môi trường Server đầy đủ.
+ * Nó dùng để bọc lấy mã lệnh API của bạn để check xem ai đang gọi API đó.
  *
- * Cung cấp 3 wrapper:
- * - `withAuth`: Yêu cầu đăng nhập (401 nếu chưa)
- * - `withAdmin`: Yêu cầu quyền Administrator (403 nếu không phải admin)
- * - `withOptionalAuth`: Auth không bắt buộc (session có thể null)
+ * Cung cấp 3 loại khóa cửa bảo mật:
+ * 1. `withAuth`: Ổ khóa cơ bản. Ai chưa đăng nhập (không có thẻ) đến mò API này sẽ bị chửi "401 Unauthorized" và đuổi về.
+ * 2. `withAdmin`: Ổ khóa vân tay sếp. Bắt buộc phải là Administrator mới gọi được cục API này, nếu không văng "403 Forbidden".
+ * 3. `withOptionalAuth`: Cửa cuốn tự do. Đăng nhập hay chưa đều gọi API được, nhưng nếu đăng nhập thì Backend sẽ biết bạn là ai.
+ * 
+ * Lưu ý: File này CHỈ lo phần BẢO MẬT DỮ LIỆU. Ngăn chặn hacker gọi API trái phép lấy cắp thông tin.
  */
 import { NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';

@@ -1,4 +1,4 @@
-import { PriorityList } from '@/components/priorities/priority-list';
+import { PriorityList } from '@/app/(frontend)/settings/components/PriorityList';
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { SystemServerService } from '@/server/services/system.server';

@@ -12,8 +12,8 @@ import {
     AlertTriangle,
     Calendar,
 } from 'lucide-react';
-import ActivityChart from '@/components/charts/ActivityChart';
-import { DashboardFilter } from '@/components/dashboard/dashboard-filter';
+import ActivityChart from '@/app/(frontend)/dashboard/components/ActivityChart';
+import { DashboardFilter } from '@/app/(frontend)/dashboard/components/DashboardFilter';
 import { DashboardServerService } from '@/server/services/dashboard.server';
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {

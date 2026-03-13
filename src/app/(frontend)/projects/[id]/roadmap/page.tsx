@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { RoadmapView } from '@/components/projects/roadmap-view';
+import { RoadmapView } from '@/app/(frontend)/projects/components/RoadmapView';
 import { ProjectServerService } from '@/server/services/project.server';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {

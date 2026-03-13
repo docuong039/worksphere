@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { RoleList } from '@/components/roles/role-list';
+import { RoleList } from '@/app/(frontend)/settings/components/RoleList';
 import { SystemServerService } from '@/server/services/system.server';
 
 export default async function RolesPage() {

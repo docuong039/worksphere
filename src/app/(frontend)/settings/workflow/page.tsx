@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { WorkflowEditor } from '@/components/workflow/workflow-editor';
+import { WorkflowEditor } from '@/app/(frontend)/settings/components/WorkflowEditor';
 import { SystemServerService } from '@/server/services/system.server';
 
 export default async function WorkflowPage() {

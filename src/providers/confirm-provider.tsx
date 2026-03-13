@@ -1,7 +1,14 @@
+/**
+ * @file confirm-provider.tsx
+ * @description
+ * PROVIDER QUẢN LÝ HỘP THOẠI XÁC NHẬN TOÀN CỤC.
+ * Gom state và UI của ConfirmModal vào một chỗ (layout gốc) để tái sử dụng.
+ * Giúp các màn hình con có thể hiển thị hộp thoại xác nhận chỉ bằng một dòng code `confirm({...})`.
+ */
 "use client";
 
 import React, { createContext, useContext, useState, useCallback } from "react";
-import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { ConfirmModal } from "@/components/UI/ConfirmModal";
 
 interface ConfirmOptions {
     title: string;

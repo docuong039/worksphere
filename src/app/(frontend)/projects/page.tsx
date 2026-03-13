@@ -1,5 +1,5 @@
 import { auth } from '@/lib/auth';
-import { ProjectList } from '@/components/projects/project-list';
+import { ProjectList } from '@/app/(frontend)/projects/components/ProjectList';
 import { ProjectWithMembers } from '@/types';
 import { getUserPermissions } from '@/lib/permissions';
 import * as ProjectPolicy from '@/server/policies/project.policy';

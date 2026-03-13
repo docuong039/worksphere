@@ -1,10 +1,17 @@
 /**
  * @file middleware.ts
- * @description Next.js Middleware - Xử lý xác thực và phân quyền truy cập.
- *
- * LOGIC:
- * - Các route PUBLIC (như /login): Nếu đã đăng nhập thì redirect về /dashboard.
- * - Tất cả các route khác (PRIVATE): Nếu chưa đăng nhập thì redirect về /login.
+ * @description 
+ * ĐÂY LÀ "BẢO VỆ CỔNG CHÍNH" CỦA TÒA NHÀ (NEXT.JS EDGE MIDDLEWARE).
+ * 
+ * Vai trò: 
+ * File này chạy ở vòng ngoài cùng để chặn URL hiển thị trên trình duyệt.
+ * Nó can thiệp vào "Luồng chuyển trang" (Routing) trước khi người dùng thực sự tải được trang web.
+ * 
+ * Nhiệm vụ chính:
+ * 1. Chuyển hướng người chưa đăng nhập bị văng ra trang /login (Redirect).
+ * 2. Chuyển hướng người đã đăng nhập (cố ý quay lại /login) ném ngược vào /dashboard.
+ * 
+ * Lưu ý: File này CHỈ lo phần Giao Diện. Nó KHÔNG bảo vệ dữ liệu bên trong Backend API.
  */
 import { auth } from '@/lib/auth';
 import { NextResponse } from 'next/server';

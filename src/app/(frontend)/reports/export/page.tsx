@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import ExportClient from '@/components/reports/ExportClient';
+import ExportClient from '@/app/(frontend)/reports/components/ExportClient';
 import { getUserPermissions } from '@/lib/permissions';
 
 export default async function ExportPage() {

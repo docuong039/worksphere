@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
-import { ProjectOverview, Status, Project, Task } from '@/components/projects/project-overview';
+import { ProjectOverview, Status, Project, Task } from '@/app/(frontend)/projects/components/ProjectOverview';
 import { ProjectServerService } from '@/server/services/project.server';
 import { TaskServerService } from '@/server/services/task.server';
 

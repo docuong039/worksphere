@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Settings } from 'lucide-react';
-import { ProjectTabs } from '@/components/projects/project-tabs';
+import { ProjectTabs } from '@/app/(frontend)/projects/components/ProjectTabs';
 import { getUserPermissions } from '@/lib/permissions';
 import { PERMISSIONS } from '@/lib/constants';
 

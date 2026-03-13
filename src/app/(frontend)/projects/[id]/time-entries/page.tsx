@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
-import { TimeLogContent } from '@/components/time-logs/time-log-content';
+import { TimeLogContent } from '@/components/TimeLogs/TimeLogContent';
 import { ProjectServerService } from '@/server/services/project.server';
 
 interface Props {

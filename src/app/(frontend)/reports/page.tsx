@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import ReportClient from '@/components/reports/ReportClient';
+import ReportClient from '@/app/(frontend)/reports/components/ReportClient';
 import { getUserPermissions } from '@/lib/permissions';
 
 export default async function ReportsPage() {

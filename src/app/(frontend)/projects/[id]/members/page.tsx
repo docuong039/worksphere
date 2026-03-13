@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
-import { ProjectMembers } from '@/components/projects/project-members';
+import { ProjectMembers } from '@/app/(frontend)/projects/components/ProjectMembers';
 import { ProjectServerService } from '@/server/services/project.server';
 
 interface Props {

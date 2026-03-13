@@ -1,3 +1,10 @@
+/**
+ * @file src/types/index.ts
+ * @description
+ * TỪ ĐIỂN KIỂU DỮ LIỆU CỦA DỰ ÁN.
+ * Định nghĩa cấu trúc (khuôn mẫu) cho Task, User, Project... để Backend và Frontend dùng chung,
+ * giúp code đồng bộ, hỗ trợ tự động nhắc lệnh (autocompletion) và ngăn lỗi gõ sai thuộc tính.
+ */
 import {
     User,
     Role,
