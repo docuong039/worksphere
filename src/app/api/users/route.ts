@@ -7,12 +7,7 @@ import { UserServerService } from '@/server/services/user.server';
 export const GET = withAuth(async (req, user) => {
     try {
         const { searchParams } = new URL(req.url);
-        const search = searchParams.get('search') || '';
-        const page = parseInt(searchParams.get('page') || '1');
-        const pageSize = parseInt(searchParams.get('pageSize') || '20');
-        const excludeAdmins = searchParams.get('excludeAdmins') === 'true';
-
-        const result = await UserServerService.getUsers(user, { search, page, pageSize, excludeAdmins });
+        const result = await UserServerService.getUsers(user, searchParams);
         return successResponse(result);
     } catch (error: any) {
         return errorResponse(error.message, 500);

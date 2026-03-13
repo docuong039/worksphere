@@ -139,9 +139,22 @@ export function buildTaskFilters(params: TaskFilterParams): Prisma.TaskWhereInpu
 // ==========================================
 
 /**
- * Standard include for task list queries
+ * Compact include cho trang danh sách tasks (không kéo subtasks/attachments)
  */
 export const TASK_LIST_INCLUDE = {
+    tracker: { select: { id: true, name: true } },
+    status: { select: { id: true, name: true, isClosed: true } },
+    priority: { select: { id: true, name: true, color: true } },
+    project: { select: { id: true, name: true, identifier: true } },
+    assignee: { select: { id: true, name: true, avatar: true } },
+    parent: { select: { id: true, number: true, title: true } },
+    _count: { select: { subtasks: true, comments: true } },
+} as const;
+
+/**
+ * Full include cho API chi tiết hoặc khi cần subtasks/attachments
+ */
+export const TASK_FULL_INCLUDE = {
     tracker: { select: { id: true, name: true } },
     status: { select: { id: true, name: true, isClosed: true } },
     priority: { select: { id: true, name: true, color: true } },
@@ -166,13 +179,7 @@ export const TASK_LIST_INCLUDE = {
 } as const;
 
 /**
- * Parse pagination params from search params
+ * Re-exporting pagination helpers for backward compatibility
+ * or shared usage in task-specific logic.
  */
-export function parsePaginationParams(searchParams: URLSearchParams) {
-    return {
-        page: Math.max(1, parseInt(searchParams.get('page') || '1')),
-        pageSize: Math.max(1, Math.min(100, parseInt(searchParams.get('pageSize') || '50'))),
-        sortBy: searchParams.get('sortBy') || 'updatedAt',
-        sortOrder: (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc',
-    };
-}
+export { parsePaginationParams } from '@/lib/pagination';

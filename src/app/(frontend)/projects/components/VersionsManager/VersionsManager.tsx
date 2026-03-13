@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -19,6 +19,7 @@ import {
 import { projectService } from '@/api-client/project.service';
 import { useConfirm } from '@/providers/confirm-provider';
 import { VersionWithStats as Version } from '@/types';
+import { formatDate } from '@/lib/date-utils';
 
 
 
@@ -173,14 +174,7 @@ export function VersionsManager({ projectId, versions: initialVersions, canManag
         });
     };
 
-    const formatDate = (date: Date | string | null | undefined) => {
-        if (!date) return '—';
-        return new Date(date).toLocaleDateString('vi-VN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-        });
-    };
+
 
     const groupedVersions = {
         open: versionsList.filter((v) => v.status === 'open'),
@@ -246,7 +240,7 @@ export function VersionsManager({ projectId, versions: initialVersions, canManag
                                             {version.dueDate && (
                                                 <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
                                                     <Calendar className="w-3 h-3" />
-                                                    {formatDate(version.dueDate)}
+                                                    {formatDate(version.dueDate, 'vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) || '—'}
                                                 </div>
                                             )}
                                         </div>

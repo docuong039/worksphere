@@ -53,20 +53,9 @@ export const PERMISSIONS = {
 } as const;
 
 
-export const ROLES = {
-    ADMIN: 'Admin',
-    MANAGER: 'Manager',
-    MEMBER: 'Member',
-    DEVELOPER: 'Developer',
-    QA: 'QA'
-} as const;
 
 export const PAGINATION = {
     DEFAULT_PAGE_SIZE: 50,
     MAX_PAGE_SIZE: 100,
 } as const;
 
-export const DEFAULT_STATUS_IDS = {
-    NEW: 'new',
-    CLOSED: 'closed',
-} as const;

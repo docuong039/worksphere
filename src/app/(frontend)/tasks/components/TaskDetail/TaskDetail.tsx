@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -17,6 +17,7 @@ import { LogTimeModal } from '@/components/Tasks/LogTimeModal';
 import { taskService } from '@/api-client/task.service';
 import { TaskComments } from '@/app/(frontend)/tasks/components/TaskComments';
 import { TaskSubtasks } from '@/app/(frontend)/tasks/components/TaskSubtasks';
+import { formatDate } from '@/lib/date-utils';
 
 import {
     TaskWithRelations as Task,
@@ -124,10 +125,7 @@ export function TaskDetail({
         return `${diffDays} ngày trước`;
     };
 
-    const formatDate = (date: string | Date | null | undefined) => {
-        if (!date) return '-';
-        return new Date(date).toLocaleDateString('vi-VN');
-    };
+
 
     const handleSave = async () => {
         setLoading(true);
@@ -476,13 +474,13 @@ export function TaskDetail({
                                 )}
 
                                 <PropertyRow label="Ngày bắt đầu">
-                                    <span className="text-xs text-gray-700 font-semibold">{formatDate(task.startDate)}</span>
+                                    <span className="text-xs text-gray-700 font-semibold">{formatDate(task.startDate) || '-'}</span>
                                 </PropertyRow>
 
                                 <PropertyRow label="Hạn chót">
                                     <div className="flex flex-col items-end">
                                         <span className={`text-xs font-semibold ${overdueDays > 0 ? 'text-red-600' : 'text-gray-700'}`}>
-                                            {formatDate(task.dueDate)} {overdueDays > 0 && '(Trễ)'}
+                                            {formatDate(task.dueDate) || '-'} {overdueDays > 0 && '(Trễ)'}
                                         </span>
                                     </div>
                                 </PropertyRow>

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { GitBranch, Plus } from 'lucide-react';
 import { TaskContextMenu } from '@/components/Tasks/TaskContextMenu';
+import { formatDate } from '@/lib/date-utils';
 
 import { SubtaskWithRelations, Status, Tracker, Priority } from '@/types';
 
@@ -35,12 +36,6 @@ export function TaskSubtasks({
     allowedTrackerIds
 }: TaskSubtasksProps) {
     const router = useRouter();
-
-    const formatDate = (date: string | Date | null | undefined) => {
-        if (!date) return '-';
-        return new Date(date).toLocaleDateString('vi-VN');
-    };
-
     return (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
@@ -96,10 +91,10 @@ export function TaskSubtasks({
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-center text-gray-700 text-xs">
-                                        {formatDate(sub.startDate)}
+                                        {formatDate(sub.startDate) || '-'}
                                     </td>
                                     <td className="px-4 py-3 text-center text-gray-700 text-xs">
-                                        {formatDate(sub.dueDate)}
+                                        {formatDate(sub.dueDate) || '-'}
                                     </td>
                                     <td className="px-4 py-3 text-center">
                                         <span className="text-xs font-semibold text-gray-700">{sub.doneRatio || 0}%</span>

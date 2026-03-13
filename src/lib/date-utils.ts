@@ -14,17 +14,17 @@ export type DateLike = Date | string;
 /**
  * Helper to format DateLike to locale string
  */
-export function formatDate(date: DateLike | null | undefined, locale = 'vi-VN'): string {
+export function formatDate(date: DateLike | null | undefined, locale = 'vi-VN', options?: Intl.DateTimeFormatOptions): string {
     if (!date) return '';
-    return new Date(date).toLocaleDateString(locale);
+    return new Date(date).toLocaleDateString(locale, options);
 }
 
 /**
  * Helper to format DateLike to datetime locale string
  */
-export function formatDateTime(date: DateLike | null | undefined, locale = 'vi-VN'): string {
+export function formatDateTime(date: DateLike | null | undefined, locale = 'vi-VN', options?: Intl.DateTimeFormatOptions): string {
     if (!date) return '';
-    return new Date(date).toLocaleString(locale);
+    return new Date(date).toLocaleString(locale, options);
 }
 
 /**

@@ -61,6 +61,7 @@ export const PROJECT_LIST_INCLUDE = {
         select: { id: true, name: true, avatar: true },
     },
     members: {
+        take: 5, // Chỉ lấy 5 thành viên cho hiển thị avatar
         include: {
             user: {
                 select: { id: true, name: true, avatar: true },
@@ -70,15 +71,10 @@ export const PROJECT_LIST_INCLUDE = {
             },
         },
     },
-    tasks: {
-        where: {
-            status: {
-                isClosed: true,
-            },
-        },
-        select: { id: true },
-    },
     _count: {
-        select: { tasks: true, members: true },
+        select: {
+            tasks: true,
+            members: true,
+        },
     },
 } as const;

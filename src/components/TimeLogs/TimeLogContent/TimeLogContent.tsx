@@ -8,24 +8,22 @@ import { toast } from 'sonner';
 import {
     Clock,
     Filter,
-    ChevronLeft,
-    ChevronRight,
     Download,
     Plus,
     Pencil,
     Trash2,
-    MoreHorizontal,
     Calendar,
     User,
     Briefcase,
     FileText,
     X,
     Activity,
-    MessageSquare,
     Loader2,
 } from 'lucide-react';
 import { useConfirm } from '@/providers/confirm-provider';
 import { LogTimeModal } from '@/components/Tasks/LogTimeModal';
+import { Pagination } from '@/components/UI/Pagination';
+import { formatDate } from '@/lib/date-utils';
 
 interface TimeLog {
     id: string;
@@ -87,7 +85,9 @@ export function TimeLogContent({
 
     // Pagination
     const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(50);
     const [totalPages, setTotalPages] = useState(1);
+    const [total, setTotal] = useState(0);
     const [totalHours, setTotalHours] = useState(0);
 
     // Modal
@@ -138,7 +138,11 @@ export function TimeLogContent({
             if (res.ok) {
                 const data = await res.json();
                 setTimeLogs(data.data.timeLogs || []);
-                setTotalPages(data.data.pagination?.totalPages || 1);
+                if (data.data.pagination) {
+                    setTotalPages(data.data.pagination.totalPages);
+                    setTotal(data.data.pagination.total);
+                    setPageSize(data.data.pagination.pageSize);
+                }
                 setTotalHours(data.data.totalHours || 0);
                 setCanViewAll(data.data.canViewAll ?? false);
                 setCanLogTime(data.data.canLogTime ?? false);
@@ -191,14 +195,7 @@ export function TimeLogContent({
     };
 
 
-    const formatDate = (date: string) => {
-        return new Date(date).toLocaleDateString('vi-VN', {
-            weekday: 'short',
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-        });
-    };
+
 
     const handleExportCSV = () => {
         const params = new URLSearchParams();
@@ -415,7 +412,7 @@ export function TimeLogContent({
                                 <div className="px-6 py-3 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
                                     <div className="flex items-center gap-2 font-bold text-gray-700 text-sm">
                                         <Calendar className="w-4 h-4 text-gray-400" />
-                                        {formatDate(date)}
+                                        {formatDate(date, 'vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}
                                     </div>
                                     <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
                                         {logs.reduce((sum, l) => sum + l.hours, 0).toFixed(1)} giờ
@@ -486,29 +483,13 @@ export function TimeLogContent({
                 )}
 
                 {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
-                        <button
-                            onClick={() => setPage(p => Math.max(1, p - 1))}
-                            disabled={page === 1}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-gray-600 bg-white border border-gray-200 rounded-xl disabled:opacity-50 hover:bg-gray-50 transition-all shadow-sm"
-                        >
-                            <ChevronLeft className="w-4 h-4" />
-                            Trước
-                        </button>
-                        <span className="text-sm font-bold text-gray-500">
-                            Trang {page} / {totalPages}
-                        </span>
-                        <button
-                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                            disabled={page === totalPages}
-                            className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-gray-600 bg-white border border-gray-200 rounded-xl disabled:opacity-50 hover:bg-gray-50 transition-all shadow-sm"
-                        >
-                            Sau
-                            <ChevronRight className="w-4 h-4" />
-                        </button>
-                    </div>
-                )}
+                <Pagination
+                    page={page}
+                    pageSize={pageSize}
+                    total={total}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                />
             </div>
 
             {/* Modals */}

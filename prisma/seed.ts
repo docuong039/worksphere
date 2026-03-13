@@ -1,7 +1,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import { PERMISSIONS, ROLES } from '../src/lib/constants';
+import { PERMISSIONS } from '../src/lib/constants';
 
 const prisma = new PrismaClient();
 
@@ -130,11 +130,11 @@ async function main() {
     console.log('👥 Khởi tạo vai trò chuẩn...');
 
     const roleManager = await prisma.role.create({
-        data: { name: ROLES.MANAGER, description: 'Quản lý toàn bộ dự án' }
+        data: { name: 'Manager', description: 'Quản lý toàn bộ dự án' }
     });
 
     const roleDev = await prisma.role.create({
-        data: { name: ROLES.DEVELOPER, description: 'Thực hiện các công việc kỹ thuật' }
+        data: { name: 'Developer', description: 'Thực hiện các công việc kỹ thuật' }
     });
 
     // Manager có tất cả quyền

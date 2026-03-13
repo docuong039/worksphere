@@ -7,10 +7,14 @@ import * as UserPolicy from '@/server/policies/user.policy';
 import { z } from 'zod';
 
 import { SessionUser } from '@/types';
+import { parsePaginationParams, buildPaginationResult } from '@/lib/pagination';
 
 export class UserServerService {
-    static async getUsers(user: SessionUser, params: { search: string, page: number, pageSize: number, excludeAdmins: boolean }) {
-        const { search, page, pageSize, excludeAdmins } = params;
+    static async getUsers(user: SessionUser, searchParams: URLSearchParams) {
+        const { page, pageSize } = parsePaginationParams(searchParams, 'createdAt');
+        const search = searchParams.get('search') || '';
+        const excludeAdmins = searchParams.get('excludeAdmins') === 'true';
+
         const globalPerms = await getUserPermissions(user.id);
         const scope = ReportPolicy.getPersonnelVisibilityScope(user, globalPerms);
 
@@ -70,12 +74,7 @@ export class UserServerService {
 
         return {
             users,
-            pagination: {
-                page,
-                pageSize,
-                total,
-                totalPages: Math.ceil(total / pageSize),
-            },
+            pagination: buildPaginationResult(total, page, pageSize),
         };
     }
 
@@ -199,28 +198,51 @@ export class UserServerService {
     /**
      * Lấy danh sách người dùng cho Settings/Users (Dành cho Quản trị viên)
      */
-    static async getSystemUsersData(user: SessionUser) {
+    static async getSystemUsersData(user: SessionUser, searchParams: URLSearchParams = new URLSearchParams()) {
         if (!user.isAdministrator) {
             throw new Error('Chỉ Quản trị viên mới được xem dánh sách này');
         }
 
-        return prisma.user.findMany({
-            orderBy: { createdAt: 'desc' },
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                avatar: true,
-                isAdministrator: true,
-                isActive: true,
-                createdAt: true,
-                _count: {
-                    select: {
-                        projectMemberships: true,
-                        assignedTasks: true,
+        const { page, pageSize } = parsePaginationParams(searchParams, 'createdAt');
+        const search = searchParams.get('search') || '';
+
+        const where: any = search
+            ? {
+                OR: [
+                    { name: { contains: search } },
+                    { email: { contains: search } },
+                ],
+            }
+            : {};
+
+        const [users, total] = await Promise.all([
+            prisma.user.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+                select: {
+                    id: true,
+                    email: true,
+                    name: true,
+                    avatar: true,
+                    isAdministrator: true,
+                    isActive: true,
+                    createdAt: true,
+                    _count: {
+                        select: {
+                            projectMemberships: true,
+                            assignedTasks: true,
+                        },
                     },
                 },
-            },
-        });
+            }),
+            prisma.user.count({ where }),
+        ]);
+
+        return {
+            users,
+            pagination: buildPaginationResult(total, page, pageSize),
+        };
     }
 }

@@ -483,6 +483,8 @@ export type TaskFilters = {
     parentId?: string | null;
     isClosed?: string; // helper for query params
     my?: string; // helper for query params
+    page?: number;
+    pageSize?: number;
 };
 
 export type TaskSortBy =

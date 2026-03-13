@@ -3,14 +3,20 @@ import { redirect } from 'next/navigation';
 import { UserList } from '@/app/(frontend)/settings/components/UserList';
 import { UserServerService } from '@/server/services/user.server';
 
-export default async function UsersPage() {
+export default async function UsersPage({ searchParams }: { searchParams: Promise<any> }) {
     const session = await auth();
+    const params = await searchParams;
 
     if (!session?.user?.isAdministrator) {
         redirect('/dashboard');
     }
 
-    const users = await UserServerService.getSystemUsersData(session.user);
+    const urlParams = new URLSearchParams();
+    if (params.page) urlParams.set('page', params.page);
+    if (params.pageSize) urlParams.set('pageSize', params.pageSize);
+    if (params.search) urlParams.set('search', params.search);
+
+    const data = await UserServerService.getSystemUsersData(session.user, urlParams);
 
     return (
         <div>
@@ -21,7 +27,7 @@ export default async function UsersPage() {
                 </div>
             </div>
 
-            <UserList users={users} />
+            <UserList initialData={data} />
         </div>
     );
 }

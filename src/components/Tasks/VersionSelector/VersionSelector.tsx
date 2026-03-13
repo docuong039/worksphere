@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Milestone, Plus, X, Calendar, CheckCircle, Lock, Unlock, ChevronDown } from 'lucide-react';
+import { formatDate } from '@/lib/date-utils';
 
 interface Version {
     id: string;
@@ -64,14 +65,7 @@ export function VersionSelector({
         }
     };
 
-    const formatDate = (date: string | Date | null | undefined) => {
-        if (!date) return null;
-        return new Date(date).toLocaleDateString('vi-VN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-        });
-    };
+
 
     // Group versions by status
     const groupedVersions = {
@@ -146,7 +140,6 @@ export function VersionSelector({
                                             onChange(version.id);
                                             setIsOpen(false);
                                         }}
-                                        formatDate={formatDate}
                                     />
                                 ))}
                             </div>
@@ -167,7 +160,6 @@ export function VersionSelector({
                                             onChange(version.id);
                                             setIsOpen(false);
                                         }}
-                                        formatDate={formatDate}
                                     />
                                 ))}
                             </div>
@@ -188,7 +180,6 @@ export function VersionSelector({
                                             onChange(version.id);
                                             setIsOpen(false);
                                         }}
-                                        formatDate={formatDate}
                                     />
                                 ))}
                             </div>
@@ -260,12 +251,10 @@ function VersionOption({
     version,
     isSelected,
     onClick,
-    formatDate,
 }: {
     version: Version;
     isSelected: boolean;
     onClick: () => void;
-    formatDate: (date: string | Date | null | undefined) => string | null;
 }) {
     const StatusIcon = STATUS_ICONS[version.status as keyof typeof STATUS_ICONS] || Milestone;
     const colorClass = STATUS_COLORS[version.status as keyof typeof STATUS_COLORS] || '';

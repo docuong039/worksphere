@@ -5,11 +5,13 @@ import { logCreate, logUpdate, logDelete } from '@/lib/audit-log';
 import { getAccessibleProjectIds, getUserPermissions, canTransitionStatus } from '@/lib/permissions';
 import { PERMISSIONS } from '@/lib/constants';
 import * as TaskPolicy from '@/server/policies/task.policy';
-import { buildTaskFilters, TASK_LIST_INCLUDE, parsePaginationParams } from '@/app/api/tasks/helpers';
+import { buildTaskFilters, TASK_LIST_INCLUDE } from '@/app/api/tasks/helpers';
 import { updateParentTaskAggregates, resolveTaskId, updateSubtasksPathAndLevel } from '@/app/api/tasks/[id]/helpers';
 import { z } from 'zod';
 
 import { SessionUser } from '@/types';
+
+import { buildPaginationResult, parsePaginationParams } from '@/lib/pagination';
 
 export class TaskServerService {
     static async getTasks(user: SessionUser, searchParams: URLSearchParams) {
@@ -38,9 +40,11 @@ export class TaskServerService {
             : allowedProjectIds;
 
         if (effectiveProjectIds.length === 0 && !user.isAdministrator) {
+            // In this early return case, total tasks are 0.
+            const total = 0;
             return {
                 tasks: [],
-                pagination: { page, pageSize, total: 0, totalPages: 0 },
+                pagination: buildPaginationResult(total, page, pageSize),
                 aggregations: { totalHours: 0 }
             };
         }
@@ -87,12 +91,7 @@ export class TaskServerService {
 
         return {
             tasks,
-            pagination: {
-                page,
-                pageSize,
-                total,
-                totalPages: Math.ceil(total / pageSize),
-            },
+            pagination: buildPaginationResult(total, page, pageSize),
             aggregations: {
                 totalHours: taskAgg._sum.estimatedHours || 0
             }
@@ -257,7 +256,7 @@ export class TaskServerService {
     /**
      * Lấy dữ liệu khởi tạo cho trang danh sách Tasks của 1 Project
      */
-    static async getProjectTasksData(user: SessionUser, projectId: string) {
+    static async getProjectTasksData(user: SessionUser, projectId: string, searchParams: URLSearchParams = new URLSearchParams()) {
         const project = await prisma.project.findUnique({
             where: { id: projectId },
         });
@@ -343,8 +342,11 @@ export class TaskServerService {
             }
         }
 
-        const searchParams = new URLSearchParams();
-        searchParams.set('isClosed', 'false');
+        if (!searchParams.has('isClosed')) {
+            searchParams.set('isClosed', 'false');
+        }
+
+        const { page, pageSize, sortBy, sortOrder } = parsePaginationParams(searchParams);
 
         const where = buildTaskFilters({
             projectIds: [projectId],
@@ -361,23 +363,39 @@ export class TaskServerService {
         const canAssignOthers = TaskPolicy.canAssignOthers(userMock, projectPerms);
         const canCreateTask = TaskPolicy.canCreateTask(userMock, projectPerms);
 
-        const tasks = await prisma.task.findMany({
-            where,
-            orderBy: { updatedAt: 'desc' },
-            take: 100,
-            include: {
-                tracker: { select: { id: true, name: true } },
-                status: { select: { id: true, name: true, isClosed: true } },
-                priority: { select: { id: true, name: true, color: true } },
-                project: { select: { id: true, name: true, identifier: true } },
-                assignee: { select: { id: true, name: true, avatar: true } },
-                parent: { select: { id: true, number: true, title: true } },
-                _count: { select: { subtasks: true, comments: true } },
-            },
-        });
+        const [tasks, total, taskAgg] = await Promise.all([
+            prisma.task.findMany({
+                where,
+                orderBy: { [sortBy]: sortOrder },
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+                include: {
+                    tracker: { select: { id: true, name: true } },
+                    status: { select: { id: true, name: true, isClosed: true } },
+                    priority: { select: { id: true, name: true, color: true } },
+                    project: { select: { id: true, name: true, identifier: true } },
+                    assignee: { select: { id: true, name: true, avatar: true } },
+                    parent: { select: { id: true, number: true, title: true } },
+                    _count: { select: { subtasks: true, comments: true } },
+                },
+            }),
+            prisma.task.count({ where }),
+            prisma.task.aggregate({
+                _sum: { estimatedHours: true },
+                where
+            })
+        ]);
+
+        const aggregations = {
+            totalHours: taskAgg._sum.estimatedHours || 0
+        };
+
+        const pagination = buildPaginationResult(total, page, pageSize);
 
         return {
             tasks,
+            pagination,
+            aggregations,
             trackers,
             statuses,
             priorities,
@@ -570,7 +588,7 @@ export class TaskServerService {
     /**
      * Lấy dữ liệu khởi tạo cho trang danh sách Tasks trên toàn hệ thống
      */
-    static async getGlobalTasksData(user: SessionUser) {
+    static async getGlobalTasksData(user: SessionUser, searchParams: URLSearchParams = new URLSearchParams()) {
         // 1. Get dictionary of all trackers
         const trackers = await prisma.tracker.findMany({ orderBy: { position: 'asc' } });
 
@@ -669,10 +687,11 @@ export class TaskServerService {
             }
         }
 
-        const searchParams = new URLSearchParams();
-        searchParams.set('isClosed', 'false');
+        if (!searchParams.has('isClosed')) {
+            searchParams.set('isClosed', 'false');
+        }
         // Global tasks page default to 'my=true' for non-admin to show assigned/created tasks, exactly like old where clause did
-        if (!user.isAdministrator) {
+        if (!user.isAdministrator && !searchParams.has('my')) {
             searchParams.set('my', 'true');
         }
 
@@ -684,6 +703,8 @@ export class TaskServerService {
             canCreateTask = Object.values(projectPermissionsMap).some(perms => TaskPolicy.canCreateTask(user as any, perms));
         }
 
+        const { page, pageSize, sortBy, sortOrder } = parsePaginationParams(searchParams);
+
         // Initial tasks filter using robust helper
         const where = buildTaskFilters({
             projectIds: effectiveProjectIds,
@@ -693,23 +714,39 @@ export class TaskServerService {
             projectPermissionsMap,
         });
 
-        const tasks = await prisma.task.findMany({
-            where,
-            orderBy: { updatedAt: 'desc' },
-            take: 100,
-            include: {
-                tracker: { select: { id: true, name: true } },
-                status: { select: { id: true, name: true, isClosed: true } },
-                priority: { select: { id: true, name: true, color: true } },
-                project: { select: { id: true, name: true, identifier: true } },
-                assignee: { select: { id: true, name: true, avatar: true } },
-                parent: { select: { id: true, number: true, title: true } },
-                _count: { select: { subtasks: true, comments: true } },
-            },
-        });
+        const [tasks, total, taskAgg] = await Promise.all([
+            prisma.task.findMany({
+                where,
+                orderBy: { [sortBy]: sortOrder },
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+                include: {
+                    tracker: { select: { id: true, name: true } },
+                    status: { select: { id: true, name: true, isClosed: true } },
+                    priority: { select: { id: true, name: true, color: true } },
+                    project: { select: { id: true, name: true, identifier: true } },
+                    assignee: { select: { id: true, name: true, avatar: true } },
+                    parent: { select: { id: true, number: true, title: true } },
+                    _count: { select: { subtasks: true, comments: true } },
+                },
+            }),
+            prisma.task.count({ where }),
+            prisma.task.aggregate({
+                _sum: { estimatedHours: true },
+                where
+            })
+        ]);
+
+        const aggregations = {
+            totalHours: taskAgg._sum.estimatedHours || 0
+        };
+
+        const pagination = buildPaginationResult(total, page, pageSize);
 
         return {
             tasks,
+            pagination,
+            aggregations,
             trackers,
             statuses,
             priorities,

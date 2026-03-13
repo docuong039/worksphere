@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { TaskContextMenu } from '@/components/Tasks/TaskContextMenu';
 import { taskService } from '@/api-client/task.service';
+import { formatDate } from '@/lib/date-utils';
 
 import {
     TaskWithRelations as Task,
@@ -49,12 +50,7 @@ export function TaskCard({ task, statuses, trackers, priorities, canAssignOthers
         zIndex: isDragging ? 50 : undefined,
     } : undefined;
 
-    const formatDate = (date: string | Date | null) => {
-        if (!date) return null;
-        return new Date(date).toLocaleDateString('vi-VN', { month: 'short', day: 'numeric' });
-    };
-
-    const dueDate = formatDate(task.dueDate);
+    const dueDate = task.dueDate ? formatDate(task.dueDate, 'vi-VN', { month: 'short', day: 'numeric' }) : null;
     const doneSubtasks = task.subtasks?.filter(s => s.status.isClosed).length || 0;
     const totalSubtasks = task.subtasks?.length || 0;
 

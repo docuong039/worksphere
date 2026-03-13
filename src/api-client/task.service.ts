@@ -14,6 +14,12 @@ export interface TaskAggregation {
 
 export interface TaskListResponse {
     tasks: TaskWithRelations[];
+    pagination?: {
+        page: number;
+        pageSize: number;
+        total: number;
+        totalPages: number;
+    };
     aggregations?: TaskAggregation;
 }
 

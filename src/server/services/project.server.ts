@@ -10,13 +10,18 @@ import { updateProjectSchema, createVersionSchema, updateVersionSchema } from '@
 import { z } from 'zod';
 
 import { SessionUser } from '@/types';
+import { parsePaginationParams, buildPaginationResult } from '@/lib/pagination';
 
 export class ProjectServerService {
     /**
      * Lấy danh sách dự án
      */
-    static async getProjects(user: SessionUser, params: { search?: string, status?: string | null, myProjects?: boolean }) {
-        const { search, status, myProjects } = params;
+    static async getProjects(user: SessionUser, searchParams: URLSearchParams) {
+        const { page, pageSize } = parsePaginationParams(searchParams, 'updatedAt');
+        
+        const search = searchParams.get('search') || undefined;
+        const status = searchParams.get('status');
+        const myProjects = searchParams.get('my') === 'true';
 
         // Build filter using helper
         const where = buildProjectFilters({
@@ -27,13 +32,41 @@ export class ProjectServerService {
             isAdmin: user.isAdministrator,
         });
 
-        const projects = await prisma.project.findMany({
-            where,
-            orderBy: { updatedAt: 'desc' },
-            include: PROJECT_LIST_INCLUDE,
-        });
+        const [projects, total] = await Promise.all([
+            prisma.project.findMany({
+                where,
+                orderBy: { updatedAt: 'desc' },
+                include: PROJECT_LIST_INCLUDE,
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+            }),
+            prisma.project.count({ where }),
+        ]);
 
-        return projects;
+        // Đếm closedTasks cho tất cả projects trong 1 query duy nhất (thay vì kéo full task array)
+        const projectIds = projects.map(p => p.id);
+        const closedTaskCounts = projectIds.length > 0
+            ? await prisma.task.groupBy({
+                by: ['projectId'],
+                where: {
+                    projectId: { in: projectIds },
+                    status: { isClosed: true },
+                },
+                _count: { id: true },
+            })
+            : [];
+
+        const closedTaskMap = new Map(closedTaskCounts.map(c => [c.projectId, c._count.id]));
+
+        const projectsWithProgress = projects.map(p => ({
+            ...p,
+            closedTaskCount: closedTaskMap.get(p.id) || 0,
+        }));
+
+        return {
+            projects: projectsWithProgress,
+            pagination: buildPaginationResult(total, page, pageSize),
+        };
     }
 
     /**

@@ -17,6 +17,7 @@ import {
     LayoutGrid,
     List,
 } from 'lucide-react';
+import { Pagination } from '@/components/UI/Pagination';
 import { SavedQueriesList, SaveQueryModal } from '@/components/Tasks/SavedQueries';
 import { CreateTaskModal } from '@/components/Tasks/CreateTaskModal';
 import { TaskContextMenu } from '@/components/Tasks/TaskContextMenu';
@@ -56,6 +57,12 @@ interface TaskListProps {
     projectPermissionsMap?: Record<string, string[]>;
     allowedTrackerIdsByProject?: Record<string, string[]>;
     projectId?: string; // Add this to lock to a project
+    initialPagination?: {
+        page: number;
+        pageSize: number;
+        total: number;
+        totalPages: number;
+    };
 }
 
 export function TaskList({
@@ -72,6 +79,7 @@ export function TaskList({
     projectPermissionsMap = {},
     allowedTrackerIdsByProject = {},
     projectId: propProjectId,
+    initialPagination,
 }: TaskListProps) {
     const router = useRouter();
     const [tasks, setTasks] = useState(initialTasks);
@@ -81,6 +89,12 @@ export function TaskList({
     const [showSavedQueries, setShowSavedQueries] = useState(false);
     const [showSaveQueryModal, setShowSaveQueryModal] = useState(false);
     const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban');
+    const [pagination, setPagination] = useState(initialPagination || {
+        page: 1,
+        pageSize: 50,
+        total: 0,
+        totalPages: 0
+    });
 
     // Search & Filters - must be declared before fetchTasks
     const [search, setSearch] = useState('');
@@ -97,6 +111,7 @@ export function TaskList({
         startDateTo: '',
         dueDateFrom: '',
         dueDateTo: '',
+        page: undefined as number | undefined,
     });
 
     // Aggregations
@@ -129,14 +144,19 @@ export function TaskList({
             if (activeFilters.dueDateFrom) params.dueDateFrom = activeFilters.dueDateFrom as string;
             if (activeFilters.dueDateTo) params.dueDateTo = activeFilters.dueDateTo as string;
 
-            // Jira-style: Board only shows root tasks
             if (viewMode === 'kanban') {
                 params.parentId = 'null';
             }
 
+            params.page = activeFilters.page || pagination.page;
+            params.pageSize = pagination.pageSize;
+
             const response = await taskService.getAll(params);
             if (response.success && response.data) {
                 setTasks(response.data.tasks);
+                if (response.data.pagination) {
+                    setPagination(response.data.pagination);
+                }
                 if (response.data.aggregations) {
                     setAggregations(response.data.aggregations);
                 }
@@ -144,7 +164,13 @@ export function TaskList({
         } finally {
             setLoading(false);
         }
-    }, [filters, propProjectId, search, viewMode]);
+    }, [filters, propProjectId, search, viewMode, pagination.page]);
+
+    // Handle page change
+    const onPageChange = (newPage: number) => {
+        setPagination(prev => ({ ...prev, page: newPage }));
+        // fetchTasks will be triggered by useEffect due to pagination.page dependency
+    };
 
     // Refetch when viewMode changes (to apply parentId=null filter for Kanban)
     useEffect(() => {
@@ -167,6 +193,7 @@ export function TaskList({
                 startDateTo: parsedFilters.startDateTo || '',
                 dueDateFrom: parsedFilters.dueDateFrom || '',
                 dueDateTo: parsedFilters.dueDateTo || '',
+                page: undefined,
             };
             setFilters(newFilters);
             fetchTasks(newFilters);
@@ -180,6 +207,7 @@ export function TaskList({
 
     // Apply filters
     const applyFilters = () => {
+        setPagination(prev => ({ ...prev, page: 1 }));
         fetchTasks();
         setShowFilters(false);
     };
@@ -224,9 +252,16 @@ export function TaskList({
             startDateTo: '',
             dueDateFrom: '',
             dueDateTo: '',
+            page: undefined,
         };
         setFilters(resetFilters);
         setSearch('');
+        setPagination({
+            page: 1,
+            pageSize: 50,
+            total: 0,
+            totalPages: 0
+        });
         fetchTasks(resetFilters);
     };
 
@@ -710,6 +745,17 @@ export function TaskList({
                     />
                 )
             }
+
+            {/* Pagination Bar - Hiển thị chung cho cả List và Kanban */}
+            <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <Pagination
+                    page={pagination.page}
+                    pageSize={pagination.pageSize}
+                    total={pagination.total}
+                    totalPages={pagination.totalPages}
+                    onPageChange={onPageChange}
+                />
+            </div>
 
 
             <CreateTaskModal

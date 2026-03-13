@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Copy } from 'lucide-react';
 import { toast } from 'sonner';
+import { toISODateString } from '@/lib/date-utils';
 
 interface Option {
     id: string;
@@ -65,11 +66,7 @@ export function CopyTaskModal({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const formatDateForInput = (date: string | Date | null) => {
-        if (!date) return '';
-        const d = typeof date === 'string' ? new Date(date) : date;
-        return d.toISOString().split('T')[0];
-    };
+
 
     const [formData, setFormData] = useState({
         title: taskData.title,
@@ -82,8 +79,8 @@ export function CopyTaskModal({
         versionId: taskData.versionId || '',
         estimatedHours: taskData.estimatedHours?.toString() || '',
         doneRatio: taskData.doneRatio || 0,
-        startDate: formatDateForInput(taskData.startDate),
-        dueDate: formatDateForInput(taskData.dueDate),
+        startDate: toISODateString(taskData.startDate),
+        dueDate: toISODateString(taskData.dueDate),
         isPrivate: taskData.isPrivate,
     });
 
@@ -105,8 +102,8 @@ export function CopyTaskModal({
                 versionId: taskData.versionId || '',
                 estimatedHours: taskData.estimatedHours?.toString() || '',
                 doneRatio: taskData.doneRatio || 0,
-                startDate: formatDateForInput(taskData.startDate),
-                dueDate: formatDateForInput(taskData.dueDate),
+                startDate: toISODateString(taskData.startDate),
+                dueDate: toISODateString(taskData.dueDate),
                 isPrivate: taskData.isPrivate,
             });
             setCopySubtasks(true);

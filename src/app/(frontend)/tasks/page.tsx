@@ -4,7 +4,8 @@ import { TaskWithRelations, SavedQueryWithRelations } from '@/types';
 import { TaskServerService } from '@/server/services/task.server';
 import { redirect } from 'next/navigation';
 
-export default async function TasksPage() {
+export default async function TasksPage(props: { searchParams: Promise<any> }) {
+    const searchParams = await props.searchParams;
     const session = await auth();
 
     if (!session || !session.user) {
@@ -13,6 +14,7 @@ export default async function TasksPage() {
 
     const {
         tasks,
+        pagination,
         trackers,
         statuses,
         priorities,
@@ -23,7 +25,7 @@ export default async function TasksPage() {
         canCreateTask,
         projectPermissionsMap,
         allowedTrackerIdsByProject
-    } = await TaskServerService.getGlobalTasksData(session.user);
+    } = await TaskServerService.getGlobalTasksData(session.user, new URLSearchParams(searchParams));
 
     return (
         <div>
@@ -34,6 +36,7 @@ export default async function TasksPage() {
 
             <TaskList
                 initialTasks={tasks as unknown as TaskWithRelations[]}
+                initialPagination={pagination}
                 trackers={trackers}
                 statuses={statuses}
                 priorities={priorities}

@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -20,19 +20,25 @@ import { useConfirm } from '@/providers/confirm-provider';
 import type { DateLike } from '@/lib/date-utils';
 import { projectService } from '@/api-client/project.service';
 import type { ProjectWithMembers as Project } from '@/types';
+import { Pagination } from '@/components/UI/Pagination';
+import { PaginationResult } from '@/lib/pagination';
 
 interface ProjectListProps {
-    projects: Project[];
+    initialData: {
+        projects: Project[];
+        pagination: PaginationResult;
+    };
     canCreate?: boolean;
 }
 
-export function ProjectList({ projects: initialProjects, canCreate = false }: ProjectListProps) {
+export function ProjectList({ initialData, canCreate = false }: ProjectListProps) {
     const router = useRouter();
     const { confirm } = useConfirm();
-    const [projects, setProjects] = useState(initialProjects);
+    const [projects, setProjects] = useState(initialData.projects);
+    const [pagination, setPagination] = useState(initialData.pagination);
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [filter, setFilter] = useState<'all' | 'active' | 'archived'>('active');
-    const [search, setSearch] = useState('');
+    const [filter, setFilter] = useState<'all' | 'active' | 'archived'>((new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')).get('status') as any || 'active');
+    const [search, setSearch] = useState((new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')).get('search') || '');
     const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
     const [editingProject, setEditingProject] = useState<Project | null>(null);
 
@@ -46,26 +52,38 @@ export function ProjectList({ projects: initialProjects, canCreate = false }: Pr
 
     // Sync khi server data thay đổi (vd: từ router.refresh() background)
     useEffect(() => {
-        setProjects(initialProjects);
-    }, [initialProjects]);
+        setProjects(initialData.projects);
+        setPagination(initialData.pagination);
+    }, [initialData]);
 
-    // Filter projects
-    const filteredProjects = projects.filter((project) => {
-        // Filter by status
-        if (filter === 'active' && project.isArchived) return false;
-        if (filter === 'archived' && !project.isArchived) return false;
+    // Debounce timer cho search
+    const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-        // Filter by search
-        if (search) {
-            const searchLower = search.toLowerCase();
-            return (
-                project.name.toLowerCase().includes(searchLower) ||
-                project.identifier.toLowerCase().includes(searchLower)
-            );
+    const navigateWithParams = (updates: Record<string, string | null>) => {
+        const params = new URLSearchParams(window.location.search);
+        for (const [key, value] of Object.entries(updates)) {
+            if (value === null) params.delete(key);
+            else params.set(key, value);
         }
+        router.push(`?${params.toString()}`);
+    };
 
-        return true;
-    });
+    const handleSearch = (val: string) => {
+        setSearch(val);
+        clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = setTimeout(() => {
+            navigateWithParams({ search: val || null, page: '1' });
+        }, 400);
+    };
+
+    const handleFilterChange = (f: 'all' | 'active' | 'archived') => {
+        setFilter(f);
+        navigateWithParams({ status: f, page: '1' });
+    };
+
+    const onPageChange = (newPage: number) => {
+        navigateWithParams({ page: newPage.toString() });
+    };
 
     // Create project
     const handleCreate = async () => {
@@ -191,7 +209,7 @@ export function ProjectList({ projects: initialProjects, canCreate = false }: Pr
                         <input
                             type="text"
                             value={search}
-                            onChange={(e) => setSearch(e.target.value)}
+                            onChange={(e) => handleSearch(e.target.value)}
                             placeholder="Tìm dự án..."
                             className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500"
                         />
@@ -202,7 +220,7 @@ export function ProjectList({ projects: initialProjects, canCreate = false }: Pr
                         {(['active', 'archived', 'all'] as const).map((f) => (
                             <button
                                 key={f}
-                                onClick={() => setFilter(f)}
+                                onClick={() => handleFilterChange(f)}
                                 className={`px-4 py-1.5 text-sm font-medium rounded-lg ${filter === f
                                     ? 'bg-white text-blue-600 shadow-sm'
                                     : 'text-gray-500 hover:text-gray-900'
@@ -228,8 +246,8 @@ export function ProjectList({ projects: initialProjects, canCreate = false }: Pr
 
             {/* Project Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredProjects.map((project) => {
-                    const completedTasks = project.tasks?.length || 0;
+                {projects.map((project) => {
+                    const completedTasks = (project as any).closedTaskCount || 0;
                     const totalTasks = project._count.tasks || 0;
                     const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
@@ -378,8 +396,19 @@ export function ProjectList({ projects: initialProjects, canCreate = false }: Pr
             </div>
 
 
+            {/* Pagination */}
+            <div className="mt-8">
+                <Pagination
+                    page={pagination.page}
+                    pageSize={pagination.pageSize}
+                    total={pagination.total}
+                    totalPages={pagination.totalPages}
+                    onPageChange={onPageChange}
+                />
+            </div>
+
             {/* Empty State */}
-            {filteredProjects.length === 0 && (
+            {projects.length === 0 && (
                 <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-12 text-center">
                     <FolderKanban className="w-12 h-12 text-gray-200 mx-auto mb-4" />
                     <h3 className="text-lg font-bold text-gray-900 mb-1">Chưa có dự án nào</h3>

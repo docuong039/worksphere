@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { toast } from 'sonner';
@@ -11,6 +11,8 @@ import { userService } from '@/api-client/user.service';
 import { UserForm, UserFormData } from '@/app/(frontend)/settings/components/UserForm';
 import type { DateLike } from '@/lib/date-utils';
 import { ApiClientError } from '@/lib/api-fetch';
+import { Pagination } from '@/components/UI/Pagination';
+import type { PaginationResult } from '@/lib/pagination';
 
 export interface UserType {
     id: string;
@@ -27,20 +29,21 @@ export interface UserType {
 }
 
 interface UserListProps {
-    users: UserType[];
+    initialData: {
+        users: UserType[];
+        pagination: PaginationResult;
+    };
 }
 
-export function UserList({ users: initialUsers }: UserListProps) {
+export function UserList({ initialData }: UserListProps) {
     const router = useRouter();
     const { confirm } = useConfirm();
-    const [users, setUsers] = useState(initialUsers);
+    const [users, setUsers] = useState(initialData.users);
+    const [pagination, setPagination] = useState(initialData.pagination);
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    // We can use toast for errors instead of local state for cleaner UI, 
-    // but preserving local error state if preferred. 
-    // The previous implementation used a local 'error' state for form feedback.
     const [error, setError] = useState('');
 
     // Create user
@@ -176,11 +179,24 @@ export function UserList({ users: initialUsers }: UserListProps) {
         // Form data is now handled by UserForm effect
     };
 
+    // Handle page change
+    const onPageChange = (newPage: number) => {
+        const params = new URLSearchParams(window.location.search);
+        params.set('page', newPage.toString());
+        router.push(`?${params.toString()}`);
+    };
+    
+    // Đồng bộ state khi initialData thay đổi từ server props
+    useEffect(() => {
+        setUsers(initialData.users);
+        setPagination(initialData.pagination);
+    }, [initialData]);
+
     return (
         <div className="bg-white rounded-lg border border-gray-200">
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <span className="text-sm text-gray-500">{users.length} người dùng</span>
+                <span className="text-sm text-gray-500">{pagination.total} người dùng</span>
                 <button
                     onClick={() => {
                         setIsAdding(true);
@@ -333,6 +349,14 @@ export function UserList({ users: initialUsers }: UserListProps) {
                     Chưa có người dùng nào.
                 </div>
             )}
+
+            <Pagination
+                page={pagination.page}
+                pageSize={pagination.pageSize}
+                total={pagination.total}
+                totalPages={pagination.totalPages}
+                onPageChange={onPageChange}
+            />
         </div>
     );
 }

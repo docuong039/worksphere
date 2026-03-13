@@ -4,6 +4,7 @@ import * as TimeLogPolicy from '@/server/policies/timelog.policy';
 import { PERMISSIONS } from '@/lib/constants';
 
 import { SessionUser } from '@/types';
+import { parsePaginationParams, buildPaginationResult } from '@/lib/pagination';
 
 export class TimeLogServerService {
     static async getTimeLogs(user: SessionUser, searchParams: URLSearchParams) {
@@ -12,8 +13,8 @@ export class TimeLogServerService {
         const activityId = searchParams.get('activityId');
         const fromDate = searchParams.get('from');
         const toDate = searchParams.get('to');
-        const page = parseInt(searchParams.get('page') || '1');
-        const limit = parseInt(searchParams.get('limit') || '25');
+        
+        const { page, pageSize } = parsePaginationParams(searchParams, 'spentOn');
 
         const userPermissions = await getUserPermissions(user.id, projectId || undefined);
 
@@ -49,8 +50,8 @@ export class TimeLogServerService {
                     project: { select: { id: true, name: true, identifier: true } },
                 },
                 orderBy: [{ spentOn: 'desc' }, { createdAt: 'desc' }],
-                skip: (page - 1) * limit,
-                take: limit,
+                skip: (page - 1) * pageSize,
+                take: pageSize,
             }),
             prisma.timeLog.count({ where }),
             prisma.timeLog.aggregate({
@@ -80,12 +81,7 @@ export class TimeLogServerService {
             canViewAll,
             canLogTime,
             users: availableUsers,
-            pagination: {
-                page,
-                limit,
-                total,
-                totalPages: Math.ceil(total / limit),
-            },
+            pagination: buildPaginationResult(total, page, pageSize),
         };
     }
 

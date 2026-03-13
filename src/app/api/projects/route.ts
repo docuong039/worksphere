@@ -20,13 +20,9 @@ import { ProjectServerService } from '@/server/services/project.server';
 // GET /api/projects - Lấy danh sách projects
 export const GET = withAuth(async (req, user) => {
     const { searchParams } = new URL(req.url);
-    const search = searchParams.get('search') || undefined;
-    const status = searchParams.get('status'); // active, archived, all
-    const myProjects = searchParams.get('my') === 'true';
-
     try {
-        const projects = await ProjectServerService.getProjects(user, { search, status, myProjects });
-        return successResponse(projects);
+        const data = await ProjectServerService.getProjects(user, searchParams);
+        return successResponse(data);
     } catch (error: any) {
         return errorResponse(error.message, 500);
     }
