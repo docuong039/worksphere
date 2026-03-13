@@ -30,14 +30,27 @@ NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="worksphere-super-secret-key-2026"
 ```
 
-### 3. Khởi tạo cấu trúc & Dữ liệu mẫu (Seed)
+### 3. Khởi tạo Cơ sở dữ liệu (Database)
 
-Chạy **lần lượt 2 lệnh** sau để tự động tạo bảng dữ liệu và Sinh tài khoản Admin:
+Bạn có thể chọn **1 trong 2 cách** sau để khởi tạo cấu trúc và dữ liệu mẫu:
+
+**Cách 1: Sử dụng Công cụ dòng lệnh Prisma (Chuẩn Developer)**
+Chạy lần lượt 2 lệnh sau để hệ thống tự quét Code, tạo Database và Sinh tài khoản Admin:
 ```bash
 npx prisma db push
 npx prisma db seed
 ```
-*(Yêu cầu: Nếu bị lỗi thiếu tsx, hãy chạy `npm install -g tsx`)*
+*(Yêu cầu: Nếu bị lỗi thiếu thư viện tsx để chạy seed, hãy chạy `npm install -g tsx` trước)*
+
+**Cách 2: Dùng file DB Export sẵn**
+1. Tìm file SQL tại đường dẫn: `database/worksphere.sql`.
+2. Mở trình quản lý MySQL (ví dụ **phpMyAdmin** trên XAMPP), chọn database `worksphere` vừa tạo ở Bước 2.
+3. Chọn thẻ **Import** (Nhập), nhấn **Choose File** và chọn file `database/worksphere.sql`.
+4. Nhấn **Import** (hoặc **Go**) để thực thi.
+5. Sau khi import thành công, chạy lệnh sau ở Terminal để đồng bộ:
+```bash
+npx prisma generate
+```
 
 ### 4. Chạy hệ thống
 
