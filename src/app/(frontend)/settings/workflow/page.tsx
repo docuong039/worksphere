@@ -1,18 +1,16 @@
-import prisma from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 import { WorkflowEditor } from '@/components/workflow/workflow-editor';
+import { SystemServerService } from '@/server/services/system.server';
 
 export default async function WorkflowPage() {
-    const [trackers, statuses, roles, transitions] = await Promise.all([
-        prisma.tracker.findMany({ orderBy: { position: 'asc' } }),
-        prisma.status.findMany({ orderBy: { position: 'asc' } }),
-        prisma.role.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
-        prisma.workflowTransition.findMany(),
-    ]);
+    const session = await auth();
 
-    const mappedTransitions = transitions.map(t => ({
-        ...t,
-        allowed: true // Prisma only stores allowed transitions
-    }));
+    if (!session?.user?.isAdministrator) {
+        redirect('/dashboard');
+    }
+
+    const { trackers, statuses, roles, mappedTransitions } = await SystemServerService.getWorkflowData(session.user);
 
     return (
         <div>

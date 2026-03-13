@@ -1,29 +1,16 @@
-import prisma from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 import { RoleList } from '@/components/roles/role-list';
+import { SystemServerService } from '@/server/services/system.server';
 
 export default async function RolesPage() {
-    const [roles, permissions, trackers] = await Promise.all([
-        prisma.role.findMany({
-            orderBy: { name: 'asc' },
-            include: {
-                permissions: {
-                    include: {
-                        permission: true,
-                    },
-                },
-                trackers: true,
-                _count: {
-                    select: { projectMembers: true },
-                },
-            },
-        }),
-        prisma.permission.findMany({
-            orderBy: [{ module: 'asc' }, { name: 'asc' }],
-        }),
-        prisma.tracker.findMany({
-            orderBy: { position: 'asc' }
-        }),
-    ]);
+    const session = await auth();
+
+    if (!session?.user?.isAdministrator) {
+        redirect('/dashboard');
+    }
+
+    const { roles, permissions, trackers } = await SystemServerService.getRolesData(session.user);
 
     // Group permissions by module
     const groupedPermissions = permissions.reduce(

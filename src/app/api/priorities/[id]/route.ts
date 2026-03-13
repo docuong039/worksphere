@@ -1,74 +1,43 @@
-import prisma from '@/lib/prisma';
-import { successResponse, errorResponse, handleApiError } from '@/lib/api-error';
+import { successResponse, errorResponse } from '@/lib/api-error';
 import { updatePrioritySchema } from '@/lib/validations';
 import { withAdmin } from '@/server/middleware/withAuth';
 import type { RouteContext } from '@/server/middleware/withAuth';
+import { PriorityServerService } from '@/server/services/priority.server';
 
 // GET /api/priorities/[id] - Lấy chi tiết priority (public)
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
-
-        const priority = await prisma.priority.findUnique({
-            where: { id },
-            include: {
-                _count: {
-                    select: { tasks: true },
-                },
-            },
-        });
-
-        if (!priority) {
-            return errorResponse('Priority không tồn tại', 404);
-        }
-
+        const priority = await PriorityServerService.getPriorityById(id);
         return successResponse(priority);
-    } catch (error) {
-        return handleApiError(error);
+    } catch (error: any) {
+        if (error.message.includes('-404')) return errorResponse(error.message.replace('-404', ''), 404);
+        return errorResponse(error.message || 'Lỗi hệ thống', 500);
     }
 }
 
 // PUT /api/priorities/[id] - Cập nhật priority (admin only)
 export const PUT = withAdmin(async (req, _user, ctx) => {
-    const { id } = await (ctx as RouteContext<{ id: string }>).params;
-    const body = await req.json();
-    const validatedData = updatePrioritySchema.parse(body);
+    try {
+        const { id } = await (ctx as RouteContext<{ id: string }>).params;
+        const body = await req.json();
+        const validatedData = updatePrioritySchema.parse(body);
 
-    // Nếu set isDefault, bỏ default của các priority khác
-    if (validatedData.isDefault) {
-        await prisma.priority.updateMany({
-            where: { isDefault: true, id: { not: id } },
-            data: { isDefault: false },
-        });
+        const priority = await PriorityServerService.updatePriority(id, validatedData);
+        return successResponse(priority);
+    } catch (error: any) {
+        return errorResponse(error.message || 'Lỗi hệ thống', 400);
     }
-
-    const priority = await prisma.priority.update({
-        where: { id },
-        data: validatedData,
-    });
-
-    return successResponse(priority);
 });
 
 // DELETE /api/priorities/[id] - Xóa priority (admin only)
 export const DELETE = withAdmin(async (_req, _user, ctx) => {
-    const { id } = await (ctx as RouteContext<{ id: string }>).params;
-
-    // Kiểm tra có tasks đang dùng priority này không
-    const taskCount = await prisma.task.count({
-        where: { priorityId: id },
-    });
-
-    if (taskCount > 0) {
-        return errorResponse(
-            `Không thể xóa priority đang được sử dụng bởi ${taskCount} công việc`,
-            400
-        );
+    try {
+        const { id } = await (ctx as RouteContext<{ id: string }>).params;
+        const result = await PriorityServerService.deletePriority(id);
+        return successResponse(result);
+    } catch (error: any) {
+        if (error.message.includes('-400')) return errorResponse(error.message.replace('-400', ''), 400);
+        return errorResponse(error.message || 'Lỗi hệ thống', 500);
     }
-
-    await prisma.priority.delete({
-        where: { id },
-    });
-
-    return successResponse({ message: 'Đã xóa priority' });
 });

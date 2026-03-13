@@ -1,15 +1,16 @@
-import prisma from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 import { StatusList } from '@/components/statuses/status-list';
+import { SystemServerService } from '@/server/services/system.server';
 
 export default async function StatusesPage() {
-    const statuses = await prisma.status.findMany({
-        orderBy: { position: 'asc' },
-        include: {
-            _count: {
-                select: { tasks: true },
-            },
-        },
-    });
+    const session = await auth();
+
+    if (!session?.user?.isAdministrator) {
+        redirect('/dashboard');
+    }
+
+    const statuses = await SystemServerService.getStatuses(session.user);
 
     return (
         <div>

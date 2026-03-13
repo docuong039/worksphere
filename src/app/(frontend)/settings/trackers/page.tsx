@@ -1,15 +1,16 @@
-import prisma from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 import { TrackerList } from '@/components/trackers/tracker-list';
+import { SystemServerService } from '@/server/services/system.server';
 
 export default async function TrackersPage() {
-    const trackers = await prisma.tracker.findMany({
-        orderBy: { position: 'asc' },
-        include: {
-            _count: {
-                select: { tasks: true },
-            },
-        },
-    });
+    const session = await auth();
+
+    if (!session?.user?.isAdministrator) {
+        redirect('/dashboard');
+    }
+
+    const trackers = await SystemServerService.getTrackers(session.user);
 
     return (
         <div>

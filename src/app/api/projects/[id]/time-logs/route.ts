@@ -2,7 +2,7 @@ import prisma from '@/lib/prisma';
 import { errorResponse, successResponse } from '@/lib/api-error';
 import { createTimeLogSchema } from '@/lib/validations';
 import { getUserPermissions } from '@/lib/permissions';
-import * as ProjectPolicy from '@/modules/project/project.policy';
+import * as ProjectPolicy from '@/server/policies/project.policy';
 import { withAuth } from '@/server/middleware/withAuth';
 import type { RouteContext } from '@/server/middleware/withAuth';
 import { PERMISSIONS } from '@/lib/constants';

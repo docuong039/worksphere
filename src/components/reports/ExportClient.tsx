@@ -53,7 +53,7 @@ interface TimeLogData {
     activity: { name: string };
     task: { title: string; number: number } | null;
 }
-import { ReportPolicy } from '@/modules/report/report.policy';
+import { ReportPolicy } from '@/server/policies/report.policy';
 
 interface ExportClientProps {
     user: {

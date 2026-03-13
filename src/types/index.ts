@@ -487,3 +487,5 @@ export type TaskSortBy =
     | 'title';
 
 export type SortOrder = 'asc' | 'desc';
+
+export type SessionUser = { id: string; isAdministrator: boolean; name?: string | null; };

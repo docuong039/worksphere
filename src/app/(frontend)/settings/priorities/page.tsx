@@ -1,15 +1,16 @@
-import prisma from '@/lib/prisma';
 import { PriorityList } from '@/components/priorities/priority-list';
+import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+import { SystemServerService } from '@/server/services/system.server';
 
 export default async function PrioritiesPage() {
-    const priorities = await prisma.priority.findMany({
-        orderBy: { position: 'asc' },
-        include: {
-            _count: {
-                select: { tasks: true },
-            },
-        },
-    });
+    const session = await auth();
+
+    if (!session?.user?.isAdministrator) {
+        redirect('/dashboard');
+    }
+
+    const priorities = await SystemServerService.getPriorities(session.user);
 
     return (
         <div>

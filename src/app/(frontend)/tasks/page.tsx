@@ -1,151 +1,29 @@
 import { auth } from '@/lib/auth';
-import prisma from '@/lib/prisma';
 import { TaskList } from '@/components/tasks/task-list';
 import { TaskWithRelations, SavedQueryWithRelations } from '@/types';
-import { buildTaskFilters } from '@/app/api/tasks/helpers';
-import { getAccessibleProjectIds } from '@/lib/permissions';
-import { PERMISSIONS } from '@/lib/constants';
-import * as TaskPolicy from '@/modules/task/task.policy';
+import { TaskServerService } from '@/server/services/task.server';
+import { redirect } from 'next/navigation';
 
 export default async function TasksPage() {
     const session = await auth();
 
-    // 1. Get dictionary of all trackers
-    const trackers = await prisma.tracker.findMany({ orderBy: { position: 'asc' } });
-
-    // 2. Compute allowed trackers per project based on permissions
-    const allowedTrackerIdsByProject: Record<string, string[]> = {};
-
-    if (session?.user?.isAdministrator) {
-        const allProjects = await prisma.project.findMany({
-            where: { isArchived: false },
-            include: { trackers: true },
-        });
-        allProjects.forEach((p) => {
-            if (p.trackers.length === 0) {
-                allowedTrackerIdsByProject[p.id] = trackers.map(t => t.id);
-            } else {
-                allowedTrackerIdsByProject[p.id] = p.trackers.map((t) => t.trackerId);
-            }
-        });
-    } else if (session?.user) {
-        const memberships = await prisma.projectMember.findMany({
-            where: {
-                userId: session.user.id,
-                project: { isArchived: false }
-            },
-            include: {
-                project: { include: { trackers: true } },
-                role: { include: { trackers: true } },
-            },
-        });
-
-        memberships.forEach((m) => {
-            const projectEnabledIds = m.project.trackers.map((t) => t.trackerId);
-            const finalProjectIds = projectEnabledIds.length === 0
-                ? trackers.map(t => t.id)
-                : projectEnabledIds;
-
-            const roleAllowedIds = m.role.trackers.map((t) => t.trackerId);
-
-            const allowed = finalProjectIds.filter((id) => roleAllowedIds.includes(id));
-            allowedTrackerIdsByProject[m.project.id] = allowed;
-        });
+    if (!session || !session.user) {
+        redirect('/login');
     }
 
-    // Get other filter data
-    const [statuses, priorities, projects, queries, users] = await Promise.all([
-        prisma.status.findMany({ orderBy: { position: 'asc' } }),
-        prisma.priority.findMany({ orderBy: { position: 'asc' } }),
-        session?.user?.isAdministrator
-            ? prisma.project.findMany({
-                where: { isArchived: false },
-                orderBy: { name: 'asc' },
-                select: { id: true, name: true, identifier: true },
-            })
-            : prisma.project.findMany({
-                where: {
-                    isArchived: false,
-                    members: { some: { userId: session?.user?.id } },
-                },
-                orderBy: { name: 'asc' },
-                select: { id: true, name: true, identifier: true },
-            }),
-        prisma.query.findMany({
-            where: {
-                OR: [
-                    { isPublic: true },
-                    { userId: session?.user?.id },
-                ],
-            },
-            include: {
-                user: { select: { id: true, name: true } },
-                project: { select: { id: true, name: true, identifier: true } },
-            },
-            orderBy: { name: 'asc' },
-        }),
-        prisma.user.findMany({
-            where: { isActive: true },
-            select: { id: true, name: true },
-            orderBy: { name: 'asc' },
-        }),
-    ]);
-
-    // Prepare effective projects for task filtering
-    const effectiveProjectIds = projects.map(p => p.id);
-    const projectPermissionsMap: Record<string, string[]> = {};
-
-    if (session?.user && !session.user.isAdministrator && effectiveProjectIds.length > 0) {
-        const fetchMemberships = await prisma.projectMember.findMany({
-            where: {
-                userId: session.user.id,
-                projectId: { in: effectiveProjectIds }
-            },
-            include: { role: { include: { permissions: { include: { permission: true } } } } }
-        });
-        for (const m of fetchMemberships) {
-            projectPermissionsMap[m.projectId] = m.role.permissions.map(rp => rp.permission.key);
-        }
-    }
-
-    const searchParams = new URLSearchParams();
-    searchParams.set('isClosed', 'false');
-    // Global tasks page default to 'my=true' for non-admin to show assigned/created tasks, exactly like old where clause did
-    if (!session?.user?.isAdministrator) {
-        searchParams.set('my', 'true');
-    }
-
-    let canAssignOthers = session?.user?.isAdministrator || false;
-    let canCreateTask = session?.user?.isAdministrator || false;
-
-    if (session?.user && !session.user.isAdministrator) {
-        canAssignOthers = Object.values(projectPermissionsMap).some(perms => TaskPolicy.canAssignOthers(session.user as any, perms));
-        canCreateTask = Object.values(projectPermissionsMap).some(perms => TaskPolicy.canCreateTask(session.user as any, perms));
-    }
-
-    // Initial tasks filter using robust helper
-    const where = buildTaskFilters({
-        projectIds: effectiveProjectIds,
-        userId: session?.user?.id || '',
-        isAdmin: session?.user?.isAdministrator || false,
-        searchParams,
+    const {
+        tasks,
+        trackers,
+        statuses,
+        priorities,
+        projects,
+        queries,
+        users,
+        canAssignOthers,
+        canCreateTask,
         projectPermissionsMap,
-    });
-
-    const tasks = await prisma.task.findMany({
-        where,
-        orderBy: { updatedAt: 'desc' },
-        take: 100,
-        include: {
-            tracker: { select: { id: true, name: true } },
-            status: { select: { id: true, name: true, isClosed: true } },
-            priority: { select: { id: true, name: true, color: true } },
-            project: { select: { id: true, name: true, identifier: true } },
-            assignee: { select: { id: true, name: true, avatar: true } },
-            parent: { select: { id: true, number: true, title: true } },
-            _count: { select: { subtasks: true, comments: true } },
-        },
-    });
+        allowedTrackerIdsByProject
+    } = await TaskServerService.getGlobalTasksData(session.user);
 
     return (
         <div>
@@ -162,7 +40,7 @@ export default async function TasksPage() {
                 projects={projects}
                 queries={queries as unknown as SavedQueryWithRelations[]}
                 users={users}
-                currentUserId={session?.user?.id}
+                currentUserId={session.user.id}
                 canAssignOthers={canAssignOthers}
                 canCreateTask={canCreateTask}
                 projectPermissionsMap={projectPermissionsMap}

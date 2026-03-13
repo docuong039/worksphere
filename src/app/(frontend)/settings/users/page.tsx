@@ -1,25 +1,16 @@
-import prisma from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 import { UserList } from '@/components/users/user-list';
+import { UserServerService } from '@/server/services/user.server';
 
 export default async function UsersPage() {
-    const users = await prisma.user.findMany({
-        orderBy: { createdAt: 'desc' },
-        select: {
-            id: true,
-            email: true,
-            name: true,
-            avatar: true,
-            isAdministrator: true,
-            isActive: true,
-            createdAt: true,
-            _count: {
-                select: {
-                    projectMemberships: true,
-                    assignedTasks: true,
-                },
-            },
-        },
-    });
+    const session = await auth();
+
+    if (!session?.user?.isAdministrator) {
+        redirect('/dashboard');
+    }
+
+    const users = await UserServerService.getSystemUsersData(session.user);
 
     return (
         <div>

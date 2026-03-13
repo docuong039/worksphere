@@ -3,7 +3,7 @@ import { successResponse, errorResponse } from '@/lib/api-error';
 import { withAuth } from '@/server/middleware/withAuth';
 import type { RouteContext } from '@/server/middleware/withAuth';
 import { getUserPermissions } from '@/lib/permissions';
-import * as ProjectPolicy from '@/modules/project/project.policy';
+import * as ProjectPolicy from '@/server/policies/project.policy';
 
 
 // GET /api/projects/[id]/roadmap - Get roadmap view (tasks grouped by version)

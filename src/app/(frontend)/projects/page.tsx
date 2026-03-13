@@ -1,43 +1,15 @@
 import { auth } from '@/lib/auth';
-import prisma from '@/lib/prisma';
 import { ProjectList } from '@/components/projects/project-list';
 import { ProjectWithMembers } from '@/types';
 import { getUserPermissions } from '@/lib/permissions';
-import * as ProjectPolicy from '@/modules/project/project.policy';
+import * as ProjectPolicy from '@/server/policies/project.policy';
+import { ProjectServerService } from '@/server/services/project.server';
 
 export default async function ProjectsPage() {
     const session = await auth();
 
-    // Lấy projects dựa trên quyền
-    const where = session?.user?.isAdministrator
-        ? {}
-        : { members: { some: { userId: session?.user?.id } } };
-
-    const projects = await prisma.project.findMany({
-        where,
-        orderBy: { updatedAt: 'desc' },
-        include: {
-            creator: {
-                select: { id: true, name: true, avatar: true },
-            },
-            members: {
-                take: 5,
-                include: {
-                    user: {
-                        select: { id: true, name: true, avatar: true },
-                    },
-                    role: true,
-                },
-            },
-            _count: {
-                select: { tasks: true, members: true },
-            },
-            tasks: {
-                where: { status: { isClosed: true } },
-                select: { id: true },
-            },
-        },
-    });
+    // Lấy projects thông qua Server Service thay vì chọc thẳng vào DB
+    const projects = session?.user ? await ProjectServerService.getProjects(session.user, {}) : [];
 
     const permissions = session?.user?.id ? await getUserPermissions(session.user.id) : [];
     const canCreate = session?.user ? ProjectPolicy.canCreateProject(session.user as any, permissions) : false;

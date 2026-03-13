@@ -1,71 +1,41 @@
-import prisma from '@/lib/prisma';
-import { errorResponse, successResponse } from '@/lib/api-error';
+import { successResponse, errorResponse } from '@/lib/api-error';
+import { updateActivitySchema } from '@/lib/validations';
 import { withAuth, withAdmin } from '@/server/middleware/withAuth';
 import type { RouteContext } from '@/server/middleware/withAuth';
+import { TimeEntryActivityServerService } from '@/server/services/time-entry-activity.server';
 
 export const GET = withAuth(async (_req, _user, ctx) => {
-    const { id } = await (ctx as RouteContext<{ id: string }>).params;
-
-    const activity = await prisma.timeEntryActivity.findUnique({
-        where: { id },
-    });
-
-    if (!activity) {
-        return errorResponse('Không tìm thấy hoạt động', 404);
+    try {
+        const { id } = await (ctx as RouteContext<{ id: string }>).params;
+        const activity = await TimeEntryActivityServerService.getActivityById(id);
+        return successResponse(activity);
+    } catch (error: any) {
+        if (error.message.includes('-404')) return errorResponse(error.message.replace('-404', ''), 404);
+        return errorResponse(error.message || 'Lỗi hệ thống', 500);
     }
-
-    return successResponse(activity);
 });
 
 export const PUT = withAdmin(async (req, _user, ctx) => {
-    const { id } = await (ctx as RouteContext<{ id: string }>).params;
-    const body = await req.json();
+    try {
+        const { id } = await (ctx as RouteContext<{ id: string }>).params;
+        const body = await req.json();
+        const validatedData = updateActivitySchema.parse(body);
 
-    const existing = await prisma.timeEntryActivity.findUnique({
-        where: { id },
-    });
-
-    if (!existing) {
-        return errorResponse('Không tìm thấy hoạt động', 404);
+        const activity = await TimeEntryActivityServerService.updateActivity(id, validatedData);
+        return successResponse(activity);
+    } catch (error: any) {
+        if (error.message.includes('-400')) return errorResponse(error.message.replace('-400', ''), 400);
+        return errorResponse(error.message || 'Lỗi hệ thống', 400);
     }
-
-    // Check duplicate name if name is being changed
-    if (body.name && body.name !== existing.name) {
-        const duplicate = await prisma.timeEntryActivity.findFirst({
-            where: { name: body.name, id: { not: id } },
-        });
-        if (duplicate) {
-            return errorResponse('Tên hoạt động đã tồn tại', 400);
-        }
-    }
-
-    const updateData: any = {};
-    if (body.name !== undefined) updateData.name = body.name;
-    if (body.position !== undefined) updateData.position = body.position;
-    if (body.isDefault !== undefined) updateData.isDefault = body.isDefault;
-    if (body.isActive !== undefined) updateData.isActive = body.isActive;
-
-    const activity = await prisma.timeEntryActivity.update({
-        where: { id },
-        data: updateData,
-    });
-
-    return successResponse(activity);
 });
 
 export const DELETE = withAdmin(async (_req, _user, ctx) => {
-    const { id } = await (ctx as RouteContext<{ id: string }>).params;
-
-    // Check if activity is being used
-    const usageCount = await prisma.timeLog.count({
-        where: { activityId: id },
-    });
-
-    if (usageCount > 0) {
-        return errorResponse(`Không thể xóa vì đang được sử dụng bởi ${usageCount} bản ghi thời gian`, 400);
+    try {
+        const { id } = await (ctx as RouteContext<{ id: string }>).params;
+        const result = await TimeEntryActivityServerService.deleteActivity(id);
+        return successResponse(result);
+    } catch (error: any) {
+        if (error.message.includes('-400')) return errorResponse(error.message.replace('-400', ''), 400);
+        return errorResponse(error.message || 'Lỗi hệ thống', 500);
     }
-
-    await prisma.timeEntryActivity.delete({ where: { id } });
-
-    return successResponse({ message: 'Đã xóa hoạt động' });
 });

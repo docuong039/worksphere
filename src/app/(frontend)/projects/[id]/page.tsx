@@ -1,7 +1,8 @@
 import { auth } from '@/lib/auth';
-import prisma from '@/lib/prisma';
 import { notFound, redirect } from 'next/navigation';
 import { ProjectOverview, Status, Project, Task } from '@/components/projects/project-overview';
+import { ProjectServerService } from '@/server/services/project.server';
+import { TaskServerService } from '@/server/services/task.server';
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -16,74 +17,29 @@ export default async function ProjectDetailPage({ params }: Props) {
     }
 
     // Check access
-    const canAccess =
-        session.user.isAdministrator ||
-        (await prisma.projectMember.findFirst({
-            where: { userId: session.user.id, projectId: id },
-        }));
+    const canAccess = await ProjectServerService.checkAccess(session.user, id);
 
     if (!canAccess) {
         notFound();
     }
 
     // Get project with details
-    const project = await prisma.project.findUnique({
-        where: { id },
-        include: {
-            creator: {
-                select: { id: true, name: true, email: true, avatar: true },
-            },
-            members: {
-                include: {
-                    user: {
-                        select: { id: true, name: true, email: true, avatar: true },
-                    },
-                    role: {
-                        select: { id: true, name: true },
-                    },
-                },
-                orderBy: { createdAt: 'asc' },
-            },
-            _count: {
-                select: { tasks: true, members: true },
-            },
-        },
-    });
+    const project = await ProjectServerService.getProjectDetails(id);
 
     if (!project) {
         notFound();
     }
 
     // Get task stats by status
-    const statuses = await prisma.status.findMany({ orderBy: { position: 'asc' } });
-    const taskStats = await prisma.task.groupBy({
-        by: ['statusId'],
-        where: { projectId: id },
-        _count: { id: true },
-    });
-
-    const tasksByStatus = statuses.map((status) => ({
-        status: status as Status,
-        count: taskStats.find((ts) => ts.statusId === status.id)?._count.id || 0,
-    }));
+    const tasksByStatus = await TaskServerService.getTaskStatsByProject(id);
 
     // Get recent tasks
-    const recentTasks = await prisma.task.findMany({
-        where: { projectId: id },
-        orderBy: { updatedAt: 'desc' },
-        take: 5,
-        include: {
-            status: { select: { id: true, name: true, isClosed: true } },
-            priority: { select: { id: true, name: true, color: true } },
-            assignee: { select: { id: true, name: true, avatar: true } },
-        },
-    });
-
+    const recentTasks = await TaskServerService.getRecentTasksByProject(id);
 
     return (
         <ProjectOverview
             project={project as unknown as Project}
-            tasksByStatus={tasksByStatus}
+            tasksByStatus={tasksByStatus as any}
             recentTasks={recentTasks as unknown as Task[]}
         />
     );

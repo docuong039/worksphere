@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { reportService } from '@/api-client/report.service';
 import type { ReportSummary, ReportProject, ReportUser, ReportTime } from '@/types';
-import { ReportPolicy } from '@/modules/report/report.policy';
+import { ReportPolicy } from '@/server/policies/report.policy';
 import DistributionChart from '@/components/charts/DistributionChart';
 import TopPerformersChart from '@/components/charts/TopPerformersChart';
 

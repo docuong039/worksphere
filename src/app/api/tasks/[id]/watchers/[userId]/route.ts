@@ -3,7 +3,7 @@ import { successResponse, errorResponse } from '@/lib/api-error';
 import { withAuth } from '@/server/middleware/withAuth';
 import type { RouteContext } from '@/server/middleware/withAuth';
 import { getUserPermissions } from '@/lib/permissions';
-import * as TaskPolicy from '@/modules/task/task.policy';
+import * as TaskPolicy from '@/server/policies/task.policy';
 import { PERMISSIONS } from '@/lib/constants';
 
 

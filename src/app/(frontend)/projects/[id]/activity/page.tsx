@@ -1,17 +1,15 @@
 import { auth } from '@/lib/auth';
-import prisma from '@/lib/prisma';
 import { notFound, redirect } from 'next/navigation';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MessageSquare, PlusCircle } from 'lucide-react';
+import { ProjectServerService } from '@/server/services/project.server';
 
 interface Props {
     params: Promise<{ id: string }>;
 }
-
-
 
 interface ActivityItem {
     id: string;
@@ -35,69 +33,18 @@ export default async function ProjectActivityPage({ params }: Props) {
 
     if (!session) redirect('/login');
 
-    const canAccess = session.user.isAdministrator || await prisma.projectMember.findFirst({
-        where: { userId: session.user.id, projectId: id }
-    });
+    const canAccess = await ProjectServerService.checkAccess(session.user, id);
     if (!canAccess) notFound();
 
-    const [project, projectTasks] = await Promise.all([
-        prisma.project.findUnique({
-            where: { id },
-            select: { id: true, name: true }
-        }),
-        prisma.task.findMany({
-            where: { projectId: id },
-            select: { id: true, number: true, title: true, tracker: { select: { name: true } } }
-        })
-    ]);
-
+    const project = await ProjectServerService.getProjectDetails(id);
     if (!project) notFound();
 
-    const taskIds = projectTasks.map(t => t.id);
-    const taskMap = new Map(projectTasks.map(t => [t.id, t]));
-
-    const since = new Date();
-    since.setDate(since.getDate() - 30);
-
-    const [auditLogs, comments] = await Promise.all([
-        prisma.auditLog.findMany({
-            where: {
-                OR: [
-                    { entityType: 'project', entityId: id },
-                    { entityType: 'task', entityId: { in: taskIds } }
-                ],
-                createdAt: { gt: since }
-            },
-            include: {
-                user: { select: { id: true, name: true, avatar: true } }
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 100
-        }),
-        prisma.comment.findMany({
-            where: { task: { projectId: id }, createdAt: { gt: since } },
-            include: {
-                user: { select: { id: true, name: true, avatar: true } },
-                task: {
-                    select: {
-                        id: true,
-                        number: true,
-                        title: true,
-                        tracker: { select: { name: true } },
-                        status: { select: { name: true } }
-                    }
-                }
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 50
-        })
-    ]);
+    const { auditLogs, comments, taskMap } = await ProjectServerService.getActivityLogs(id);
 
     const activities: ActivityItem[] = [
         ...auditLogs.map(log => {
             let title = '';
             let link = '';
-            // removed unused type variable
 
             if (log.entityType === 'task') {
                 const task = taskMap.get(log.entityId);
@@ -105,7 +52,6 @@ export default async function ProjectActivityPage({ params }: Props) {
                     title = `${task.tracker.name} #${task.number}: ${task.title}`;
                     link = `/tasks/${task.id}`;
                 } else {
-                    // Task might have been deleted, try to get title from changes if available
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     const changes = log.changes as any;
                     const oldTitle = changes?.old?.title || changes?.new?.title || 'Công việc';
@@ -121,13 +67,13 @@ export default async function ProjectActivityPage({ params }: Props) {
 
             return {
                 id: log.id,
-                type: 'task' as const, // Use task UI style
+                type: 'task' as const,
                 action: log.action,
                 actionLabel,
                 date: log.createdAt,
                 user: log.user,
                 title: title,
-                description: null, // Could add change details here later
+                description: null,
                 link: link
             };
         }),
@@ -163,7 +109,6 @@ export default async function ProjectActivityPage({ params }: Props) {
                     </h3>
                     <div className="space-y-3 pl-4 border-l-2 border-gray-100 ml-2">
                         {grouped[dateKey].map(item => (
-
                             <div key={item.id} className="flex gap-3 relative">
                                 <div className="absolute -left-[25px] mt-1 w-3 h-3 rounded-full bg-gray-200 border-2 border-white"></div>
                                 <Avatar className="w-6 h-6 mt-0.5">

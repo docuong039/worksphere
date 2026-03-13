@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth';
-import prisma from '@/lib/prisma';
 import { notFound, redirect } from 'next/navigation';
 import { TimeLogContent } from '@/components/time-logs/time-log-content';
+import { ProjectServerService } from '@/server/services/project.server';
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -13,10 +13,10 @@ export default async function ProjectTimeEntriesPage({ params }: Props) {
 
     if (!session) redirect('/login');
 
-    const project = await prisma.project.findUnique({
-        where: { id },
-    });
+    const canAccess = await ProjectServerService.checkAccess(session.user, id);
+    if (!canAccess) notFound();
 
+    const project = await ProjectServerService.getProjectDetails(id);
     if (!project) notFound();
 
     return (
