@@ -66,6 +66,7 @@ export default function ActivityPage() {
                     setHasMore(response.data.activities.length >= 50);
                 }
             } catch (error) {
+            toast.error('Không thể tải lịch sử hoạt động. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                 console.error('Failed to fetch activity:', error);
             } finally {
                 setLoading(false);

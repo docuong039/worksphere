@@ -194,6 +194,7 @@ export function NotificationBell() {
                 body: JSON.stringify({ markAll: true }),
             });
         } catch (error) {
+            toast.error('Không thể lấy thông báo. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
             console.error('[NotificationBell] mark all as read error:', error);
             await fetchNotifications();
         }

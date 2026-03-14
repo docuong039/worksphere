@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import {
     Download,
     Calendar,
@@ -172,7 +173,7 @@ export default function ExportClient({ user, permissions }: ExportClientProps) {
             const res = await fetch(`/api/reports/export?${params.toString()}`);
 
             if (!res.ok) {
-                throw new Error('Export failed');
+                throw new Error('Không thể xuất dữ liệu. Vui lòng thử lại.');
             }
 
             const contentDisposition = res.headers.get('Content-Disposition');
@@ -216,7 +217,7 @@ export default function ExportClient({ user, permissions }: ExportClientProps) {
             if (exportType === 'tasks') {
                 const res = await fetch(`/api/tasks?${params.toString()}`);
                 const data = await res.json();
-                if (!data.success) throw new Error('Failed to fetch tasks');
+                if (!data.success) throw new Error('Không thể tải danh sách công việc');
 
                 const tasks: TaskData[] = data.data.tasks || data.data || [];
                 title = 'Danh sách Công việc';
@@ -248,7 +249,7 @@ export default function ExportClient({ user, permissions }: ExportClientProps) {
             } else {
                 const res = await fetch(`/api/time-logs?${params.toString()}`);
                 const data = await res.json();
-                if (!data.success) throw new Error('Failed to fetch time logs');
+                if (!data.success) throw new Error('Không thể tải lịch sử thời gian');
 
                 const logs: TimeLogData[] = data.data.timeLogs || [];
                 title = 'Báo cáo Thời gian (Logs)';
@@ -355,6 +356,7 @@ export default function ExportClient({ user, permissions }: ExportClientProps) {
             setExportSuccess('pdf');
             setTimeout(() => setExportSuccess(null), 3000);
         } catch (error) {
+            toast.error('Không thể xuất báo cáo. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
             console.error('PDF export failed', error);
         } finally {
             setExportingPDF(false);

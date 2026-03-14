@@ -66,7 +66,7 @@ export function PriorityList({ priorities: initialPriorities }: PriorityListProp
             }
             router.refresh(); // Background sync
         } catch (err: any) {
-            setError(err.message || 'Có lỗi xảy ra');
+            setError(err.message || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
             // Form vẫn mở, user có thể sửa và thử lại
         } finally {
             setLoading(false);
@@ -93,7 +93,7 @@ export function PriorityList({ priorities: initialPriorities }: PriorityListProp
             router.refresh(); // Background sync
         } catch (err: any) {
             setPriorities(previous); // Rollback
-            setError(err.message || 'Có lỗi xảy ra');
+            setError(err.message || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         } finally {
             setLoading(false);
         }
@@ -122,7 +122,7 @@ export function PriorityList({ priorities: initialPriorities }: PriorityListProp
                     router.refresh(); // Background sync
                 } catch (err: any) {
                     setPriorities(previous); // Rollback
-                    toast.error(err.message || 'Có lỗi xảy ra');
+                    toast.error(err.message || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                 }
             },
         });
@@ -140,7 +140,7 @@ export function PriorityList({ priorities: initialPriorities }: PriorityListProp
         } catch (err) {
             setPriorities(previous); // Rollback
             console.error(err);
-            toast.error('Có lỗi xảy ra');
+            toast.error('Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         }
     };
 

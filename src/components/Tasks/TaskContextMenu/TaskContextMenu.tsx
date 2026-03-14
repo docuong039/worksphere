@@ -204,6 +204,7 @@ export function TaskContextMenu({
                 setMembers(res.data || []);
             }
         } catch (err) {
+            toast.error('Không thể tải dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
             console.error('Failed to fetch members', err);
         }
         setLoadingMembers(false);
@@ -215,7 +216,7 @@ export function TaskContextMenu({
             toast.success('Đã cập nhật công việc');
             onRefresh();
         } catch (err: any) {
-            toast.error(err.message || 'Có lỗi xảy ra');
+            toast.error(err.message || 'Không thể cập nhật dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         }
     };
 

@@ -81,7 +81,7 @@ export async function apiFetch<T = unknown>(
                 // It's likely an HTML error page (like Next.js error overlay or 404/500 page)
                 console.error('API returned HTML instead of JSON:', text.substring(0, 100) + '...');
                 throw new ApiClientError(
-                    `Server Error (${response.statusText || response.status})`,
+                    `Lỗi máy chủ (${response.statusText || response.status}). Vui lòng thử lại sau.`,
                     response.status
                 );
             }
@@ -90,7 +90,7 @@ export async function apiFetch<T = unknown>(
 
         // Handle error responses (HTTP status not 200-299)
         if (!response.ok) {
-            let errorMessage = `API Error: ${response.statusText || response.status}`;
+            let errorMessage = `Lỗi hệ thống (${response.statusText || response.status}). Vui lòng thử lại sau.`;
 
             // Try to extract message from common API response formats
             if (data && typeof data === 'object') {
@@ -109,7 +109,9 @@ export async function apiFetch<T = unknown>(
         }
 
         // Network or other uncaught errors
-        const message = error instanceof Error ? error.message : 'Unknown network error';
+        const message = error instanceof Error && error.message !== 'Failed to fetch' 
+            ? error.message 
+            : 'Mất kết nối mạng. Vui lòng kiểm tra lại đường truyền internet.';
         console.error(`[ApiFetch] Failed request to ${url}:`, error);
         throw new ApiClientError(message);
     }

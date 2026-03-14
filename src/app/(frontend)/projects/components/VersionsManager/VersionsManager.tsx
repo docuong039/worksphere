@@ -20,6 +20,7 @@ import { projectService } from '@/api-client/project.service';
 import { useConfirm } from '@/providers/confirm-provider';
 import { VersionWithStats as Version } from '@/types';
 import { formatDate } from '@/lib/date-utils';
+import { toast } from 'sonner';
 
 
 
@@ -88,11 +89,12 @@ export function VersionsManager({ projectId, versions: initialVersions, canManag
                 setVersionsList((prev) => prev.map((v) => (v.id === tempId ? result.data! : v)));
             }
             router.refresh(); // Background sync
-        } catch (error) {
+        } catch (error: any) {
             // Rollback
             setVersionsList((prev) => prev.filter((v) => v.id !== tempId));
             setShowAddModal(true);
             console.error(error);
+            toast.error(error.message || 'Không thể tạo phiên bản');
         } finally {
             setLoading(false);
         }
@@ -127,10 +129,11 @@ export function VersionsManager({ projectId, versions: initialVersions, canManag
                 status: formData.status as 'open' | 'locked' | 'closed'
             });
             router.refresh(); // Background sync
-        } catch (error) {
+        } catch (error: any) {
             // Rollback
             setVersionsList(previousVersions);
             console.error(error);
+            toast.error(error.message || 'Không thể cập nhật phiên bản');
         } finally {
             setLoading(false);
         }
@@ -151,11 +154,13 @@ export function VersionsManager({ projectId, versions: initialVersions, canManag
 
                 try {
                     await projectService.deleteVersion(version.id);
+                    toast.success(`Đã xóa phiên bản "${version.name}"`);
                     router.refresh(); // Background sync
-                } catch (error) {
+                } catch (error: any) {
                     // Rollback
                     setVersionsList(previousVersions);
                     console.error('Delete failed', error);
+                    toast.error(error.message || 'Không thể xóa phiên bản');
                 }
             }
         });

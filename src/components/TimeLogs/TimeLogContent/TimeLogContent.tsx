@@ -151,6 +151,7 @@ export function TimeLogContent({
                 }
             }
         } catch (error) {
+            toast.error('Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
             console.error('Error fetching time logs:', error);
         } finally {
             setLoading(false);
@@ -183,11 +184,11 @@ export function TimeLogContent({
                     const res = await fetch(`/api/time-logs/${logId}`, { method: 'DELETE' });
                     if (!res.ok) {
                         const data = await res.json();
-                        toast.error(data.error || 'Có lỗi xảy ra');
+                        toast.error(data.error || 'Không thể xóa bản ghi thời gian. Vui lòng thử lại sau.');
                         fetchTimeLogs(); // Rollback - tải lại từ server
                     }
                 } catch {
-                    toast.error('Lỗi kết nối máy chủ');
+                    toast.error('Lỗi mất mạng. Không thể kết nối với máy chủ lúc này.');
                     fetchTimeLogs(); // Rollback
                 }
             }
@@ -548,7 +549,7 @@ function EditTimeLogModal({ log, activities, onClose, onSuccess }: { log: TimeLo
                 toast.error(data.error || 'Có lỗi xảy ra');
             }
         } catch {
-            toast.error('Lỗi kết nối máy chủ');
+            toast.error('Lỗi mất mạng. Không thể kết nối với máy chủ lúc này.');
         } finally {
             setLoading(false);
         }

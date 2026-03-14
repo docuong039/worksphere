@@ -161,6 +161,8 @@ export function TaskList({
                     setAggregations(response.data.aggregations);
                 }
             }
+        } catch (error: any) {
+            toast.error(error.message || 'Không thể tải danh sách công việc');
         } finally {
             setLoading(false);
         }
@@ -199,6 +201,7 @@ export function TaskList({
             fetchTasks(newFilters);
             setShowSavedQueries(false);
         } catch (error) {
+            toast.error('Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
             console.error('Failed to parse filters', error);
         }
     };

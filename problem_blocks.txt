@@ -1,0 +1,798 @@
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\activity\page.tsx:68
+            } catch (error) {
+                console.error('Failed to fetch activity:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchActivity();
+    }, [page, userId, selectedTypes]); // Re-fetch on page/filter change
+
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\notifications\page.tsx:102
+        } catch (error) {
+            console.error(error);
+            await fetchNotifications();
+        }
+    };
+
+    // Mark all as read
+    const markAllAsRead = async () => {
+        const previousNotifications = [...allNotifications];
+
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\projects\components\ProjectList\ProjectList.tsx:106
+        } catch (err: any) {
+            setError(err.message || 'Có lỗi xảy ra');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Update project
+    const handleUpdate = async () => {
+        if (!editingProject) return;
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\projects\components\ProjectList\ProjectList.tsx:135
+        } catch (err: any) {
+            setError(err.message || 'Lỗi kết nối');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Archive project
+    const handleArchive = async (id: string) => {
+        // Optimistic: toggle archive ngay lập tức
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\projects\components\ProjectList\ProjectList.tsx:153
+        } catch (err) {
+            // Rollback nếu lỗi
+            setProjects((prev) =>
+                prev.map((p) => (p.id === id ? { ...p, isArchived: !p.isArchived } : p))
+            );
+            console.error(err);
+            toast.error('Có lỗi xảy ra khi lưu trữ');
+        }
+  
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\projects\components\ProjectList\ProjectList.tsx:179
+                } catch (err: any) {
+                    // Rollback nếu lỗi xóa
+                    setProjects(previousProjects);
+                    toast.error(err.message || 'Có lỗi xảy ra');
+                }
+            },
+        });
+    };
+
+
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\projects\components\ProjectMembers\ProjectMembers.tsx:116
+        } catch (err: any) {
+            // Rollback
+            setMembersList(previousMembers);
+            setError(err.message || 'Có lỗi xảy ra');
+            toast.error(err.message || 'Có lỗi xảy ra');
+            setShowAddModal(true);
+            setSelectedUserIds(originalUserIds);
+
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\projects\components\ProjectMembers\ProjectMembers.tsx:168
+                } catch (err: any) {
+                    // Rollback
+                    setMembersList(previousMembers);
+                    toast.error(err.message || 'Có lỗi xảy ra');
+                }
+            },
+        });
+    };
+
+
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\projects\components\ProjectTrackerSettings\ProjectTrackerSettings.tsx:56
+        } catch (err: any) {
+            toast.error(err.message || 'Có lỗi xảy ra');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const hasChanges = JSON.stringify(enabledIds.sort()) !== JSON.stringify(initialEnabled.sort());
+
+    // If no trackers are specifica
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\reports\components\ExportClient\ExportClient.tsx:111
+            } catch (error) {
+                console.error('Failed to fetch options', error);
+            }
+        };
+        fetchOptions();
+    }, []);
+
+    // Quick filter helpers
+    const applyQuickFilter = (type: 'week' | 'month' | 'last-month' | 'quarter') => {
+        const now = 
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\reports\components\ExportClient\ExportClient.tsx:197
+        } catch (error) {
+            console.error('Export failed', error);
+        } finally {
+            setExportingCSV(false);
+        }
+    };
+
+    // Export PDF handler using pdfmake (supports Vietnamese)
+    const handleExportPDF = async () => {
+        setExportingPDF(true);
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\reports\components\ExportClient\ExportClient.tsx:357
+        } catch (error) {
+            console.error('PDF export failed', error);
+        } finally {
+            setExportingPDF(false);
+        }
+    };
+
+    // Clear all filters
+    const clearFilters = () => {
+        setDateRange({ startDate: '', endDate: '' });
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\reports\components\ReportClient\ReportClient.tsx:62
+        } catch (error) {
+            console.error('Lỗi khi tải báo cáo:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [reportType, dateRange.startDate, dateRange.endDate]);
+
+    useEffect(() => {
+        fetchReport();
+    }, [fetchReport]);
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\PriorityList\PriorityList.tsx:68
+        } catch (err: any) {
+            setError(err.message || 'Có lỗi xảy ra');
+            // Form vẫn mở, user có thể sửa và thử lại
+        } finally {
+            setLoading(false);
+        }
+    };
+
+
+    // Update priority
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\PriorityList\PriorityList.tsx:94
+        } catch (err: any) {
+            setPriorities(previous); // Rollback
+            setError(err.message || 'Có lỗi xảy ra');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Delete priority
+    const handleDelete = async (id: string, name: string, taskCount
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\PriorityList\PriorityList.tsx:123
+                } catch (err: any) {
+                    setPriorities(previous); // Rollback
+                    toast.error(err.message || 'Có lỗi xảy ra');
+                }
+            },
+        });
+    };
+
+
+    // Set default
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\PriorityList\PriorityList.tsx:140
+        } catch (err) {
+            setPriorities(previous); // Rollback
+            console.error(err);
+            toast.error('Có lỗi xảy ra');
+        }
+    };
+
+    // Start editing
+    const startEdit = (priority: Priority) => {
+        setEditingId(priority.id);
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\RoleList\RoleList.tsx:101
+        } catch (err: any) {
+            setError(err.message || 'Có lỗi xảy ra');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Update role
+    const handleUpdate = async (id: string) => {
+        if (!formData.name.trim()) return;
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\RoleList\RoleList.tsx:160
+                } catch (err: any) {
+                    setRoles(previousRoles); // Rollback
+                    toast.error(err.message || 'Có lỗi xảy ra');
+                }
+            },
+        });
+    };
+
+
+    // Clone role
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\RoleList\RoleList.tsx:195
+        } catch (err) {
+            console.error(err);
+            toast.error('Có lỗi xảy ra khi sao chép');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Toggle active
+    const handleToggleActive = async (id: string, currentActive: boolean) => {
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\RoleList\RoleList.tsx:213
+        } catch (err: any) {
+            // Revert on error
+            setRoles(prev => prev.map(role =>
+                role.id === id ? { ...role, isActive: currentActive } : role
+            ));
+            toast.error(err.message || 'Có lỗi xảy ra');
+        }
+    };
+
+    // Start edit
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\RoleTrackerPermissions\RoleTrackerPermissions.tsx:64
+        } catch (err: any) {
+            toast.error(err.message || 'Có lỗi xảy ra');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const hasChanges = JSON.stringify(assignedIds.sort()) !== JSON.stringify(initialAssigned.sort());
+
+    return (
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\StatusList\StatusList.tsx:60
+        } catch (err: any) {
+            setError(err.message || 'Có lỗi xảy ra');
+            // Form vẫn mở, user có thể sửa và thử lại
+        } finally {
+            setLoading(false);
+        }
+    };
+
+
+    // Update status
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\StatusList\StatusList.tsx:90
+        } catch (err: any) {
+            // Rollback
+            setStatuses(previousStatuses);
+            setError(err.message || 'Có lỗi xảy ra');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Delete status
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\StatusList\StatusList.tsx:120
+                } catch (err: any) {
+                    // Rollback
+                    setStatuses(previousStatuses);
+                    toast.error(err.message || 'Có lỗi xảy ra');
+                }
+            },
+        });
+    };
+
+
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\StatusList\StatusList.tsx:140
+        } catch (err) {
+            // Rollback
+            setStatuses(previousStatuses);
+            console.error(err);
+            toast.error('Có lỗi xảy ra');
+        }
+    };
+
+    // Start editing
+    const startEdit = (status: Status) => {
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\TrackerList\TrackerList.tsx:51
+        } catch (error) {
+            console.error(error);
+            toast.error('Có lỗi xảy ra');
+            // Form vẫn mở, dữ liệu nhập vẫn còn
+        } finally {
+            setLoading(false);
+        }
+    };
+
+
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\TrackerList\TrackerList.tsx:77
+        } catch (error) {
+            setTrackers(previous); // Rollback
+            console.error(error);
+            toast.error('Có lỗi xảy ra');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Delete tracker
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\TrackerList\TrackerList.tsx:107
+                } catch (err: any) {
+                    setTrackers(previous); // Rollback
+                    toast.error(err.message || 'Lỗi kết nối máy chủ');
+                }
+            },
+        });
+    };
+
+
+    // Set default
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\TrackerList\TrackerList.tsx:124
+        } catch (error) {
+            setTrackers(previous); // Rollback
+            console.error(error);
+            toast.error('Có lỗi xảy ra');
+        }
+    };
+
+    // Start editing
+    const startEdit = (tracker: Tracker) => {
+        setEditingId(tracker.id);
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\UserList\UserList.tsx:71
+        } catch (err) {
+            if (err instanceof ApiClientError && err.message) {
+                setError(err.message);
+            } else {
+                setError('Có lỗi xảy ra khi tạo người dùng');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\UserList\UserList.tsx:110
+        } catch (err) {
+            // Rollback
+            setUsers(previousUsers);
+            const msg = err instanceof Error ? err.message : 'Có lỗi cập nhật';
+            setError(msg);
+            toast.error(msg);
+        } finally {
+            setLoading(false);
+        }
+    };
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\UserList\UserList.tsx:142
+                } catch (err) {
+                    // Rollback
+                    setUsers(previousUsers);
+                    const msg = err instanceof Error ? err.message : 'Lỗi kết nối máy chủ';
+                    toast.error(msg);
+                }
+            },
+        });
+    };
+
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\UserList\UserList.tsx:164
+        } catch (err) {
+            // Revert on error
+            setUsers(prev => prev.map(user =>
+                user.id === id ? { ...user, isActive: currentActive } : user
+            ));
+            const msg = err instanceof Error ? err.message : 'Lỗi kết nối máy chủ';
+            toas
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\components\WorkflowEditor\WorkflowEditor.tsx:113
+        } catch (error) {
+            console.error(error);
+            toast.error('Có lỗi xảy ra khi lưu quy trình');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Reset to allow all
+    const handleReset = () => {
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\time-activities\page.tsx:39
+        } catch (error) {
+            console.error('Error fetching activities:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchActivities();
+    }, []);
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\time-activities\page.tsx:64
+        } catch (err: any) {
+            toast.error(err.message || 'Có lỗi xảy ra');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleUpdate = async (id: string, data: Partial<TimeEntryActivity>) => {
+        setSaving(true);
+        try {
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\time-activities\page.tsx:78
+        } catch (err: any) {
+            toast.error(err.message || 'Có lỗi xảy ra');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        confirm({
+            title: 'Xóa hoạt động',
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\settings\time-activities\page.tsx:96
+                } catch (err: any) {
+                    toast.error(err.message || 'Có lỗi xảy ra');
+                }
+            }
+        });
+    };
+
+
+    const handleSetDefault = async (id: string) => {
+        // First, remove default from all others
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\tasks\components\TaskComments\TaskComments.tsx:110
+        } catch (err: any) {
+            // Rollback
+            setCommentsList(previousComments);
+            toast.error(err.message || 'Có lỗi xảy ra');
+        }
+        setSavingComment(false);
+    };
+
+    const handleCancelEditComment = () => {
+        setEditingCommentId(null);
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\tasks\components\TaskComments\TaskComments.tsx:141
+                } catch (err: any) {
+                    // Rollback
+                    setCommentsList(previousComments);
+                    toast.error(err.message || 'Có lỗi xảy ra');
+                }
+                setDeletingCommentId(null);
+            }
+        });
+    };
+
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\tasks\components\TaskDetail\TaskDetail.tsx:149
+        } catch (err: any) {
+            setIsEditing(true);
+            toast.error(err.message || 'Có lỗi xảy ra');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Khoá các trường nhập liệu nếu có subtask (Vì áp dụng tính toán Bottom-Up - Cách 1)
+    const hasS
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\tasks\components\TaskDetail\TaskDetail.tsx:211
+                                    } catch (err: any) {
+                                        setCurrentStatusId(prevStatusId); // rollback đúng cách
+                                        toast.error(err.message || 'Có lỗi xảy ra');
+                                    }
+                    
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\tasks\components\TaskWatchers\TaskWatchers.tsx:74
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchWatchers = async () => {
+        const res = await fetch(`/api/tasks/${taskId}/watchers`);
+        if (res.ok) {
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\tasks\components\TaskWatchers\TaskWatchers.tsx:137
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleRemoveWatcher = async (userId: string) => {
+        confirm({
+            title: 'Xóa người theo dõi',
+            description: 'Bạn có chắc muốn xóa người theo dõi này khỏi công việc?',
+            co
+-------------------
+C:\Users\Admin\Documents\worksphere\src\app\(frontend)\tasks\components\TaskWatchers\TaskWatchers.tsx:157
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+        });
+    };
+
+
+    return (
+        <div className="bg-white rounded-lg">
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Layout\GlobalSearch\GlobalSearch.tsx:162
+            } catch (error) {
+                console.error('Search error:', error);
+            } finally {
+                setLoading(false);
+            }
+        }, 200);
+
+        return () => clearTimeout(timer);
+    }, [query]);
+
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Layout\NotificationBell\NotificationBell.tsx:53
+        } catch (error) {
+            console.error('[NotificationBell] fetch error:', error);
+        }
+    }, []);
+
+    // ── SSE: kết nối realtime ───────────────────────────────────
+    useEffect(() => {
+        // Load dữ liệu ban đầu
+        fetchNotifications();
+
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Layout\NotificationBell\NotificationBell.tsx:95
+                } catch (err) {
+                    console.error('[SSE] Failed to parse notification:', err);
+                }
+            });
+
+            // Lỗi kết nối → reconnect với exponential backoff
+            eventSource.onerror = () => {
+                eventSource?.close();
+   
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Layout\NotificationBell\NotificationBell.tsx:155
+        } catch (error) {
+            console.error('[NotificationBell] mark as read error:', error);
+            // Rollback nếu lỗi
+            await fetchNotifications();
+        }
+    };
+
+    // ── Toggle read/unread ───────────────────────────────────────
+    const toggleRead = async (n
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Layout\NotificationBell\NotificationBell.tsx:179
+        } catch (error) {
+            console.error('[NotificationBell] toggle read error:', error);
+            await fetchNotifications();
+        }
+    };
+
+    // ── Mark all as read ────────────────────────────────────────
+    const markAllAsRead = async () => {
+        // Optimistic upd
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Layout\NotificationBell\NotificationBell.tsx:196
+        } catch (error) {
+            console.error('[NotificationBell] mark all as read error:', error);
+            await fetchNotifications();
+        }
+    };
+
+    // ── Icon theo loại thông báo ────────────────────────────────
+    const getIcon = (type: string) => {
+        switch (type
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Tasks\CreateTaskModal\CreateTaskModal.tsx:147
+            } catch (err) {
+                console.error('Failed to fetch project data', err);
+            }
+        };
+        fetchData();
+    }, [formData.projectId, isOpen]);
+
+    if (!isOpen) return null;
+
+    const handleCreate = async () => {
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Tasks\CreateTaskModal\CreateTaskModal.tsx:198
+        } catch (err: any) {
+            setError(err.message || 'Có lỗi xảy ra');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-w
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Tasks\LogTimeModal\LogTimeModal.tsx:97
+        } catch (error) {
+            console.error('Error fetching activities:', error);
+        } finally {
+            setFetchingActivities(false);
+        }
+    };
+
+    const fetchProjects = async () => {
+        try {
+            const res = await fetch('/api/projects?limit=100');
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Tasks\LogTimeModal\LogTimeModal.tsx:116
+        } catch (error) {
+            console.error('Error fetching projects:', error);
+        }
+    };
+
+    const fetchTasks = async (projectId: string) => {
+        setFetchingTasks(true);
+        try {
+            const res = await fetch(`/api/tasks?projectId=${projectId}&limit=100&isClo
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Tasks\LogTimeModal\LogTimeModal.tsx:129
+        } catch (error) {
+            console.error('Error fetching tasks:', error);
+        } finally {
+            setFetchingTasks(false);
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!formData.hours || !formData.activ
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Tasks\LogTimeModal\LogTimeModal.tsx:175
+        } catch (error) {
+            toast.error('Lỗi kết nối máy chủ');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Tasks\SavedQueries\SavedQueries.tsx:41
+                } catch (err) {
+                    setQueries(previous); // Rollback
+                    const msg = err instanceof Error ? err.message : 'Lỗi kết nối máy chủ';
+                    toast.error(msg);
+                }
+            }
+        });
+    };
+
+
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Tasks\SavedQueries\SavedQueries.tsx:192
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Có lỗi xảy ra';
+            setError(msg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-b
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Tasks\TaskCard\TaskCard.tsx:92
+        } catch (error) {
+            console.error('Failed to update subtask', error);
+        } finally {
+            setUpdatingSubtask(null);
+        }
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Tasks\TaskContextMenu\TaskContextMenu.tsx:144
+        } catch (err) {
+            console.error('Failed to fetch projects', err);
+        }
+    };
+
+    // Fetch full task data for copy modal
+    const fetchTaskData = async () => {
+        setLoadingTask(true);
+        try {
+            const res = await taskService.getById(taskId);
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Tasks\TaskContextMenu\TaskContextMenu.tsx:176
+        } catch (err) {
+            console.error('Failed to fetch task data', err);
+        } finally {
+            setLoadingTask(false);
+        }
+    };
+
+    const handleOpenCopyModal = async () => {
+        await fetchProjects();
+        await fetchTaskData();
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Tasks\TaskContextMenu\TaskContextMenu.tsx:206
+        } catch (err) {
+            console.error('Failed to fetch members', err);
+        }
+        setLoadingMembers(false);
+    };
+
+    const handleQuickUpdate = async (field: string, value: string | number | null) => {
+        try {
+            await taskService.update(taskId, { [field]:
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Tasks\TaskContextMenu\TaskContextMenu.tsx:217
+        } catch (err: any) {
+            toast.error(err.message || 'Có lỗi xảy ra');
+        }
+    };
+
+    const handleDelete = async () => {
+        confirm({
+            title: 'Xóa công việc',
+            description: 'Bạn có chắc muốn xóa công việc này? Thao tác này không thể hoàn tác.'
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\Tasks\TaskList\TaskList.tsx:203
+        } catch (error) {
+            console.error('Failed to parse filters', error);
+        }
+    };
+
+
+
+    // Apply filters
+    const applyFilters = () => {
+        setPagination(prev => ({ ...prev, page: 1 }));
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\TimeLogs\TimeLogContent\TimeLogContent.tsx:119
+        } catch (error) {
+            console.error('Error fetching filters:', error);
+        }
+    };
+
+    const fetchTimeLogs = useCallback(async () => {
+        setLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (projectId) params.append('pr
+-------------------
+C:\Users\Admin\Documents\worksphere\src\components\TimeLogs\TimeLogContent\TimeLogContent.tsx:153
+        } catch (error) {
+            console.error('Error fetching time logs:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [projectId, taskId, userId, activityId, fromDate, toDate, page]);
+
+    useEffect(() => {
+        fetchFilters();
+    }, []);
+-------------------

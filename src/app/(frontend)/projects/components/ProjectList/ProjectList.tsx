@@ -104,7 +104,7 @@ export function ProjectList({ initialData, canCreate = false }: ProjectListProps
             // Sync lại từ server (background) để lấy data đầy đủ
             router.refresh();
         } catch (err: any) {
-            setError(err.message || 'Có lỗi xảy ra');
+            setError(err.message || 'Không thể thao tác với dự án. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         } finally {
             setLoading(false);
         }
@@ -133,7 +133,7 @@ export function ProjectList({ initialData, canCreate = false }: ProjectListProps
             toast.success('Đã cập nhật dự án thành công');
             router.refresh();
         } catch (err: any) {
-            setError(err.message || 'Lỗi kết nối');
+            setError(err.message || 'Không thể thao tác với dự án. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         } finally {
             setLoading(false);
         }
@@ -156,7 +156,7 @@ export function ProjectList({ initialData, canCreate = false }: ProjectListProps
                 prev.map((p) => (p.id === id ? { ...p, isArchived: !p.isArchived } : p))
             );
             console.error(err);
-            toast.error('Có lỗi xảy ra khi lưu trữ');
+            toast.error('Không thể lưu trữ dự án. Vui lòng kiểm tra lại đường truyền hoặc thử lại.');
         }
     };
 
@@ -179,7 +179,7 @@ export function ProjectList({ initialData, canCreate = false }: ProjectListProps
                 } catch (err: any) {
                     // Rollback nếu lỗi xóa
                     setProjects(previousProjects);
-                    toast.error(err.message || 'Có lỗi xảy ra');
+                    toast.error(err.message || 'Không thể thao tác với dự án. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                 }
             },
         });

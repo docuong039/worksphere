@@ -60,6 +60,7 @@ export default function ReportClient({ user, permissions }: ReportClientProps) {
                 }
             }
         } catch (error) {
+            toast.error('Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
             console.error('Lỗi khi tải báo cáo:', error);
         } finally {
             setLoading(false);

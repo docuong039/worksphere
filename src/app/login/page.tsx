@@ -30,7 +30,7 @@ export default function LoginPage() {
                 router.refresh();
             }
         } catch {
-            setError('Đã có lỗi xảy ra');
+            setError('Không thể đăng nhập. Vui lòng kiểm tra đường truyền và thử lại sau.');
         } finally {
             setLoading(false);
         }

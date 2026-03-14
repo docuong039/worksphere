@@ -110,7 +110,7 @@ export function TaskComments({ taskId, comments: initialComments, currentUserId 
         } catch (err: any) {
             // Rollback
             setCommentsList(previousComments);
-            toast.error(err.message || 'Có lỗi xảy ra');
+            toast.error(err.message || 'Không thể cập nhật dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         }
         setSavingComment(false);
     };
@@ -141,7 +141,7 @@ export function TaskComments({ taskId, comments: initialComments, currentUserId 
                 } catch (err: any) {
                     // Rollback
                     setCommentsList(previousComments);
-                    toast.error(err.message || 'Có lỗi xảy ra');
+                    toast.error(err.message || 'Không thể cập nhật dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                 }
                 setDeletingCommentId(null);
             }

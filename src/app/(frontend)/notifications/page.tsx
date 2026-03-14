@@ -100,6 +100,7 @@ export default function NotificationsPage() {
                 body: JSON.stringify({ notificationIds }),
             });
         } catch (error) {
+            toast.error('Không thể lấy thông báo. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
             console.error(error);
             await fetchNotifications();
         }

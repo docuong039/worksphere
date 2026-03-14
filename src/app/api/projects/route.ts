@@ -24,7 +24,7 @@ export const GET = withAuth(async (req, user) => {
         const data = await ProjectServerService.getProjects(user, searchParams);
         return successResponse(data);
     } catch (error: any) {
-        return errorResponse(error.message, 500);
+        return errorResponse(error.message, error.message.includes('quyền') ? 403 : 500);
     }
 });
 

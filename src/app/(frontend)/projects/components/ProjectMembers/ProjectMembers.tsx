@@ -116,8 +116,8 @@ export function ProjectMembers({
         } catch (err: any) {
             // Rollback
             setMembersList(previousMembers);
-            setError(err.message || 'Có lỗi xảy ra');
-            toast.error(err.message || 'Có lỗi xảy ra');
+            setError(err.message || 'Không thể quản lý thành viên. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
+            toast.error(err.message || 'Không thể quản lý thành viên. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
             setShowAddModal(true);
             setSelectedUserIds(originalUserIds);
         } finally {
@@ -140,7 +140,7 @@ export function ProjectMembers({
         } catch {
             // Rollback
             setMembersList(previousMembers);
-            toast.error('Lỗi kết nối máy chủ');
+            toast.error('Không thể quản lý thành viên. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         }
     };
 
@@ -168,7 +168,7 @@ export function ProjectMembers({
                 } catch (err: any) {
                     // Rollback
                     setMembersList(previousMembers);
-                    toast.error(err.message || 'Có lỗi xảy ra');
+                    toast.error(err.message || 'Không thể quản lý thành viên. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                 }
             },
         });

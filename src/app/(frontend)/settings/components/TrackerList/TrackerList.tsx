@@ -50,7 +50,7 @@ export function TrackerList({ trackers: initialTrackers }: TrackerListProps) {
             router.refresh(); // Background sync
         } catch (error) {
             console.error(error);
-            toast.error('Có lỗi xảy ra');
+            toast.error('Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
             // Form vẫn mở, dữ liệu nhập vẫn còn
         } finally {
             setLoading(false);
@@ -77,7 +77,7 @@ export function TrackerList({ trackers: initialTrackers }: TrackerListProps) {
         } catch (error) {
             setTrackers(previous); // Rollback
             console.error(error);
-            toast.error('Có lỗi xảy ra');
+            toast.error('Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         } finally {
             setLoading(false);
         }
@@ -106,7 +106,7 @@ export function TrackerList({ trackers: initialTrackers }: TrackerListProps) {
                     router.refresh(); // Background sync
                 } catch (err: any) {
                     setTrackers(previous); // Rollback
-                    toast.error(err.message || 'Lỗi kết nối máy chủ');
+                    toast.error(err.message || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                 }
             },
         });
@@ -124,7 +124,7 @@ export function TrackerList({ trackers: initialTrackers }: TrackerListProps) {
         } catch (error) {
             setTrackers(previous); // Rollback
             console.error(error);
-            toast.error('Có lỗi xảy ra');
+            toast.error('Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         }
     };
 

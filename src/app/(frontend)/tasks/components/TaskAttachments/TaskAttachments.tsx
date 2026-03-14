@@ -51,8 +51,9 @@ export function TaskAttachments({
             } else {
                 toast.error('Không thể tải lên tài liệu');
             }
-        } catch {
-            toast.error('Lỗi kết nối máy chủ');
+        } catch (error) {
+            console.error('File load upload fail:', error);
+            toast.error('Lỗi khi tải file. Vui lòng kiểm tra mạng và thử lại.');
         } finally {
             setUploading(false);
             e.target.value = '';
@@ -77,9 +78,10 @@ export function TaskAttachments({
                         setAttachments(previous); // Rollback
                         toast.error('Không thể xóa tài liệu');
                     }
-                } catch {
+                } catch (err) {
+                    console.error('Delete attachment fail:', err);
                     setAttachments(previous); // Rollback
-                    toast.error('Lỗi kết nối máy chủ');
+                    toast.error('Mất kết nối. Không thể xóa file đính kèm này.');
                 }
             }
         });

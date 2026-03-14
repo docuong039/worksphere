@@ -1,0 +1,130 @@
+app\(frontend)\projects\components\ProjectList\ProjectList.tsx: setError(');
+                                }}
+                                className=')
+app\(frontend)\projects\components\ProjectList\ProjectList.tsx: setError(');
+                                }}
+                                className=')
+app\(frontend)\projects\components\ProjectList\ProjectList.tsx: setError(');
+                                }}
+                                className=')
+app\(frontend)\projects\components\ProjectList\ProjectList.tsx: setError(');
+                                }}
+                                className=')
+app\(frontend)\projects\components\ProjectMembers\ProjectMembers.tsx: setError(');
+
+        const role = roles.find((r) => r.id === selectedRoleId);
+        if (!role) return;
+
+        // Construct optimistic members
+        const newMembers: Member[] = selectedUserIds.map((userId) => {
+            const user = availableUsers.find((u) => u.id === userId);
+            return {
+                id: `temp-${userId}`, // Temporary ID
+                user: {
+                    id: userId,
+                    name: user?.name || ')
+app\(frontend)\projects\components\ProjectMembers\ProjectMembers.tsx: setError(');
+                                }}
+                                className=')
+app\(frontend)\reports\components\ExportClient\ExportClient.tsx: throw new Error('Export failed')
+app\(frontend)\reports\components\ExportClient\ExportClient.tsx: throw new Error('Failed to fetch tasks')
+app\(frontend)\reports\components\ExportClient\ExportClient.tsx: throw new Error('Failed to fetch time logs')
+app\(frontend)\settings\components\PriorityList\PriorityList.tsx: setError(');
+    };
+
+    return (
+        <div className=')
+app\(frontend)\settings\components\PriorityList\PriorityList.tsx: setError(');
+                    }}
+                    className=')
+app\(frontend)\settings\components\StatusList\StatusList.tsx: setError(');
+    };
+
+    return (
+        <div className=')
+app\(frontend)\settings\components\StatusList\StatusList.tsx: setError(');
+                    }}
+                    className=')
+app\(frontend)\settings\components\UserList\UserList.tsx: setError(');
+
+        try {
+            const response = await userService.create({
+                ...data,
+                password: data.password || ')
+app\(frontend)\settings\components\UserList\UserList.tsx: setError(');
+        // Form data is now handled by UserForm effect
+    };
+
+    // Handle page change
+    const onPageChange = (newPage: number) => {
+        const params = new URLSearchParams(window.location.search);
+        params.set(')
+app\(frontend)\settings\components\UserList\UserList.tsx: setError(');
+                    }}
+                    className=')
+app\login\page.tsx: setError(');
+        setLoading(true);
+
+        try {
+            const result = await signIn(')
+components\Tasks\CopyTaskModal\CopyTaskModal.tsx: setError(');
+        }
+    }, [isOpen, taskData]);
+
+    // Fetch members and versions when project changes
+    useEffect(() => {
+        const fetchData = async () => {
+            if (!formData.projectId || !isOpen) return;
+            try {
+                const memRes = await fetch(`/api/projects/${formData.projectId}/members?assignable=true`);
+                if (memRes.ok) {
+                    const data = await memRes.json();
+                    setMembers(data.data || []);
+                }
+
+                const verRes = await fetch(`/api/projects/${formData.projectId}/versions`);
+                if (verRes.ok) {
+                    const data = await verRes.json();
+                    setAvailableVersions(data.data || []);
+                }
+            } catch (err: any) {
+                console.error(')
+components\Tasks\CopyTaskModal\CopyTaskModal.tsx: setError(');
+
+        try {
+            const res = await fetch(`/api/tasks/${taskData.id}/copy`, {
+                method: ')
+components\Tasks\CreateTaskModal\CreateTaskModal.tsx: setError(');
+        }
+    }, [isOpen, initialized, initialData, projects, trackers, allowedTrackerIdsByProject]);
+
+    // Fetch members and versions when project changes
+    const [availableVersions, setAvailableVersions] = useState<Version[]>(versions);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            if (!formData.projectId || !isOpen) return;
+            try {
+                // Fetch members
+                const memRes = await projectService.getMembers(formData.projectId, { assignable: ')
+components\Tasks\CreateTaskModal\CreateTaskModal.tsx: setError(');
+
+        try {
+            await taskService.create({
+                ...formData,
+                estimatedHours: formData.estimatedHours ? parseFloat(formData.estimatedHours) : undefined,
+                startDate: formData.startDate || undefined,
+                dueDate: formData.dueDate || undefined,
+                versionId: formData.versionId || undefined,
+                assigneeId: formData.assigneeId,
+                parentId: formData.parentId || undefined,
+            });
+
+            onClose();
+            setFormData({
+                title: ')
+components\Tasks\SavedQueries\SavedQueries.tsx: setError(');
+
+        try {
+            await apiFetch(')
+providers\confirm-provider.tsx: throw new Error('useConfirm must be used within a ConfirmProvider')

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -99,7 +99,7 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
                 router.refresh(); // Background sync để lấy full permissions data
             }
         } catch (err: any) {
-            setError(err.message || 'Có lỗi xảy ra');
+            setError(err.message || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         } finally {
             setLoading(false);
         }
@@ -130,7 +130,7 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
             router.refresh(); // Background sync
         } catch {
             setRoles(previousRoles); // Rollback
-            setError('Có lỗi xảy ra');
+            setError('Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         } finally {
             setLoading(false);
         }
@@ -159,7 +159,7 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
                     router.refresh(); // Background sync
                 } catch (err: any) {
                     setRoles(previousRoles); // Rollback
-                    toast.error(err.message || 'Có lỗi xảy ra');
+                    toast.error(err.message || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                 }
             },
         });
@@ -194,7 +194,7 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
             }
         } catch (err) {
             console.error(err);
-            toast.error('Có lỗi xảy ra khi sao chép');
+            toast.error('Không thể sao chép vai trò. Vui lòng thử lại.');
         } finally {
             setLoading(false);
         }
@@ -215,7 +215,7 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
             setRoles(prev => prev.map(role =>
                 role.id === id ? { ...role, isActive: currentActive } : role
             ));
-            toast.error(err.message || 'Có lỗi xảy ra');
+            toast.error(err.message || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         }
     };
 

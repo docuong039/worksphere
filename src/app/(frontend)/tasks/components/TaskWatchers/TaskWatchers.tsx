@@ -155,6 +155,7 @@ export function TaskWatchers({
                         if (userId === currentUserId) setIsWatching(false);
                     }
                 } catch (err) {
+            toast.error('Không thể xóa dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                     console.error(err);
                 }
             }

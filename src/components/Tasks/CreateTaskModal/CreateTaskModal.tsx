@@ -145,6 +145,7 @@ export function CreateTaskModal({
                     setAvailableVersions(verRes.data || []);
                 }
             } catch (err) {
+            toast.error('Không thể tải dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                 console.error('Failed to fetch project data', err);
             }
         };
@@ -196,7 +197,7 @@ export function CreateTaskModal({
             // background sync từ server
             router.refresh();
         } catch (err: any) {
-            setError(err.message || 'Có lỗi xảy ra');
+            setError(err.message || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         } finally {
             setLoading(false);
         }

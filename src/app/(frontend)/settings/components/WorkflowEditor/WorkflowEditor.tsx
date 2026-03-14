@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -112,7 +112,7 @@ export function WorkflowEditor({
             setTimeout(() => setSaved(false), 3000);
         } catch (error) {
             console.error(error);
-            toast.error('Có lỗi xảy ra khi lưu quy trình');
+            toast.error('Không thể lưu quy trình công việc. Vui lòng kiểm tra lại kết nối mạng.');
         } finally {
             setLoading(false);
         }

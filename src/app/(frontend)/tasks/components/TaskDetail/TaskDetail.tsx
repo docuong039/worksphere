@@ -148,7 +148,7 @@ export function TaskDetail({
             router.refresh(); // Background sync để lấy data đầy đủ từ server
         } catch (err: any) {
             setIsEditing(true);
-            toast.error(err.message || 'Có lỗi xảy ra');
+            toast.error(err.message || 'Không thể cập nhật dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         } finally {
             setLoading(false);
         }
@@ -210,7 +210,7 @@ export function TaskDetail({
                                         router.refresh();
                                     } catch (err: any) {
                                         setCurrentStatusId(prevStatusId); // rollback đúng cách
-                                        toast.error(err.message || 'Có lỗi xảy ra');
+                                        toast.error(err.message || 'Không thể cập nhật dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                                     }
                                 }}
                                 className="px-3 py-2 border border-gray-200 text-gray-700 text-xs font-semibold rounded-lg bg-white shadow-sm cursor-pointer"

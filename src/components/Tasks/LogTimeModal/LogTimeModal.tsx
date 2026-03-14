@@ -127,6 +127,7 @@ export function LogTimeModal({
                 setTasks(data.data?.tasks || data.data || []);
             }
         } catch (error) {
+            toast.error('Không thể tải dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
             console.error('Error fetching tasks:', error);
         } finally {
             setFetchingTasks(false);
@@ -170,10 +171,10 @@ export function LogTimeModal({
                 });
             } else {
                 const error = await res.json();
-                toast.error(error.error || 'Có lỗi xảy ra');
+                toast.error(error.error || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
             }
         } catch (error) {
-            toast.error('Lỗi kết nối máy chủ');
+            toast.error('Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         } finally {
             setLoading(false);
         }

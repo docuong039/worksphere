@@ -72,7 +72,7 @@ export function UserList({ initialData }: UserListProps) {
             if (err instanceof ApiClientError && err.message) {
                 setError(err.message);
             } else {
-                setError('Có lỗi xảy ra khi tạo người dùng');
+                setError('Không thể tạo người dùng. Vui lòng kiểm tra dữ liệu hoặc thử lại sau.');
             }
         } finally {
             setLoading(false);
@@ -110,7 +110,7 @@ export function UserList({ initialData }: UserListProps) {
         } catch (err) {
             // Rollback
             setUsers(previousUsers);
-            const msg = err instanceof Error ? err.message : 'Có lỗi cập nhật';
+            const msg = err instanceof Error ? err.message : 'Không thể cập nhật thông tin người dùng. Vui lòng thử lại sau.';
             setError(msg);
             toast.error(msg);
         } finally {
@@ -142,7 +142,7 @@ export function UserList({ initialData }: UserListProps) {
                 } catch (err) {
                     // Rollback
                     setUsers(previousUsers);
-                    const msg = err instanceof Error ? err.message : 'Lỗi kết nối máy chủ';
+                    const msg = err instanceof Error ? err.message : 'Mất kết nối máy chủ. Không thể xóa người dùng.';
                     toast.error(msg);
                 }
             },
@@ -166,7 +166,7 @@ export function UserList({ initialData }: UserListProps) {
             setUsers(prev => prev.map(user =>
                 user.id === id ? { ...user, isActive: currentActive } : user
             ));
-            const msg = err instanceof Error ? err.message : 'Lỗi kết nối máy chủ';
+            const msg = err instanceof Error ? err.message : 'Mất kết nối máy chủ. Không thể thay đổi trạng thái người dùng.';
             toast.error(msg);
         }
     };

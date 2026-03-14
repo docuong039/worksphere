@@ -127,8 +127,9 @@ export function CopyTaskModal({
                     const data = await verRes.json();
                     setAvailableVersions(data.data || []);
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error('Failed to fetch project data', err);
+                toast.error(err.message || 'Không thể lấy dữ liệu (thành viên, phiên bản) của dự án');
             }
         };
         fetchData();
@@ -176,10 +177,10 @@ export function CopyTaskModal({
                 router.push(`/tasks/${responseData.data.id}`);
             } else {
                 const responseData = await res.json();
-                setError(responseData.error || 'Có lỗi xảy ra');
+                setError(responseData.error || 'Không thể sao chép công việc. Vui lòng thử lại sau.');
             }
         } catch {
-            setError('Lỗi kết nối máy chủ');
+            setError('Mất kết nối với máy chủ. Vui lòng kiểm tra lại mạng.');
         } finally {
             setLoading(false);
         }

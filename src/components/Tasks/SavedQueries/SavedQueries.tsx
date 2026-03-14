@@ -40,7 +40,7 @@ export function SavedQueriesList({
                     await apiFetch(`/api/queries/${id}`, { method: 'DELETE' });
                 } catch (err) {
                     setQueries(previous); // Rollback
-                    const msg = err instanceof Error ? err.message : 'Lỗi kết nối máy chủ';
+                    const msg = err instanceof Error ? err.message : 'Không thể xóa dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.';
                     toast.error(msg);
                 }
             }
@@ -190,7 +190,7 @@ export function SaveQueryModal({
             onClose();
             router.refresh();
         } catch (err) {
-            const msg = err instanceof Error ? err.message : 'Có lỗi xảy ra';
+            const msg = err instanceof Error ? err.message : 'Không thể xóa dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.';
             setError(msg);
         } finally {
             setLoading(false);

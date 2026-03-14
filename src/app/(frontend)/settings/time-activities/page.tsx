@@ -37,6 +37,7 @@ export default function TimeEntryActivitiesPage() {
                 setActivities(res.data);
             }
         } catch (error) {
+            toast.error('Không thể tải dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
             console.error('Error fetching activities:', error);
         } finally {
             setLoading(false);
@@ -62,7 +63,7 @@ export default function TimeEntryActivitiesPage() {
             setShowNewForm(false);
             fetchActivities();
         } catch (err: any) {
-            toast.error(err.message || 'Có lỗi xảy ra');
+            toast.error(err.message || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         } finally {
             setSaving(false);
         }
@@ -76,7 +77,7 @@ export default function TimeEntryActivitiesPage() {
             setEditingId(null);
             fetchActivities();
         } catch (err: any) {
-            toast.error(err.message || 'Có lỗi xảy ra');
+            toast.error(err.message || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         } finally {
             setSaving(false);
         }
@@ -94,7 +95,7 @@ export default function TimeEntryActivitiesPage() {
                     toast.success('Đã xóa hoạt động');
                     fetchActivities();
                 } catch (err: any) {
-                    toast.error(err.message || 'Có lỗi xảy ra');
+                    toast.error(err.message || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                 }
             }
         });

@@ -58,7 +58,7 @@ export function StatusList({ statuses: initialStatuses }: StatusListProps) {
             }
             router.refresh(); // Background sync
         } catch (err: any) {
-            setError(err.message || 'Có lỗi xảy ra');
+            setError(err.message || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
             // Form vẫn mở, user có thể sửa và thử lại
         } finally {
             setLoading(false);
@@ -90,7 +90,7 @@ export function StatusList({ statuses: initialStatuses }: StatusListProps) {
         } catch (err: any) {
             // Rollback
             setStatuses(previousStatuses);
-            setError(err.message || 'Có lỗi xảy ra');
+            setError(err.message || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         } finally {
             setLoading(false);
         }
@@ -120,7 +120,7 @@ export function StatusList({ statuses: initialStatuses }: StatusListProps) {
                 } catch (err: any) {
                     // Rollback
                     setStatuses(previousStatuses);
-                    toast.error(err.message || 'Có lỗi xảy ra');
+                    toast.error(err.message || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                 }
             },
         });
@@ -141,7 +141,7 @@ export function StatusList({ statuses: initialStatuses }: StatusListProps) {
             // Rollback
             setStatuses(previousStatuses);
             console.error(err);
-            toast.error('Có lỗi xảy ra');
+            toast.error('Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
         }
     };
 

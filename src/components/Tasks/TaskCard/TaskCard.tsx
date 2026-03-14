@@ -90,6 +90,7 @@ export function TaskCard({ task, statuses, trackers, priorities, canAssignOthers
             await taskService.update(subtask.id, { statusId: targetStatus.id });
             onRefresh();
         } catch (error) {
+            toast.error('Không thể cập nhật dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
             console.error('Failed to update subtask', error);
         } finally {
             setUpdatingSubtask(null);

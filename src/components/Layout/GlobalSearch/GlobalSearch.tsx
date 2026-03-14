@@ -160,6 +160,7 @@ export function GlobalSearch() {
                     setSelectedIndex(0);
                 }
             } catch (error) {
+            toast.error('Không thể tải dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                 console.error('Search error:', error);
             } finally {
                 setLoading(false);
