@@ -96,7 +96,7 @@ export function withAuth(handler: AuthenticatedHandler) {
             const session = await auth();
 
             if (!session?.user) {
-                return errorResponse('Chưa đăng nhập', 401);
+                return errorResponse('Vui lòng đăng nhập để thực hiện thao tác này', 401);
             }
 
             const user: AuthUser = {
@@ -134,11 +134,11 @@ export function withAdmin(handler: AuthenticatedHandler) {
             const session = await auth();
 
             if (!session?.user) {
-                return errorResponse('Chưa đăng nhập', 401);
+                return errorResponse('Vui lòng đăng nhập để thực hiện thao tác này', 401);
             }
 
             if (!session.user.isAdministrator) {
-                return errorResponse('Không có quyền truy cập', 403);
+                return errorResponse('Chức năng này chỉ dành cho Quản trị viên hệ thống', 403);
             }
 
             const user: AuthUser = {

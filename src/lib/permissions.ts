@@ -3,26 +3,12 @@
  * @description "Bộ não" kiểm tra quyền hạn (Role-based Access Control).
  * Chứa logic kiểm tra xem người dùng có đủ quyền để thực hiện các thao tác (Xem, Sửa, Xóa) trên Project hoặc Task.
  */
-import { Role, Permission } from '@prisma/client';
 import prisma from '@/lib/prisma';
-import { PERMISSIONS } from '@/lib/constants';
 
 export interface PermissionUser {
     id: string;
     isAdministrator: boolean;
 }
-
-export type UserWithRoles = PermissionUser & {
-    projectMemberships?: Array<{
-        roleId: string;
-        projectId: string;
-        role: Role & {
-            permissions: Array<{
-                permission: Permission;
-            }>;
-        };
-    }>;
-};
 
 /**
  * Get all permissions for a user in a project
@@ -42,7 +28,7 @@ export async function getUserPermissions(
     if (user.isAdministrator) {
         // Return all permissions
         const allPermissions = await prisma.permission.findMany();
-        return allPermissions.map((p) => p.key);
+        return allPermissions.map((p: any) => p.key);
     }
 
     const memberships = await prisma.projectMember.findMany({
@@ -64,8 +50,8 @@ export async function getUserPermissions(
     });
 
     const permissionSet = new Set<string>();
-    for (const membership of memberships) {
-        for (const rp of membership.role.permissions) {
+    for (const membership of memberships as any[]) {
+        for (const rp of membership.role.permissions as any[]) {
             permissionSet.add(rp.permission.key);
         }
     }
@@ -103,7 +89,7 @@ export async function canTransitionStatus(
         select: { roleId: true },
     });
 
-    const roleIds = memberships.map((m) => m.roleId);
+    const roleIds = memberships.map((m: any) => m.roleId);
 
     // Check if transition is allowed for any of user's roles
     const allowedTransition = await prisma.workflowTransition.findFirst({
@@ -141,7 +127,7 @@ export async function getAccessibleProjectIds(
             where: { isArchived: false },
             select: { id: true }
         });
-        return projects.map(p => p.id);
+        return projects.map((p: { id: string }) => p.id);
     }
 
     // Get roles that have the required permission
@@ -150,7 +136,7 @@ export async function getAccessibleProjectIds(
             permissions: {
                 some: {
                     permission: {
-                        key: Array.isArray(permissionKey) ? { in: permissionKey } : permissionKey
+                        key: { in: Array.isArray(permissionKey) ? permissionKey : [permissionKey] }
                     }
                 }
             },
@@ -159,7 +145,7 @@ export async function getAccessibleProjectIds(
         select: { id: true }
     });
 
-    const roleIds = rolesWithPermission.map(r => r.id);
+    const roleIds = rolesWithPermission.map((r: any) => r.id);
 
     if (roleIds.length === 0) return [];
 
@@ -173,6 +159,6 @@ export async function getAccessibleProjectIds(
         select: { projectId: true }
     });
 
-    return memberships.map(m => m.projectId);
+    return memberships.map((m: { projectId: string }) => m.projectId);
 }
 

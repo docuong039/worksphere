@@ -184,7 +184,7 @@ export class UserServerService {
         });
 
         if (taskCount > 0) {
-            throw new Error(`Không thể xóa user đang được gán ${taskCount} công việc. Vui lòng reassign trước.`);
+            throw new Error(`Không thể xóa người dùng này vì họ đang được gán ${taskCount} công việc. Vui lòng chuyển giao công việc cho người khác trước.`);
         }
 
         await prisma.projectMember.deleteMany({ where: { userId: targetId } });
@@ -200,7 +200,7 @@ export class UserServerService {
      */
     static async getSystemUsersData(user: SessionUser, searchParams: URLSearchParams = new URLSearchParams()) {
         if (!user.isAdministrator) {
-            throw new Error('Chỉ Quản trị viên mới được xem dánh sách này');
+            throw new Error('Chỉ Quản trị viên mới được xem danh sách này');
         }
 
         const { page, pageSize } = parsePaginationParams(searchParams, 'createdAt');

@@ -22,7 +22,7 @@ export class TimeLogServerService {
         const canViewOwn = userPermissions.includes(PERMISSIONS.TIMELOGS.VIEW_OWN) || user.isAdministrator;
 
         if (!canViewAll && !canViewOwn) {
-            throw new Error('Không có quyền xem nhật ký thời gian');
+            throw new Error('Bạn không có quyền xem dữ liệu thời gian của dự án này');
         }
 
         const where: any = {};
@@ -67,7 +67,7 @@ export class TimeLogServerService {
                 : Promise.resolve([]),
         ]);
 
-        const timeLogsWithPermissions = timeLogs.map((log) => ({
+        const timeLogsWithPermissions = timeLogs.map((log: any) => ({
             ...log,
             canEdit: TimeLogPolicy.canUpdateTimeLog(user, log, userPermissions),
             canDelete: TimeLogPolicy.canDeleteTimeLog(user, log, userPermissions),
@@ -137,7 +137,7 @@ export class TimeLogServerService {
         const userPermissions = await getUserPermissions(user.id, timeLog.projectId);
         const canView = TimeLogPolicy.canViewTimeLog(user, timeLog, userPermissions);
 
-        if (!canView) throw new Error('Không có quyền xem bản ghi này');
+        if (!canView) throw new Error('Bạn không có quyền xem chi tiết bản ghi thời gian này');
 
         return timeLog;
     }
@@ -155,7 +155,7 @@ export class TimeLogServerService {
         const userPermissions = await getUserPermissions(user.id, existingLog.projectId);
         const canUpdate = TimeLogPolicy.canUpdateTimeLog(user, existingLog, userPermissions);
 
-        if (!canUpdate) throw new Error('Không có quyền chỉnh sửa bản ghi thời gian này');
+        if (!canUpdate) throw new Error('Bạn không có quyền chỉnh sửa bản ghi thời gian này');
 
         const updateData: any = {};
         if (hours !== undefined) updateData.hours = parseFloat(hours);
@@ -188,7 +188,7 @@ export class TimeLogServerService {
         const userPermissions = await getUserPermissions(user.id, existingLog.projectId);
         const canDelete = TimeLogPolicy.canDeleteTimeLog(user, existingLog, userPermissions);
 
-        if (!canDelete) throw new Error('Không có quyền xóa bản ghi thời gian này');
+        if (!canDelete) throw new Error('Bạn không có quyền xóa bản ghi thời gian này');
 
         await prisma.timeLog.delete({ where: { id } });
         return true;

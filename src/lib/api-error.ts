@@ -55,36 +55,33 @@ export function handleApiError(error: unknown) {
     }
 
     // Prisma errors
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error && typeof error === 'object' && 'name' in error && error.name === 'PrismaClientKnownRequestError') {
+        const prismaError = error as any;
+        
         // Unique constraint violation
-        if (error.code === 'P2002') {
-            const target = (error.meta?.target as string[]) || [];
-            const fieldName = target.join(', ');
+        if (prismaError.code === 'P2002') {
             return NextResponse.json(
                 {
                     success: false,
-                    error: `Dữ liệu đã tồn tại trong hệ thống (${fieldName})`,
-                    field: error.meta?.target,
+                    error: 'Dữ liệu này đã tồn tại trong hệ thống. Vui lòng kiểm tra lại thông tin đã nhập.',
                 },
                 { status: 409 }
             );
         }
 
         // Foreign key constraint violation
-        if (error.code === 'P2003') {
-            const fieldName = error.meta?.field_name || (error.meta?.target as string[])?.join(', ') || 'unknown field';
+        if (prismaError.code === 'P2003') {
             return NextResponse.json(
                 {
                     success: false,
-                    error: `Lỗi dữ liệu liên quan: ${fieldName} không tồn tại`,
-                    details: error.meta,
+                    error: 'Dữ liệu liên quan không tồn tại hoặc đã bị xóa. Vui lòng tải lại trang và thử lại.',
                 },
                 { status: 400 }
             );
         }
 
         // Record not found
-        if (error.code === 'P2025') {
+        if (prismaError.code === 'P2025') {
             return NextResponse.json(
                 {
                     success: false,

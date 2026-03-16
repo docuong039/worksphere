@@ -845,7 +845,7 @@ export class TaskServerService {
         const canView = TaskPolicy.canViewTask(user, task, userPermissions);
 
         if (!canView) {
-            throw new Error('Không có quyền truy cập công việc này');
+            throw new Error('Bạn không có quyền truy cập công việc này');
         }
 
         return task;
@@ -891,7 +891,7 @@ export class TaskServerService {
         const canFullEdit = TaskPolicy.canFullyEditTask(user, currentTask, userPermissions);
 
         if (!canEdit) {
-            throw new Error('Không có quyền chỉnh sửa công việc này');
+            throw new Error('Bạn không có quyền chỉnh sửa công việc này');
         }
 
         if (!canFullEdit) {
@@ -908,7 +908,7 @@ export class TaskServerService {
         if (validatedData.statusId && currentTask.statusId !== validatedData.statusId) {
             const canTransition = await canTransitionStatus(user, id, validatedData.statusId);
             if (!canTransition) {
-                throw new Error('Không được phép chuyển sang trạng thái này theo quy trình làm việc (Workflow)');
+                throw new Error('Quy trình làm việc (Workflow) không cho phép chuyển công việc này sang trạng thái được chọn');
             }
         }
 
@@ -926,7 +926,7 @@ export class TaskServerService {
                     where: { projectId_trackerId: { projectId: currentTask.projectId, trackerId: validatedData.trackerId } }
                 });
                 if (!projectTracker) {
-                    throw new Error('Tracker này không được kích hoạt cho dự án này-400');
+                    throw new Error('Tracker này không được kích hoạt trong dự án hiện tại-400');
                 }
             }
 
@@ -943,7 +943,7 @@ export class TaskServerService {
                         }
                     });
                     if (!roleTracker) {
-                        throw new Error('Vai trò của bạn không cho cho phép sử dụng Tracker này');
+                        throw new Error('Vai trò của bạn không được phép sử dụng loại Tracker này');
                     }
                 }
             }
