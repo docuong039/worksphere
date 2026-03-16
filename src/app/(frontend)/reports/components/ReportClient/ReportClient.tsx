@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
@@ -16,6 +16,7 @@ import type { ReportSummary, ReportProject, ReportUser, ReportTime } from '@/typ
 import { ReportPolicy } from '@/server/policies/report.policy';
 import DistributionChart from '@/app/(frontend)/reports/components/DistributionChart';
 import TopPerformersChart from '@/app/(frontend)/reports/components/TopPerformersChart';
+import { toast } from 'sonner';
 
 interface ReportClientProps {
     user: {

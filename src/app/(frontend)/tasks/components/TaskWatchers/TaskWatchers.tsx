@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Eye, EyeOff, UserPlus, X, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useConfirm } from '@/providers/confirm-provider';
+import { toast } from 'sonner';
 
 interface User {
     id: string;
@@ -155,7 +156,7 @@ export function TaskWatchers({
                         if (userId === currentUserId) setIsWatching(false);
                     }
                 } catch (err) {
-            toast.error('Không thể xóa dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
+                    toast.error('Không thể xóa dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                     console.error(err);
                 }
             }

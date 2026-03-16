@@ -526,10 +526,10 @@ export function TaskList({
                             </select>
                         </div>
 
-                        <div className="col-span-2 grid grid-cols-2 gap-4 bg-gray-50/50 p-2 rounded-lg border border-gray-100">
+                        <div className="col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
                             <div>
                                 <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Ngày bắt đầu</label>
-                                <div className="flex gap-2">
+                                <div className="flex flex-col sm:flex-row gap-2">
                                     <input
                                         type="date"
                                         value={filters.startDateFrom}
@@ -548,7 +548,7 @@ export function TaskList({
                             </div>
                             <div>
                                 <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Ngày hết hạn</label>
-                                <div className="flex gap-2">
+                                <div className="flex flex-col sm:flex-row gap-2">
                                     <input
                                         type="date"
                                         value={filters.dueDateFrom}

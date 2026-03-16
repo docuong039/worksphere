@@ -37,4 +37,11 @@ export const priorityService = {
             body: JSON.stringify({ isDefault: true }),
         });
     },
+
+    reorder: async (items: { id: string; position: number }[]) => {
+        return apiFetch<void>('/api/priorities/reorder', {
+            method: 'PUT',
+            body: JSON.stringify({ items }),
+        });
+    },
 };

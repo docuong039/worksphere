@@ -81,4 +81,16 @@ export class TrackerServerService {
 
         return { message: 'Đã xóa tracker' };
     }
+
+    static async reorderTrackers(items: { id: string; position: number }[]) {
+        await prisma.$transaction(
+            items.map((item) =>
+                prisma.tracker.update({
+                    where: { id: item.id },
+                    data: { position: item.position },
+                })
+            )
+        );
+        return { message: 'Đã cập nhật thứ tự' };
+    }
 }

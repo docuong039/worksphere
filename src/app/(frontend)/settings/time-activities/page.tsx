@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -12,11 +12,51 @@ import {
     X,
     Loader2,
 } from 'lucide-react';
+import {
+    DndContext,
+    closestCenter,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    SortableContext,
+    verticalListSortingStrategy,
+    useSortable,
+    arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { timeActivityService } from '@/api-client/time-activity.service';
 import { useConfirm } from '@/providers/confirm-provider';
 import type { TimeEntryActivity } from '@/types';
 
-
+// Sortable row
+function SortableActivityRow({
+    activity,
+    children,
+}: {
+    activity: TimeEntryActivity;
+    children: React.ReactNode;
+}) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+        id: activity.id,
+    });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        background: isDragging ? '#fff7ed' : undefined,
+    };
+    return (
+        <tr ref={setNodeRef} style={style} className="hover:bg-gray-50 transition-colors">
+            <td className="px-4 py-3 cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
+                <GripVertical className="w-4 h-4 text-gray-400" />
+            </td>
+            {children}
+        </tr>
+    );
+}
 
 export default function TimeEntryActivitiesPage() {
     const { confirm } = useConfirm();
@@ -26,9 +66,12 @@ export default function TimeEntryActivitiesPage() {
     const [editName, setEditName] = useState('');
     const [saving, setSaving] = useState(false);
 
-    // New activity form
     const [showNewForm, setShowNewForm] = useState(false);
     const [newName, setNewName] = useState('');
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    );
 
     const fetchActivities = async () => {
         try {
@@ -47,6 +90,28 @@ export default function TimeEntryActivitiesPage() {
     useEffect(() => {
         fetchActivities();
     }, []);
+
+    // Drag end handler
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+
+        const oldIndex = activities.findIndex((a) => a.id === active.id);
+        const newIndex = activities.findIndex((a) => a.id === over.id);
+        const reordered = arrayMove(activities, oldIndex, newIndex);
+
+        // Optimistic update
+        setActivities(reordered);
+
+        try {
+            const items = reordered.map((a, idx) => ({ id: a.id, position: idx + 1 }));
+            await timeActivityService.reorder(items);
+        } catch {
+            // Rollback
+            setActivities(activities);
+            toast.error('Không thể cập nhật thứ tự');
+        }
+    };
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -97,13 +162,11 @@ export default function TimeEntryActivitiesPage() {
                 } catch (err: any) {
                     toast.error(err.message || 'Không thể xử lý dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                 }
-            }
+            },
         });
     };
 
-
     const handleSetDefault = async (id: string) => {
-        // First, remove default from all others
         for (const act of activities) {
             if (act.isDefault && act.id !== id) {
                 await handleUpdate(act.id, { isDefault: false });
@@ -142,145 +205,147 @@ export default function TimeEntryActivitiesPage() {
                         <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
                     </div>
                 ) : (
-                    <table className="w-full">
-                        <thead>
-                            <tr className="bg-gray-50 border-b border-gray-200">
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-10"></th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên hoạt động</th>
-                                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Mặc định</th>
-                                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Trạng thái</th>
-                                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {/* New Activity Form */}
-                            {showNewForm && (
-                                <tr className="bg-orange-50">
-                                    <td className="px-4 py-3"></td>
-                                    <td className="px-4 py-3">
-                                        <form onSubmit={handleCreate} className="flex items-center gap-2">
-                                            <input
-                                                type="text"
-                                                value={newName}
-                                                onChange={(e) => setNewName(e.target.value)}
-                                                placeholder="Tên hoạt động mới..."
-                                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none"
-                                                autoFocus
-                                            />
-                                            <button
-                                                type="submit"
-                                                disabled={saving || !newName.trim()}
-                                                className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 transition-colors"
-                                            >
-                                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => { setShowNewForm(false); setNewName(''); }}
-                                                className="p-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition-colors"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        </form>
-                                    </td>
-                                    <td></td>
-                                    <td></td>
-                                    <td></td>
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <table className="w-full">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-200">
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-10"></th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tên hoạt động</th>
+                                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Mặc định</th>
+                                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">Trạng thái</th>
+                                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">Thao tác</th>
                                 </tr>
-                            )}
-
-                            {activities.map((activity) => (
-                                <tr key={activity.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-4 py-3">
-                                        <GripVertical className="w-4 h-4 text-gray-300 cursor-move" />
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        {editingId === activity.id ? (
-                                            <div className="flex items-center gap-2">
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {/* New Activity Form */}
+                                {showNewForm && (
+                                    <tr className="bg-orange-50">
+                                        <td className="px-4 py-3"></td>
+                                        <td className="px-4 py-3">
+                                            <form onSubmit={handleCreate} className="flex items-center gap-2">
                                                 <input
                                                     type="text"
-                                                    value={editName}
-                                                    onChange={(e) => setEditName(e.target.value)}
+                                                    value={newName}
+                                                    onChange={(e) => setNewName(e.target.value)}
+                                                    placeholder="Tên hoạt động mới..."
                                                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none"
                                                     autoFocus
                                                 />
                                                 <button
-                                                    onClick={() => handleUpdate(activity.id, { name: editName })}
-                                                    disabled={saving || !editName.trim()}
+                                                    type="submit"
+                                                    disabled={saving || !newName.trim()}
                                                     className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 transition-colors"
                                                 >
                                                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                                                 </button>
                                                 <button
-                                                    onClick={() => setEditingId(null)}
+                                                    type="button"
+                                                    onClick={() => { setShowNewForm(false); setNewName(''); }}
                                                     className="p-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition-colors"
                                                 >
                                                     <X className="w-4 h-4" />
                                                 </button>
-                                            </div>
-                                        ) : (
-                                            <span className={`font-medium ${activity.isActive ? 'text-gray-900' : 'text-gray-400'}`}>
-                                                {activity.name}
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                        <button
-                                            onClick={() => handleSetDefault(activity.id)}
-                                            className={`mx-auto w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${activity.isDefault
-                                                ? 'bg-orange-500 border-orange-500'
-                                                : 'border-gray-300 hover:border-orange-400'
-                                                }`}
-                                        >
-                                            {activity.isDefault && <Check className="w-3 h-3 text-white" />}
-                                        </button>
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleUpdate(activity.id, { isActive: !activity.isActive })}
-                                            className={`mx-auto relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${activity.isActive ? 'bg-orange-500' : 'bg-gray-200'
-                                                }`}
-                                            role="switch"
-                                            aria-checked={activity.isActive}
-                                        >
-                                            <span
-                                                aria-hidden="true"
-                                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${activity.isActive ? 'translate-x-4' : 'translate-x-0'
-                                                    }`}
-                                            />
-                                        </button>
-                                    </td>
-                                    <td className="px-4 py-3 text-right">
-                                        <div className="flex items-center justify-end gap-1">
-                                            <button
-                                                onClick={() => { setEditingId(activity.id); setEditName(activity.name); }}
-                                                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                title="Chỉnh sửa"
-                                            >
-                                                <Pencil className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(activity.id)}
-                                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                title="Xóa"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                            </form>
+                                        </td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+                                )}
 
-                            {activities.length === 0 && !showNewForm && (
-                                <tr>
-                                    <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
-                                        Chưa có loại hoạt động nào
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                                <SortableContext
+                                    items={activities.map((a) => a.id)}
+                                    strategy={verticalListSortingStrategy}
+                                >
+                                    {activities.map((activity) => (
+                                        <SortableActivityRow key={activity.id} activity={activity}>
+                                            <td className="px-4 py-3">
+                                                {editingId === activity.id ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={editName}
+                                                            onChange={(e) => setEditName(e.target.value)}
+                                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none"
+                                                            autoFocus
+                                                        />
+                                                        <button
+                                                            onClick={() => handleUpdate(activity.id, { name: editName })}
+                                                            disabled={saving || !editName.trim()}
+                                                            className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 transition-colors"
+                                                        >
+                                                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setEditingId(null)}
+                                                            className="p-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-gray-300 transition-colors"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <span className={`font-medium ${activity.isActive ? 'text-gray-900' : 'text-gray-400'}`}>
+                                                        {activity.name}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <button
+                                                    onClick={() => handleSetDefault(activity.id)}
+                                                    className={`mx-auto w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${activity.isDefault
+                                                        ? 'bg-orange-500 border-orange-500'
+                                                        : 'border-gray-300 hover:border-orange-400'
+                                                        }`}
+                                                >
+                                                    {activity.isDefault && <Check className="w-3 h-3 text-white" />}
+                                                </button>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleUpdate(activity.id, { isActive: !activity.isActive })}
+                                                    className={`mx-auto relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${activity.isActive ? 'bg-orange-500' : 'bg-gray-200'}`}
+                                                    role="switch"
+                                                    aria-checked={activity.isActive}
+                                                >
+                                                    <span
+                                                        aria-hidden="true"
+                                                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${activity.isActive ? 'translate-x-4' : 'translate-x-0'}`}
+                                                    />
+                                                </button>
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button
+                                                        onClick={() => { setEditingId(activity.id); setEditName(activity.name); }}
+                                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        title="Chỉnh sửa"
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(activity.id)}
+                                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                        title="Xóa"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </SortableActivityRow>
+                                    ))}
+                                </SortableContext>
+
+                                {activities.length === 0 && !showNewForm && (
+                                    <tr>
+                                        <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
+                                            Chưa có loại hoạt động nào
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </DndContext>
                 )}
             </div>
 
@@ -291,6 +356,7 @@ export default function TimeEntryActivitiesPage() {
                     <li>• <strong>Loại hoạt động</strong> được sử dụng khi ghi nhận thời gian làm việc (VD: Phát triển, Kiểm thử, Họp...)</li>
                     <li>• <strong>Mặc định</strong>: Loại hoạt động sẽ được chọn sẵn khi mở form ghi thời gian</li>
                     <li>• <strong>Trạng thái</strong>: Bật/tắt nút gạt để hiện/ẩn loại hoạt động trong danh sách chọn</li>
+                    <li>• <GripVertical className="w-3 h-3 inline" /> <strong>Kéo thả</strong> icon ở đầu hàng để thay đổi thứ tự hiển thị</li>
                 </ul>
             </div>
         </div>

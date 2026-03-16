@@ -81,4 +81,16 @@ export class PriorityServerService {
 
         return { message: 'Đã xóa priority' };
     }
+
+    static async reorderPriorities(items: { id: string; position: number }[]) {
+        await prisma.$transaction(
+            items.map((item) =>
+                prisma.priority.update({
+                    where: { id: item.id },
+                    data: { position: item.position },
+                })
+            )
+        );
+        return { message: 'Đã cập nhật thứ tự' };
+    }
 }

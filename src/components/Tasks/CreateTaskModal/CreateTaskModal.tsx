@@ -1,5 +1,5 @@
 // global - used in: projects, tasks
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -7,6 +7,7 @@ import { X } from 'lucide-react';
 import { taskService } from '@/api-client/task.service';
 import { projectService } from '@/api-client/project.service';
 import { PERMISSIONS } from '@/lib/constants';
+import { toast } from 'sonner';
 
 interface Option {
     id: string;
@@ -89,7 +90,7 @@ export function CreateTaskModal({
 
     // Update form when initialData changes or modal opens
     // Members state
-    const [members, setMembers] = useState<Array<{ user: { id: string; name: string } }>>([]);
+    const [members, setMembers] = useState<any[]>([]);
 
     // Track if we've initialized for the current open state
     const [initialized, setInitialized] = useState(false);
@@ -145,7 +146,7 @@ export function CreateTaskModal({
                     setAvailableVersions(verRes.data || []);
                 }
             } catch (err) {
-            toast.error('Không thể tải dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
+                toast.error('Không thể tải dữ liệu. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                 console.error('Failed to fetch project data', err);
             }
         };

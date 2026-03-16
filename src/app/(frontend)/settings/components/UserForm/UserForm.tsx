@@ -77,7 +77,7 @@ export function UserForm({ initialData, onSubmit, onCancel, isLoading }: UserFor
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            {isEditing ? 'Mật khẩu mới (để trống nếu không đổi)' : 'Mật khẩu'}
+                            {isEditing ? 'Mật khẩu mới' : 'Mật khẩu'}
                         </label>
                         <div className="relative">
                             <input

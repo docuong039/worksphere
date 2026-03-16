@@ -31,4 +31,11 @@ export const timeActivityService = {
             method: 'DELETE',
         });
     },
+
+    reorder: async (items: { id: string; position: number }[]) => {
+        return apiFetch<void>('/api/time-entry-activities/reorder', {
+            method: 'PUT',
+            body: JSON.stringify({ items }),
+        });
+    },
 };

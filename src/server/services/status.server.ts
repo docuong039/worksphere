@@ -91,4 +91,16 @@ export class StatusServerService {
 
         return { message: 'Đã xóa status' };
     }
+
+    static async reorderStatuses(items: { id: string; position: number }[]) {
+        await prisma.$transaction(
+            items.map((item) =>
+                prisma.status.update({
+                    where: { id: item.id },
+                    data: { position: item.position },
+                })
+            )
+        );
+        return { message: 'Đã cập nhật thứ tự' };
+    }
 }

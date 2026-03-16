@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { Activity, CheckSquare, Folder, User, Filter, Calendar, Clock } from 'lucide-react';
 import { activityService } from '@/api-client/activity.service';
 import { ActivityItem } from '@/types';
+import { toast } from 'sonner';
 
 export default function ActivityPage() {
     const searchParams = useSearchParams();

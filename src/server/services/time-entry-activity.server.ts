@@ -81,4 +81,16 @@ export class TimeEntryActivityServerService {
 
         return { message: 'Đã xóa hoạt động' };
     }
+
+    static async reorderActivities(items: { id: string; position: number }[]) {
+        await prisma.$transaction(
+            items.map((item) =>
+                prisma.timeEntryActivity.update({
+                    where: { id: item.id },
+                    data: { position: item.position },
+                })
+            )
+        );
+        return { message: 'Đã cập nhật thứ tự' };
+    }
 }

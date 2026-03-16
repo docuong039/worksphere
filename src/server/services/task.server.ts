@@ -60,7 +60,7 @@ export class TaskServerService {
                 include: { role: { include: { permissions: { include: { permission: true } } } } }
             });
             for (const m of memberships) {
-                projectPermissionsMap[m.projectId] = m.role.permissions.map(rp => rp.permission.key);
+                projectPermissionsMap[m.projectId] = m.role.permissions.map((rp: any) => rp.permission.key);
             }
         }
 
@@ -140,9 +140,8 @@ export class TaskServerService {
             }
         }
 
-        // 1.6. Validate Assignee (Role restriction)
-        if (!validatedData.assigneeId) {
-            throw new Error('Người thực hiện không được để trống');
+        if (!validatedData.parentId && !validatedData.assigneeId) {
+            throw new Error('Người thực hiện không được để trống đối với công việc chính');
         }
 
         if (validatedData.assigneeId) {
@@ -171,7 +170,7 @@ export class TaskServerService {
         if (validatedData.parentId) {
             const parent = await prisma.task.findUnique({
                 where: { id: validatedData.parentId },
-                select: { id: true, projectId: true, level: true, path: true }
+                select: { id: true, projectId: true, level: true, path: true, assigneeId: true }
             });
 
             if (!parent) throw new Error('Không tìm thấy công việc cha');
@@ -182,6 +181,11 @@ export class TaskServerService {
 
             level = parent.level + 1;
             path = parent.path ? `${parent.path}.${parent.id}` : parent.id;
+            
+            // Subtask kế thừa người thực hiện từ parent task nếu không được chỉ định
+            if (!validatedData.assigneeId && parent.assigneeId) {
+                validatedData.assigneeId = parent.assigneeId;
+            }
         }
 
         // 3. Create Task
@@ -234,9 +238,9 @@ export class TaskServerService {
             _count: { id: true },
         });
 
-        return statuses.map((status) => ({
+        return statuses.map((status: any) => ({
             status: status,
-            count: taskStats.find((ts) => ts.statusId === status.id)?._count.id || 0,
+            count: taskStats.find((ts: any) => ts.statusId === status.id)?._count.id || 0,
         }));
     }
 
@@ -307,24 +311,24 @@ export class TaskServerService {
             })
         ]);
 
-        const users = projectData?.members.map(m => m.user) || [];
+        const users = projectData?.members.map((m: any) => m.user) || [];
 
         let trackers = allTrackers;
         if (projectData && projectData.trackers.length > 0) {
-            trackers = projectData.trackers.map(pt => pt.tracker).sort((a, b) => a.position - b.position);
+            trackers = projectData.trackers.map((pt: any) => pt.tracker).sort((a: any, b: any) => a.position - b.position);
         }
 
         const allowedTrackerIdsByProject: Record<string, string[]> = {};
         if (user.isAdministrator) {
             allowedTrackerIdsByProject[projectId] = projectData && projectData.trackers.length > 0
-                ? projectData.trackers.map(pt => pt.trackerId)
-                : allTrackers.map(t => t.id);
+                ? projectData.trackers.map((pt: any) => pt.trackerId)
+                : allTrackers.map((t: any) => t.id);
         } else if (member) {
             const roleTrackers = await prisma.roleTracker.findMany({ where: { roleId: member.roleId } });
-            const roleAllowedIds = roleTrackers.map(rt => rt.trackerId);
-            const projectEnabledIds = projectData?.trackers.map(pt => pt.trackerId) || [];
-            const finalProjectIds = projectEnabledIds.length === 0 ? allTrackers.map(t => t.id) : projectEnabledIds;
-            allowedTrackerIdsByProject[projectId] = finalProjectIds.filter((tid) => roleAllowedIds.includes(tid));
+            const roleAllowedIds = roleTrackers.map((rt: any) => rt.trackerId);
+            const projectEnabledIds = projectData?.trackers.map((pt: any) => pt.trackerId) || [];
+            const finalProjectIds = projectEnabledIds.length === 0 ? allTrackers.map((t: any) => t.id) : projectEnabledIds;
+            allowedTrackerIdsByProject[projectId] = finalProjectIds.filter((tid: any) => roleAllowedIds.includes(tid));
         } else {
             allowedTrackerIdsByProject[projectId] = [];
         }
@@ -338,7 +342,7 @@ export class TaskServerService {
                 include: { role: { include: { permissions: { include: { permission: true } } } } }
             });
             for (const m of memberships) {
-                projectPermissionsMap[m.projectId] = m.role.permissions.map(rp => rp.permission.key);
+                projectPermissionsMap[m.projectId] = m.role.permissions.map((rp: any) => rp.permission.key);
             }
         }
 
@@ -500,30 +504,30 @@ export class TaskServerService {
         }
 
         // Check access level
-        const isMember = task.project.members.some(m => m.user.id === user.id);
+        const isMember = task.project.members.some((m: any) => m.user.id === user.id);
         if (!user.isAdministrator && !isMember) {
             return { accessDenied: true };
         }
 
-        const member = task.project.members.find(m => m.user.id === user.id);
+        const member = task.project.members.find((m: any) => m.user.id === user.id);
         const allTrackers = await prisma.tracker.findMany({ orderBy: { position: 'asc' } });
         let allowedTrackers = allTrackers;
 
         if (!user.isAdministrator) {
-            const projectEnabledIds = task.project.trackers.map(t => t.trackerId);
-            const projectAllowedIds = projectEnabledIds.length > 0 ? projectEnabledIds : allTrackers.map(t => t.id);
-            let roleAllowedIds = allTrackers.map(t => t.id);
+            const projectEnabledIds = task.project.trackers.map((t: any) => t.trackerId);
+            const projectAllowedIds = projectEnabledIds.length > 0 ? projectEnabledIds : allTrackers.map((t: any) => t.id);
+            let roleAllowedIds = allTrackers.map((t: any) => t.id);
 
             if (member) {
-                roleAllowedIds = member.role.trackers.map(t => t.trackerId);
+                roleAllowedIds = member.role.trackers.map((t: any) => t.trackerId);
             }
 
-            const validIds = projectAllowedIds.filter((id) => roleAllowedIds.includes(id));
-            allowedTrackers = allTrackers.filter(t => validIds.includes(t.id));
+            const validIds = projectAllowedIds.filter((id: any) => roleAllowedIds.includes(id));
+            allowedTrackers = allTrackers.filter((t: any) => validIds.includes(t.id));
         } else {
-            const projectEnabledIds = task.project.trackers.map(t => t.trackerId);
+            const projectEnabledIds = task.project.trackers.map((t: any) => t.trackerId);
             if (projectEnabledIds.length > 0) {
-                allowedTrackers = allTrackers.filter(t => projectEnabledIds.includes(t.id));
+                allowedTrackers = allTrackers.filter((t: any) => projectEnabledIds.includes(t.id));
             }
         }
 
@@ -533,14 +537,14 @@ export class TaskServerService {
             prisma.version.findMany({ where: { projectId: task.projectId }, orderBy: { name: 'asc' } }),
         ]);
 
-        let allowedStatuses: { id: string; name: string; isClosed: boolean }[] = statuses.map(s => ({
+        let allowedStatuses: { id: string; name: string; isClosed: boolean }[] = statuses.map((s: any) => ({
             id: s.id,
             name: s.name,
             isClosed: s.isClosed,
         }));
 
         if (!user.isAdministrator) {
-            const membership = task.project.members.find(m => m.user.id === user.id);
+            const membership = task.project.members.find((m: any) => m.user.id === user.id);
             const transitions = await prisma.workflowTransition.findMany({
                 where: {
                     trackerId: task.tracker.id,
@@ -551,12 +555,12 @@ export class TaskServerService {
             });
             allowedStatuses = [
                 { id: task.status.id, name: task.status.name, isClosed: task.status.isClosed ?? false },
-                ...transitions.map((t) => ({
+                ...transitions.map((t: any) => ({
                     id: t.toStatus.id,
                     name: t.toStatus.name,
                     isClosed: t.toStatus.isClosed,
                 })),
-            ].filter((s, i, arr) => arr.findIndex((x) => x.id === s.id) === i);
+            ].filter((s, i, arr) => arr.findIndex((x: any) => x.id === s.id) === i);
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -600,11 +604,11 @@ export class TaskServerService {
                 where: { isArchived: false },
                 include: { trackers: true },
             });
-            allProjects.forEach((p) => {
+            allProjects.forEach((p: any) => {
                 if (p.trackers.length === 0) {
-                    allowedTrackerIdsByProject[p.id] = trackers.map(t => t.id);
+                    allowedTrackerIdsByProject[p.id] = trackers.map((t: any) => t.id);
                 } else {
-                    allowedTrackerIdsByProject[p.id] = p.trackers.map((t) => t.trackerId);
+                    allowedTrackerIdsByProject[p.id] = p.trackers.map((t: any) => t.trackerId);
                 }
             });
         } else {
@@ -619,15 +623,15 @@ export class TaskServerService {
                 },
             });
 
-            memberships.forEach((m) => {
-                const projectEnabledIds = m.project.trackers.map((t) => t.trackerId);
+            memberships.forEach((m: any) => {
+                const projectEnabledIds = m.project.trackers.map((t: any) => t.trackerId);
                 const finalProjectIds = projectEnabledIds.length === 0
-                    ? trackers.map(t => t.id)
+                    ? trackers.map((t: any) => t.id)
                     : projectEnabledIds;
 
-                const roleAllowedIds = m.role.trackers.map((t) => t.trackerId);
+                const roleAllowedIds = m.role.trackers.map((t: any) => t.trackerId);
 
-                const allowed = finalProjectIds.filter((id) => roleAllowedIds.includes(id));
+                const allowed = finalProjectIds.filter((id: any) => roleAllowedIds.includes(id));
                 allowedTrackerIdsByProject[m.project.id] = allowed;
             });
         }
@@ -671,7 +675,7 @@ export class TaskServerService {
         ]);
 
         // Prepare effective projects for task filtering
-        const effectiveProjectIds = projects.map(p => p.id);
+        const effectiveProjectIds = projects.map((p: any) => p.id);
         const projectPermissionsMap: Record<string, string[]> = {};
 
         if (!user.isAdministrator && effectiveProjectIds.length > 0) {
@@ -683,7 +687,7 @@ export class TaskServerService {
                 include: { role: { include: { permissions: { include: { permission: true } } } } }
             });
             for (const m of fetchMemberships) {
-                projectPermissionsMap[m.projectId] = m.role.permissions.map(rp => rp.permission.key);
+                projectPermissionsMap[m.projectId] = m.role.permissions.map((rp: any) => rp.permission.key);
             }
         }
 
@@ -699,8 +703,8 @@ export class TaskServerService {
         let canCreateTask = user.isAdministrator || false;
 
         if (!user.isAdministrator) {
-            canAssignOthers = Object.values(projectPermissionsMap).some(perms => TaskPolicy.canAssignOthers(user as any, perms));
-            canCreateTask = Object.values(projectPermissionsMap).some(perms => TaskPolicy.canCreateTask(user as any, perms));
+            canAssignOthers = Object.values(projectPermissionsMap).some((perms: any) => TaskPolicy.canAssignOthers(user as any, perms));
+            canCreateTask = Object.values(projectPermissionsMap).some((perms: any) => TaskPolicy.canCreateTask(user as any, perms));
         }
 
         const { page, pageSize, sortBy, sortOrder } = parsePaginationParams(searchParams);
@@ -894,8 +898,7 @@ export class TaskServerService {
             const restrictedFields = ['title', 'description', 'trackerId', 'priorityId',
                 'assigneeId', 'versionId', 'estimatedHours', 'startDate', 'dueDate',
                 'parentId', 'isPrivate'];
-            const hasRestrictedField = restrictedFields.some(
-                f => validatedData[f as keyof typeof validatedData] !== undefined
+            const hasRestrictedField = restrictedFields.some((f: any) => validatedData[f as keyof typeof validatedData] !== undefined
             );
             if (hasRestrictedField) {
                 throw new Error('Bạn chỉ được cập nhật trạng thái và % hoàn thành của công việc được giao');
@@ -1181,9 +1184,9 @@ export class TaskServerService {
             select: { id: true }
         });
 
-        const allIdsToDelete = [id, ...descendants.map(d => d.id)];
+        const allIdsToDelete = [id, ...descendants.map((d: any) => d.id)];
 
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx: any) => {
             await tx.timeLog.updateMany({
                 where: { taskId: { in: allIdsToDelete } },
                 data: { taskId: null }
@@ -1347,7 +1350,7 @@ export class TaskServerService {
 
         if (copyWatchers && originalTask.watchers.length > 0) {
             await prisma.watcher.createMany({
-                data: originalTask.watchers.map(w => ({ taskId: copiedTask.id, userId: w.userId })),
+                data: originalTask.watchers.map((w: any) => ({ taskId: copiedTask.id, userId: w.userId })),
                 skipDuplicates: true,
             });
         }
@@ -1430,7 +1433,7 @@ export class TaskServerService {
             orderBy: { createdAt: 'desc' },
         });
 
-        const isWatching = watchers.some((w) => w.userId === user.id);
+        const isWatching = watchers.some((w: any) => w.userId === user.id);
 
         return { watchers, isWatching, count: watchers.length };
     }

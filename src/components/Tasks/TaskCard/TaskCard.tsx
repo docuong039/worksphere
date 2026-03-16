@@ -1,5 +1,5 @@
 // global - used in: projects, tasks
-﻿'use client';
+'use client';
 
 import { useDraggable } from '@dnd-kit/core';
 import { MessageSquare, GitBranch, Clock, User, ChevronDown, ChevronRight, CheckCircle2, Circle } from 'lucide-react';
@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { TaskContextMenu } from '@/components/Tasks/TaskContextMenu';
 import { taskService } from '@/api-client/task.service';
 import { formatDate } from '@/lib/date-utils';
+import { toast } from 'sonner';
 
 import {
     TaskWithRelations as Task,
@@ -51,7 +52,7 @@ export function TaskCard({ task, statuses, trackers, priorities, canAssignOthers
     } : undefined;
 
     const dueDate = task.dueDate ? formatDate(task.dueDate, 'vi-VN', { month: 'short', day: 'numeric' }) : null;
-    const doneSubtasks = task.subtasks?.filter(s => s.status.isClosed).length || 0;
+    const doneSubtasks = task.subtasks?.filter((s: Subtask) => s.status.isClosed).length || 0;
     const totalSubtasks = task.subtasks?.length || 0;
 
     const handleSubtaskStatusToggle = async (subtask: Subtask) => {
@@ -61,25 +62,18 @@ export function TaskCard({ task, statuses, trackers, priorities, canAssignOthers
             let targetStatus: Status | undefined;
 
             if (isClosing) {
-                // Priority 1: 'Done', 'Resolved', 'Hoàn thành'
-                targetStatus = statuses.find(s => s.isClosed && /done|resolved|finish|hoàn thành/i.test(s.name));
-                // Priority 2: 'Closed', 'Đóng'
-                if (!targetStatus) {
-                    targetStatus = statuses.find(s => s.isClosed && /close|đóng/i.test(s.name));
-                }
-                // Fallback: Any closed status
+                // Ưu tiên trạng thái Đóng có mức hoàn thành mặc định là 100%
+                targetStatus = statuses.find(s => s.isClosed && s.defaultDoneRatio === 100);
+                
+                // Dự phòng: Lấy trạng thái Đóng đầu tiên
                 if (!targetStatus) {
                     targetStatus = statuses.find(s => s.isClosed);
                 }
             } else {
-                // Re-opening
-                // Priority 1: 'New', 'Mới'
-                targetStatus = statuses.find(s => !s.isClosed && /new|mới|tạo/i.test(s.name));
-                // Priority 2: 'Open', 'Todo'
-                if (!targetStatus) {
-                    targetStatus = statuses.find(s => !s.isClosed && /open|todo|waiting/i.test(s.name));
-                }
-                // Fallback: Any open status
+                // Ưu tiên trạng thái Mở mặc định (thường là New/Mới)
+                targetStatus = statuses.find(s => !s.isClosed && s.isDefault);
+                
+                // Dự phòng: Lấy trạng thái Mở đầu tiên
                 if (!targetStatus) {
                     targetStatus = statuses.find(s => !s.isClosed);
                 }
@@ -190,7 +184,7 @@ export function TaskCard({ task, statuses, trackers, priorities, canAssignOthers
 
                         {isExpanded && (
                             <div className="mt-1 space-y-1 px-1">
-                                {task.subtasks?.map(sub => (
+                                {task.subtasks?.map((sub: any) => (
                                     <div
                                         key={sub.id}
                                         className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50/80 border border-transparent hover:border-gray-100 transition-all group/sub"
