@@ -25,12 +25,13 @@ interface TaskCardProps {
     trackers: Tracker[];
     priorities: Priority[];
     canAssignOthers?: boolean;
+    canRemindTask?: boolean;
     currentUserId?: string;
     allowedTrackerIds?: string[];
     onRefresh: () => void;
 }
 
-export function TaskCard({ task, statuses, trackers, priorities, canAssignOthers = false, currentUserId, allowedTrackerIds, onRefresh }: TaskCardProps) {
+export function TaskCard({ task, statuses, trackers, priorities, canAssignOthers = false, canRemindTask = false, currentUserId, allowedTrackerIds, onRefresh }: TaskCardProps) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [updatingSubtask, setUpdatingSubtask] = useState<string | null>(null);
     const [isMounted, setIsMounted] = useState(false);
@@ -128,6 +129,7 @@ export function TaskCard({ task, statuses, trackers, priorities, canAssignOthers
                                 hasSubtasks={task._count.subtasks > 0}
                                 isSubtask={!!task.parentId}
                                 canAssignOthers={canAssignOthers}
+                                canRemindTask={canRemindTask}
                                 currentUserId={currentUserId}
                                 allowedTrackerIds={allowedTrackerIds}
                                 statuses={statuses}

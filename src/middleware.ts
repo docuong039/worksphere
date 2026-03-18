@@ -27,8 +27,8 @@ export async function middleware(req: NextRequest) {
     const { nextUrl } = req;
     const pathname = nextUrl.pathname;
 
-    // 1. Bỏ qua các API route của NextAuth
-    if (pathname.startsWith(API_AUTH_PREFIX)) {
+    // 1. Bỏ qua các API route của NextAuth và các API Cron (bot chạy)
+    if (pathname.startsWith(API_AUTH_PREFIX) || pathname.startsWith('/api/cron')) {
         return NextResponse.next();
     }
 

@@ -124,3 +124,11 @@ export function canManageWatchers(user: User, task: Task, permissions: string[])
     if (user.isAdministrator) return true;
     return permissions.includes(PERMISSIONS.TASKS.MANAGE_WATCHERS);
 }
+
+/**
+ * Kiểm tra quyền NHẮC VIỆC
+ */
+export function canRemindTask(user: User, task: Task, permissions: string[]): boolean {
+    if (user.isAdministrator) return true;
+    return permissions.includes(PERMISSIONS.TASKS.REMIND);
+}

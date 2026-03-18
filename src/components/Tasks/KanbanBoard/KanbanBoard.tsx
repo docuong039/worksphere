@@ -24,6 +24,7 @@ interface KanbanBoardProps {
     priorities: Priority[];
     onRefresh: () => void;
     canAssignOthers?: boolean;
+    canRemindTask?: boolean;
     currentUserId?: string;
     projectPermissionsMap?: Record<string, string[]>;
     allowedTrackerIdsByProject?: Record<string, string[]>;
@@ -31,7 +32,7 @@ interface KanbanBoardProps {
     onCreateTask?: (statusId: string) => void;
 }
 
-function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses, onCreateTask, canAssignOthers, currentUserId, projectPermissionsMap, allowedTrackerIdsByProject }: {
+function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses, onCreateTask, canAssignOthers, canRemindTask, currentUserId, projectPermissionsMap, allowedTrackerIdsByProject }: {
     status: Status,
     tasks: TaskWithRelations[],
     trackers: Tracker[],
@@ -40,6 +41,7 @@ function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses
     statuses: Status[],
     onCreateTask?: (statusId: string) => void,
     canAssignOthers?: boolean,
+    canRemindTask?: boolean,
     currentUserId?: string,
     projectPermissionsMap?: Record<string, string[]>,
     allowedTrackerIdsByProject?: Record<string, string[]>
@@ -107,7 +109,7 @@ function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses
     return (
         <div
             ref={setNodeRef}
-            className={`flex flex-col w-[300px] min-w-[300px] h-full rounded-2xl border ${columnStyle.bg} ${isOver ? 'border-blue-400 ring-2 ring-blue-200' : columnStyle.border}`}
+            className={`flex flex-col flex-1 min-w-[240px] h-full rounded-2xl border ${columnStyle.bg} ${isOver ? 'border-blue-400 ring-2 ring-blue-200' : columnStyle.border}`}
         >
             {/* Column Header */}
             <div className={`px-4 py-3 rounded-t-2xl ${columnStyle.headerBg}`}>
@@ -140,6 +142,7 @@ function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses
                         trackers={trackers}
                         priorities={priorities}
                         canAssignOthers={canAssignOthers || projectPermissionsMap?.[task.projectId]?.includes(PERMISSIONS.TASKS.ASSIGN_OTHERS)}
+                        canRemindTask={canRemindTask || projectPermissionsMap?.[task.projectId]?.includes(PERMISSIONS.TASKS.REMIND)}
                         currentUserId={currentUserId}
                         allowedTrackerIds={allowedTrackerIdsByProject?.[task.projectId]}
                         onRefresh={onRefresh}
@@ -151,7 +154,7 @@ function KanbanColumn({ status, tasks, trackers, priorities, onRefresh, statuses
     );
 }
 
-export function KanbanBoard({ tasks, statuses, trackers, priorities, canAssignOthers, currentUserId, projectPermissionsMap, allowedTrackerIdsByProject, onRefresh, onStatusChange, onCreateTask }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, statuses, trackers, priorities, canAssignOthers, canRemindTask, currentUserId, projectPermissionsMap, allowedTrackerIdsByProject, onRefresh, onStatusChange, onCreateTask }: KanbanBoardProps) {
     const [activeId, setActiveId] = useState<string | null>(null);
     const [isMounted, setIsMounted] = useState(false);
 
@@ -201,7 +204,7 @@ export function KanbanBoard({ tasks, statuses, trackers, priorities, canAssignOt
 
     if (!isMounted) {
         return (
-            <div className="flex gap-4 h-[calc(100vh-280px)] min-h-[500px] overflow-x-auto pb-4 px-1 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+            <div className="flex gap-4 h-[calc(100vh-280px)] min-h-[500px] overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
                 {statuses.map(status => (
                     <KanbanColumn
                         key={status.id}
@@ -213,6 +216,7 @@ export function KanbanBoard({ tasks, statuses, trackers, priorities, canAssignOt
                         statuses={statuses}
                         onCreateTask={onCreateTask}
                         canAssignOthers={canAssignOthers}
+                        canRemindTask={canRemindTask}
                         currentUserId={currentUserId}
                         projectPermissionsMap={projectPermissionsMap}
                         allowedTrackerIdsByProject={allowedTrackerIdsByProject}
@@ -228,7 +232,7 @@ export function KanbanBoard({ tasks, statuses, trackers, priorities, canAssignOt
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
-            <div className="flex gap-4 h-[calc(100vh-280px)] min-h-[500px] overflow-x-auto pb-4 px-1 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+            <div className="flex gap-4 h-[calc(100vh-280px)] min-h-[500px] overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
                 {statuses.map(status => (
                     <KanbanColumn
                         key={status.id}
@@ -240,6 +244,7 @@ export function KanbanBoard({ tasks, statuses, trackers, priorities, canAssignOt
                         statuses={statuses}
                         onCreateTask={onCreateTask}
                         canAssignOthers={canAssignOthers}
+                        canRemindTask={canRemindTask}
                         currentUserId={currentUserId}
                         projectPermissionsMap={projectPermissionsMap}
                         allowedTrackerIdsByProject={allowedTrackerIdsByProject}
@@ -255,6 +260,7 @@ export function KanbanBoard({ tasks, statuses, trackers, priorities, canAssignOt
                         trackers={trackers}
                         priorities={priorities}
                         canAssignOthers={canAssignOthers || projectPermissionsMap?.[activeTask.projectId]?.includes(PERMISSIONS.TASKS.ASSIGN_OTHERS)}
+                        canRemindTask={canRemindTask || projectPermissionsMap?.[activeTask.projectId]?.includes(PERMISSIONS.TASKS.REMIND)}
                         currentUserId={currentUserId}
                         allowedTrackerIds={allowedTrackerIdsByProject?.[activeTask.projectId]}
                         onRefresh={onRefresh}

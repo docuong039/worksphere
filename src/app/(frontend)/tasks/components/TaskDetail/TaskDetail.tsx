@@ -40,6 +40,7 @@ interface TaskDetailProps {
     canFullEdit: boolean;
     canManageWatchers?: boolean;
     canAssignOthers?: boolean;
+    canRemindTask?: boolean;
     currentUserId: string;
     allowedTrackerIds?: string[];
 }
@@ -55,6 +56,7 @@ export function TaskDetail({
     canFullEdit,
     canManageWatchers = false,
     canAssignOthers = false,
+    canRemindTask = false,
     currentUserId,
     allowedTrackerIds,
 }: TaskDetailProps) {
@@ -417,6 +419,7 @@ export function TaskDetail({
                                 trackers={trackers}
                                 priorities={priorities}
                                 canAssignOthers={canAssignOthers}
+                                canRemindTask={canRemindTask}
                                 currentUserId={currentUserId}
                                 allowedTrackerIds={trackers.map(t => t.id)}
                             />

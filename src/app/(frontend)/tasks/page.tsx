@@ -23,6 +23,7 @@ export default async function TasksPage(props: { searchParams: Promise<any> }) {
         users,
         canAssignOthers,
         canCreateTask,
+        canRemindTask,
         projectPermissionsMap,
         allowedTrackerIdsByProject
     } = await TaskServerService.getGlobalTasksData(session.user, new URLSearchParams(searchParams));
@@ -46,6 +47,7 @@ export default async function TasksPage(props: { searchParams: Promise<any> }) {
                 currentUserId={session.user.id}
                 canAssignOthers={canAssignOthers}
                 canCreateTask={canCreateTask}
+                canRemindTask={canRemindTask}
                 projectPermissionsMap={projectPermissionsMap}
                 allowedTrackerIdsByProject={allowedTrackerIdsByProject}
             />

@@ -18,6 +18,7 @@ import {
     Percent,
     Loader2,
     Copy,
+    Bell,
 } from 'lucide-react';
 
 import { taskService } from '@/api-client/task.service';
@@ -94,6 +95,7 @@ interface TaskContextMenuProps {
     isSubtask?: boolean;
     canAssignOthers?: boolean;
     canCreateTask?: boolean;
+    canRemindTask?: boolean;
     currentUserId?: string;
     allowedTrackerIds?: string[];
     statuses: Status[];
@@ -113,6 +115,7 @@ export function TaskContextMenu({
     isSubtask = false,
     canAssignOthers = false,
     canCreateTask = false,
+    canRemindTask = false,
     currentUserId,
     allowedTrackerIds,
     statuses,
@@ -238,6 +241,14 @@ export function TaskContextMenu({
         });
     };
 
+    const handleRemind = async () => {
+        try {
+            await taskService.remind(taskId);
+            toast.success('Đã gửi thông báo nhắc việc');
+        } catch (err: any) {
+            toast.error(err.message || 'Không thể nhắc việc');
+        }
+    };
 
     const doneRatioOptions = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
@@ -251,6 +262,19 @@ export function TaskContextMenu({
                 </DropdownMenuTrigger>
 
                 <DropdownMenuContent align="end" className="w-[180px]">
+                    {canRemindTask && currentAssigneeId && currentAssigneeId !== currentUserId && (
+                        <>
+                            <DropdownMenuItem
+                                onClick={handleRemind}
+                                className="flex items-center gap-2 text-red-600 focus:text-red-600 cursor-pointer font-medium"
+                            >
+                                <Bell className="w-4 h-4" />
+                                Nhắc việc
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                        </>
+                    )}
+
                     <DropdownMenuItem asChild>
                         <Link href={`/tasks/${taskId}?edit=true`} className="flex items-center gap-2 cursor-pointer">
                             <Pencil className="w-4 h-4" />

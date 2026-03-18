@@ -54,6 +54,7 @@ interface TaskListProps {
     currentUserId?: string;
     canAssignOthers?: boolean; // Default for global actions
     canCreateTask?: boolean;
+    canRemindTask?: boolean;
     projectPermissionsMap?: Record<string, string[]>;
     allowedTrackerIdsByProject?: Record<string, string[]>;
     projectId?: string; // Add this to lock to a project
@@ -76,6 +77,7 @@ export function TaskList({
     currentUserId,
     canAssignOthers: defaultCanAssignOthers = false,
     canCreateTask = false,
+    canRemindTask: defaultCanRemindTask = false,
     projectPermissionsMap = {},
     allowedTrackerIdsByProject = {},
     projectId: propProjectId,
@@ -711,6 +713,7 @@ export function TaskList({
                                                     isSubtask={!!task.parentId}
                                                     canCreateTask={canCreateTask}
                                                     canAssignOthers={defaultCanAssignOthers || projectPermissionsMap[task.projectId]?.includes(PERMISSIONS.TASKS.ASSIGN_OTHERS)}
+                                                    canRemindTask={defaultCanRemindTask || projectPermissionsMap[task.projectId]?.includes(PERMISSIONS.TASKS.REMIND)}
                                                     currentUserId={currentUserId}
                                                     allowedTrackerIds={allowedTrackerIdsByProject[task.projectId]}
                                                     statuses={statuses}
@@ -739,6 +742,7 @@ export function TaskList({
                         trackers={trackers}
                         priorities={priorities.map(p => ({ ...p, color: p.color ?? null }))}
                         canAssignOthers={defaultCanAssignOthers}
+                        canRemindTask={defaultCanRemindTask}
                         currentUserId={currentUserId}
                         projectPermissionsMap={projectPermissionsMap}
                         allowedTrackerIdsByProject={allowedTrackerIdsByProject}

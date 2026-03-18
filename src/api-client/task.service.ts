@@ -54,6 +54,12 @@ export const taskService = {
         });
     },
 
+    remind: async (id: string) => {
+        return apiFetch<void>(`/api/tasks/${id}/remind`, {
+            method: 'POST',
+        });
+    },
+
     // Sub-resources: Comments
     addComment: async (taskId: string, content: string) => {
         return apiFetch<void>(`/api/tasks/${taskId}/comments`, {

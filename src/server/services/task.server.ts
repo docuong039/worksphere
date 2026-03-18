@@ -366,6 +366,7 @@ export class TaskServerService {
 
         const canAssignOthers = TaskPolicy.canAssignOthers(userMock, projectPerms);
         const canCreateTask = TaskPolicy.canCreateTask(userMock, projectPerms);
+        const canRemindTask = TaskPolicy.canRemindTask(userMock, null as any, projectPerms);
 
         const [tasks, total, taskAgg] = await Promise.all([
             prisma.task.findMany({
@@ -408,6 +409,7 @@ export class TaskServerService {
             users,
             canAssignOthers,
             canCreateTask,
+            canRemindTask,
             projectPermissionsMap,
             allowedTrackerIdsByProject
         };
@@ -574,6 +576,7 @@ export class TaskServerService {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const canManageWatchers = TaskPolicy.canManageWatchers(userMock, task as any, userPermissions);
         const canAssignOthers = TaskPolicy.canAssignOthers(userMock, userPermissions);
+        const canRemindTask = TaskPolicy.canRemindTask(userMock, task as any, userPermissions);
 
         return {
             task,
@@ -585,7 +588,8 @@ export class TaskServerService {
             canEdit,
             canFullEdit,
             canManageWatchers,
-            canAssignOthers
+            canAssignOthers,
+            canRemindTask
         };
     }
 
@@ -701,10 +705,12 @@ export class TaskServerService {
 
         let canAssignOthers = user.isAdministrator || false;
         let canCreateTask = user.isAdministrator || false;
+        let canRemindTask = user.isAdministrator || false;
 
         if (!user.isAdministrator) {
             canAssignOthers = Object.values(projectPermissionsMap).some((perms: any) => TaskPolicy.canAssignOthers(user as any, perms));
             canCreateTask = Object.values(projectPermissionsMap).some((perms: any) => TaskPolicy.canCreateTask(user as any, perms));
+            canRemindTask = Object.values(projectPermissionsMap).some((perms: any) => TaskPolicy.canRemindTask(user as any, null as any, perms));
         }
 
         const { page, pageSize, sortBy, sortOrder } = parsePaginationParams(searchParams);
@@ -759,6 +765,7 @@ export class TaskServerService {
             users,
             canAssignOthers,
             canCreateTask,
+            canRemindTask,
             projectPermissionsMap,
             allowedTrackerIdsByProject
         };

@@ -29,6 +29,7 @@ export default async function ProjectTasksPage({ params, searchParams }: { param
         users,
         canAssignOthers,
         canCreateTask,
+        canRemindTask,
         projectPermissionsMap,
         allowedTrackerIdsByProject
     } = res;
@@ -47,6 +48,7 @@ export default async function ProjectTasksPage({ params, searchParams }: { param
             projectId={id}
             canAssignOthers={canAssignOthers}
             canCreateTask={canCreateTask}
+            canRemindTask={canRemindTask}
             projectPermissionsMap={projectPermissionsMap}
             allowedTrackerIdsByProject={allowedTrackerIdsByProject}
         />

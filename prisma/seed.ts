@@ -56,6 +56,7 @@ async function main() {
         'tasks.delete_own': 'Xóa công việc của mình',
         'tasks.manage_watchers': 'Quản lý người theo dõi',
         'tasks.assign_others': 'Giao việc cho người khác',
+        'tasks.remind': 'Nhắc việc',
         // Comments
         'comments.add': 'Thêm bình luận',
         'comments.edit_own': 'Sửa bình luận của mình',

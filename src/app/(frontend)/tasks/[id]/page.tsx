@@ -25,12 +25,13 @@ export default async function TaskDetailPage({ params }: Props) {
         trackers, 
         statuses, 
         priorities, 
-        versions, 
-        allowedStatuses, 
-        canEdit, 
-        canFullEdit, 
-        canManageWatchers, 
-        canAssignOthers 
+        versions,
+        allowedStatuses,
+        canEdit,
+        canFullEdit,
+        canManageWatchers,
+        canAssignOthers,
+        canRemindTask
     } = await TaskServerService.getTaskDetailData(session.user, id);
 
     if (!task) {
@@ -82,8 +83,9 @@ export default async function TaskDetailPage({ params }: Props) {
                 canEdit={canEdit!}
                 canFullEdit={canFullEdit!}
                 canAssignOthers={canAssignOthers!}
+                canRemindTask={canRemindTask!}
                 currentUserId={session.user.id!}
-                allowedTrackerIds={trackers!.map(t => t.id)}
+                allowedTrackerIds={trackers!.map((t: any) => t.id)}
                 canManageWatchers={canManageWatchers!}
             />
         </div>

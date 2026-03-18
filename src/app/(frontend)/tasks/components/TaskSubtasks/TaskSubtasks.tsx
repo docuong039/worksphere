@@ -19,6 +19,7 @@ interface TaskSubtasksProps {
     trackers: Tracker[];
     priorities: Priority[];
     canAssignOthers?: boolean;
+    canRemindTask?: boolean;
     currentUserId?: string;
     allowedTrackerIds?: string[];
 }
@@ -32,6 +33,7 @@ export function TaskSubtasks({
     trackers,
     priorities,
     canAssignOthers,
+    canRemindTask,
     currentUserId,
     allowedTrackerIds
 }: TaskSubtasksProps) {
@@ -112,6 +114,7 @@ export function TaskSubtasks({
                                             hasSubtasks={false}
                                             isSubtask={true}
                                             canAssignOthers={canAssignOthers}
+                                            canRemindTask={canRemindTask}
                                             currentUserId={currentUserId}
                                             allowedTrackerIds={allowedTrackerIds}
                                             statuses={statuses}

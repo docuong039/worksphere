@@ -17,6 +17,7 @@ export const PERMISSIONS = {
         DELETE_OWN: 'tasks.delete_own',
         MANAGE_WATCHERS: 'tasks.manage_watchers',
         ASSIGN_OTHERS: 'tasks.assign_others',
+        REMIND: 'tasks.remind',
     },
     // Comments
     COMMENTS: {
