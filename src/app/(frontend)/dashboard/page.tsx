@@ -41,6 +41,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         trendData,
     } = data;
 
+    const today = new Date();
+    // Ensure accurate offset for Vietnam timezone or local if prefered. 
+    // Usually extracting YYYY-MM-DD from today locally:
+    const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
     return (
         <div className="space-y-8 pb-10">
             {/* Header Duy nhất & Sạch sẽ */}
@@ -65,18 +70,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 {isManagerView ? (
                     // VIEW QUẢN LÝ: Tập trung vào "Vận hành dự án"
                     <>
-                        <StatCard icon={<Briefcase />} label="Dự án quản lý" value={managerStats.totalProjects} color="blue" />
-                        <StatCard icon={<Clock />} label="Việc trễ hạn" value={managerStats.totalOverdue} color="red" />
+                        <StatCard icon={<Briefcase />} label="Dự án quản lý" value={managerStats.totalProjects} color="blue" href={selectedProjectId ? `/projects/${selectedProjectId}` : '/projects'} />
+                        <StatCard icon={<Clock />} label="Việc trễ hạn" value={managerStats.totalOverdue} color="red" href={`/tasks?${selectedProjectId ? `projectId=${selectedProjectId}&` : ''}isOverdue=true`} />
                         <StatCard icon={<Users />} label="Tổng thành viên" value={managerStats.totalMembers} color="green" />
-                        <StatCard icon={<AlertTriangle />} label="Việc cấp bách" value={managerStats.totalUrgent} color="purple" highlight={managerStats.totalUrgent > 0} />
+                        <StatCard icon={<AlertTriangle />} label="Việc cấp bách" value={managerStats.totalUrgent} color="purple" highlight={managerStats.totalUrgent > 0} href={`/tasks?${selectedProjectId ? `projectId=${selectedProjectId}&` : ''}isUrgent=true`} />
                     </>
                 ) : (
                     // VIEW NHÂN VIÊN: Tập trung vào "Năng suất cá nhân"
                     <>
-                        <StatCard icon={<CheckSquare />} label="Việc cần làm" value={myTasks.length} color="blue" />
-                        <StatCard icon={<Clock />} label="Việc đã quá hạn" value={myOverdueCount} color="red" highlight={myOverdueCount > 0} />
-                        <StatCard icon={<Zap />} label="Ưu tiên cao" value={myHighPriorityCount} color="orange" highlight={myHighPriorityCount > 0} />
-                        <StatCard icon={<Calendar />} label="Deadline hôm nay" value={myTodayCount} color="green" highlight={myTodayCount > 0} />
+                        <StatCard icon={<CheckSquare />} label="Việc cần làm" value={myTasks.length} color="blue" href={`/tasks?${selectedProjectId ? `projectId=${selectedProjectId}&` : ''}myTasks=true`} />
+                        <StatCard icon={<Clock />} label="Việc đã quá hạn" value={myOverdueCount} color="red" highlight={myOverdueCount > 0} href={`/tasks?${selectedProjectId ? `projectId=${selectedProjectId}&` : ''}myTasks=true&isOverdue=true`} />
+                        <StatCard icon={<Zap />} label="Ưu tiên cao" value={myHighPriorityCount} color="orange" highlight={myHighPriorityCount > 0} href={`/tasks?${selectedProjectId ? `projectId=${selectedProjectId}&` : ''}myTasks=true&isUrgent=true`} />
+                        <StatCard icon={<Calendar />} label="Deadline hôm nay" value={myTodayCount} color="green" highlight={myTodayCount > 0} href={`/tasks?${selectedProjectId ? `projectId=${selectedProjectId}&` : ''}myTasks=true&dueDateFrom=${todayString}&dueDateTo=${todayString}`} />
                     </>
                 )}
             </div>
@@ -216,10 +221,11 @@ interface StatCardProps {
     value: number | string;
     color: 'blue' | 'red' | 'orange' | 'purple' | 'green';
     highlight?: boolean;
+    href?: string;
 }
 
 // Sub-component cho thẻ thống kê (Sạch sẽ & Tái sử dụng)
-function StatCard({ icon, label, value, color }: StatCardProps) {
+function StatCard({ icon, label, value, color, href }: StatCardProps) {
     const colors: Record<string, string> = {
         blue: 'bg-blue-50 text-blue-600',
         red: 'bg-red-50 text-red-600',
@@ -227,8 +233,9 @@ function StatCard({ icon, label, value, color }: StatCardProps) {
         purple: 'bg-purple-50 text-purple-600',
         green: 'bg-emerald-50 text-emerald-600'
     };
-    return (
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm transition-all hover:shadow-md">
+
+    const Content = (
+        <>
             <div className="flex items-center gap-4">
                 <div className={`p-3 rounded-xl ${colors[color]}`}>
                     {icon && <div className="w-5 h-5">{icon}</div>}
@@ -238,6 +245,27 @@ function StatCard({ icon, label, value, color }: StatCardProps) {
                     <h3 className="text-2xl font-bold text-gray-900">{value}</h3>
                 </div>
             </div>
+            {href && (
+                <div className="absolute top-4 right-4 text-gray-400 p-1.5 rounded-full bg-gray-50/80 group-hover:bg-blue-50 group-hover:text-blue-600 transition-all duration-300">
+                    <ArrowRight className="w-4 h-4" />
+                </div>
+            )}
+        </>
+    );
+
+    const containerClasses = "bg-white p-5 rounded-2xl border border-gray-100 shadow-sm transition-all hover:shadow-md hover:border-blue-100 relative group block";
+
+    if (href) {
+        return (
+            <Link href={href} className={containerClasses} title="Xem chi tiết">
+                {Content}
+            </Link>
+        );
+    }
+
+    return (
+        <div className={containerClasses}>
+            {Content}
         </div>
     );
 }

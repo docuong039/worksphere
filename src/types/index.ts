@@ -478,6 +478,7 @@ export type TaskFilters = {
     startDateFrom?: string | Date;
     startDateTo?: string | Date;
     isOverdue?: boolean;
+    isUrgent?: boolean;
     showClosed?: boolean;
     myTasks?: boolean;
     parentId?: string | null;

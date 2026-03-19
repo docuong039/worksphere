@@ -142,7 +142,9 @@ export function TaskContextMenu({
         try {
             const res = await projectService.getAll();
             if (res.success) {
-                setProjects(res.data || []);
+                // API trả về { projects: [...], pagination: {...} } — cần lấy .projects
+                const projectList = (res.data as any)?.projects || res.data || [];
+                setProjects(Array.isArray(projectList) ? projectList : []);
             }
         } catch (err) {
             console.error('Failed to fetch projects', err);

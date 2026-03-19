@@ -125,10 +125,18 @@ export function buildTaskFilters(params: TaskFilterParams): Prisma.TaskWhereInpu
 
     const dueDateFrom = searchParams.get('dueDateFrom');
     const dueDateTo = searchParams.get('dueDateTo');
-    if (dueDateFrom || dueDateTo) {
-        where.dueDate = {};
-        if (dueDateFrom) where.dueDate.gte = new Date(dueDateFrom);
-        if (dueDateTo) where.dueDate.lte = new Date(dueDateTo);
+    const isOverdue = searchParams.get('isOverdue') === 'true';
+
+    if (dueDateFrom || dueDateTo || isOverdue) {
+        const dateFilter: Prisma.DateTimeNullableFilter<"Task"> = { ...((where.dueDate as any) || {}) };
+        if (dueDateFrom) dateFilter.gte = new Date(dueDateFrom);
+        if (dueDateTo) dateFilter.lte = new Date(dueDateTo);
+        if (isOverdue) {
+            dateFilter.lt = new Date();
+            // Đảm bảo chỉ đếm các task chưa hoàn thành
+            where.status = { ...((where.status as any) || {}), isClosed: false };
+        }
+        where.dueDate = dateFilter;
     }
 
     const createdAtFrom = searchParams.get('createdAtFrom');
@@ -137,6 +145,14 @@ export function buildTaskFilters(params: TaskFilterParams): Prisma.TaskWhereInpu
         where.createdAt = {};
         if (createdAtFrom) where.createdAt.gte = new Date(`${createdAtFrom}T00:00:00.000Z`);
         if (createdAtTo) where.createdAt.lte = new Date(`${createdAtTo}T23:59:59.999Z`);
+    }
+
+    const isUrgent = searchParams.get('isUrgent') === 'true';
+    if (isUrgent) {
+        // Mức độ ưu tiên cao hơn Normal (position > 2)
+        where.priority = { ...((where.priority as any) || {}), position: { gt: 2 } };
+        // Đảm bảo chỉ đếm các task chưa hoàn thành
+        where.status = { ...((where.status as any) || {}), isClosed: false };
     }
 
     return where;
@@ -156,6 +172,14 @@ export const TASK_LIST_INCLUDE = {
     project: { select: { id: true, name: true, identifier: true } },
     assignee: { select: { id: true, name: true, avatar: true } },
     parent: { select: { id: true, number: true, title: true } },
+    subtasks: {
+        select: {
+            id: true,
+            title: true,
+            status: { select: { id: true, name: true, isClosed: true } },
+            assignee: { select: { id: true, name: true, avatar: true } }
+        }
+    },
     _count: { select: { subtasks: true, comments: true } },
 } as const;
 

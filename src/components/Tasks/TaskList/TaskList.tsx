@@ -1,8 +1,8 @@
 // global - used in: projects, tasks
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { toast } from 'sonner';
@@ -84,6 +84,7 @@ export function TaskList({
     initialPagination,
 }: TaskListProps) {
     const router = useRouter();
+    const searchParamsHook = useSearchParams();
     const [tasks, setTasks] = useState(initialTasks);
     const [loading, setLoading] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -109,10 +110,12 @@ export function TaskList({
         creatorId: '',
         showClosed: false,
         myTasks: false,
-        startDateFrom: '',
-        startDateTo: '',
-        dueDateFrom: '',
-        dueDateTo: '',
+        startDateFrom: searchParamsHook.get('startDateFrom') || '',
+        startDateTo: searchParamsHook.get('startDateTo') || '',
+        dueDateFrom: searchParamsHook.get('dueDateFrom') || '',
+        dueDateTo: searchParamsHook.get('dueDateTo') || '',
+        isOverdue: searchParamsHook.get('isOverdue') === 'true',
+        isUrgent: searchParamsHook.get('isUrgent') === 'true',
         page: undefined as number | undefined,
     });
 
@@ -145,6 +148,8 @@ export function TaskList({
             if (activeFilters.startDateTo) params.startDateTo = activeFilters.startDateTo as string;
             if (activeFilters.dueDateFrom) params.dueDateFrom = activeFilters.dueDateFrom as string;
             if (activeFilters.dueDateTo) params.dueDateTo = activeFilters.dueDateTo as string;
+            if (activeFilters.isOverdue) params.isOverdue = true;
+            if (activeFilters.isUrgent) params.isUrgent = true;
 
             if (viewMode === 'kanban') {
                 params.parentId = 'null';
@@ -197,6 +202,8 @@ export function TaskList({
                 startDateTo: parsedFilters.startDateTo || '',
                 dueDateFrom: parsedFilters.dueDateFrom || '',
                 dueDateTo: parsedFilters.dueDateTo || '',
+                isOverdue: parsedFilters.isOverdue || false,
+                isUrgent: parsedFilters.isUrgent || false,
                 page: undefined,
             };
             setFilters(newFilters);
@@ -257,6 +264,8 @@ export function TaskList({
             startDateTo: '',
             dueDateFrom: '',
             dueDateTo: '',
+            isOverdue: false,
+            isUrgent: false,
             page: undefined,
         };
         setFilters(resetFilters);
@@ -286,6 +295,8 @@ export function TaskList({
         filters.startDateTo ||
         filters.dueDateFrom ||
         filters.dueDateTo ||
+        filters.isOverdue ||
+        filters.isUrgent ||
         search;
 
     // Handle create task with initial data (e.g. from Kanban column)
@@ -391,6 +402,34 @@ export function TaskList({
                             className="w-4 h-4 rounded"
                         />
                         Hiện đã đóng
+                    </label>
+
+                    <label className="flex items-center gap-2 text-sm text-red-600 font-medium cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={filters.isOverdue}
+                            onChange={(e) => {
+                                const newFilters = { ...filters, isOverdue: e.target.checked };
+                                setFilters(newFilters);
+                                fetchTasks(newFilters);
+                            }}
+                            className="w-4 h-4 rounded text-red-600 focus:ring-red-500"
+                        />
+                        Trễ hạn
+                    </label>
+
+                    <label className="flex items-center gap-2 text-sm text-orange-600 font-medium cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={filters.isUrgent}
+                            onChange={(e) => {
+                                const newFilters = { ...filters, isUrgent: e.target.checked };
+                                setFilters(newFilters);
+                                fetchTasks(newFilters);
+                            }}
+                            className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500"
+                        />
+                        Cấp bách
                     </label>
 
                     <div className="h-6 w-px bg-gray-200 mx-2" />

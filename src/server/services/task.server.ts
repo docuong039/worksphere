@@ -181,7 +181,7 @@ export class TaskServerService {
 
             level = parent.level + 1;
             path = parent.path ? `${parent.path}.${parent.id}` : parent.id;
-            
+
             // Subtask kế thừa người thực hiện từ parent task nếu không được chỉ định
             if (!validatedData.assigneeId && parent.assigneeId) {
                 validatedData.assigneeId = parent.assigneeId;
@@ -374,15 +374,7 @@ export class TaskServerService {
                 orderBy: { [sortBy]: sortOrder },
                 skip: (page - 1) * pageSize,
                 take: pageSize,
-                include: {
-                    tracker: { select: { id: true, name: true } },
-                    status: { select: { id: true, name: true, isClosed: true } },
-                    priority: { select: { id: true, name: true, color: true } },
-                    project: { select: { id: true, name: true, identifier: true } },
-                    assignee: { select: { id: true, name: true, avatar: true } },
-                    parent: { select: { id: true, number: true, title: true } },
-                    _count: { select: { subtasks: true, comments: true } },
-                },
+                include: TASK_LIST_INCLUDE,
             }),
             prisma.task.count({ where }),
             prisma.task.aggregate({
@@ -568,7 +560,7 @@ export class TaskServerService {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const userMock = user as any;
         const userPermissions = await getUserPermissions(user.id, task.projectId);
-        
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const canEdit = TaskPolicy.canUpdateTask(userMock, task as any, userPermissions);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -730,15 +722,7 @@ export class TaskServerService {
                 orderBy: { [sortBy]: sortOrder },
                 skip: (page - 1) * pageSize,
                 take: pageSize,
-                include: {
-                    tracker: { select: { id: true, name: true } },
-                    status: { select: { id: true, name: true, isClosed: true } },
-                    priority: { select: { id: true, name: true, color: true } },
-                    project: { select: { id: true, name: true, identifier: true } },
-                    assignee: { select: { id: true, name: true, avatar: true } },
-                    parent: { select: { id: true, number: true, title: true } },
-                    _count: { select: { subtasks: true, comments: true } },
-                },
+                include: TASK_LIST_INCLUDE,
             }),
             prisma.task.count({ where }),
             prisma.task.aggregate({
