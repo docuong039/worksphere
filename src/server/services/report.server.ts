@@ -335,17 +335,24 @@ export class ReportServerService {
         let csvContent = '';
         let filename = 'export';
 
+        // --- CỔNG KIỂM TRA QUYỀN XUẤT BÁO CÁO ---
+        // Nếu có projectId: kiểm tra quyền riêng cho dự án đó.
+        // Không có projectId (xuất tất cả): lấy union permission tất cả membership.
+        const perms = await getUserPermissions(user.id, projectId || undefined);
+        const exportScope = ReportPolicy.getExportScope(user, perms);
+        if (exportScope === 'NONE') {
+            throw new Error('Bạn không có quyền xuất báo cáo cho phạm vi này. Liên hệ quản trị viên để được cấp quyền.');
+        }
+
         switch (type) {
             case 'tasks': {
                 const where: Record<string, unknown> = {};
 
+                // Lọc dự án
                 if (projectId) {
-                    const perms = await getUserPermissions(user.id, projectId);
-                    if (!ProjectPolicy.canViewProject(user, perms)) {
-                        throw new Error('Không có quyền xuất dữ liệu cho dự án này');
-                    }
                     where.projectId = projectId;
-                } else if (!user.isAdministrator) {
+                } else if (exportScope === 'OWN') {
+                    // OWN scope: chỉ xuất task trong dự án mà mình tham gia
                     where.project = { members: { some: { userId: user.id } } };
                     where.OR = [
                         { isPrivate: false },
@@ -353,14 +360,14 @@ export class ReportServerService {
                         { assigneeId: user.id }
                     ];
                 }
+                // ALL scope: không giới hạn dự án
 
-                const globalPerms = await getUserPermissions(user.id);
                 if (userId) {
-                    if (!user.isAdministrator && ReportPolicy.getPersonnelVisibilityScope(user, globalPerms) === 'SELF' && userId !== user.id) {
-                        throw new Error('Không có quyền xuất dữ liệu của người khác');
+                    if (exportScope === 'OWN' && userId !== user.id) {
+                        throw new Error('Bạn chỉ có quyền xuất dữ liệu của chính mình.');
                     }
                     where.assigneeId = userId;
-                } else if (!user.isAdministrator && ReportPolicy.getPersonnelVisibilityScope(user, globalPerms) === 'SELF') {
+                } else if (exportScope === 'OWN') {
                     where.assigneeId = user.id;
                 }
 
@@ -381,48 +388,93 @@ export class ReportServerService {
                     orderBy: { createdAt: 'desc' },
                 });
 
-                csvContent = 'Mã,Tiêu đề,Dự án,Loại,Trạng thái,Độ ưu tiên,Người thực hiện,Người tạo,Tiến độ (%),Thời gian ước lượng (h),Ngày bắt đầu,Ngày hết hạn,Ngày tạo\n';
+                csvContent = 'Mã,Tiêu đề,Dự án,Loại,Trạng thái,Độ ưu tiên,Người thực hiện,Người tạo,Tiến độ (%),Thời gian ước lượng (h),Ngày bắt đầu,Ngày hết hạn,Ngày tạo,Hoàn thành/Trễ hạn\n';
+
+                const now = new Date();
+                let totalTasks = 0;
+                let overdueTasks = 0;
+                const statusCounts = new Map<string, number>();
+                const userStats = new Map<string, { total: number, completed: number, completedLate: number, overdue: number }>();
 
                 tasks.forEach(task => {
+                    totalTasks++;
+                    statusCounts.set(task.status.name, (statusCounts.get(task.status.name) || 0) + 1);
+
+                    const assigneeName = task.assignee?.name || 'Chưa phân công';
+                    if (!userStats.has(assigneeName)) {
+                        userStats.set(assigneeName, { total: 0, completed: 0, completedLate: 0, overdue: 0 });
+                    }
+                    const uStat = userStats.get(assigneeName)!;
+                    uStat.total++;
+
                     const startDateStr = task.startDate ? this.formatDateVN(task.startDate) : '';
                     const dueDateStr = task.dueDate ? this.formatDateVN(task.dueDate) : '';
                     const createdAtStr = this.formatDateVN(task.createdAt);
 
-                    csvContent += `${task.number},"${task.title.replace(/"/g, '""')}","${task.project.name}","${task.tracker.name}","${task.status.name}","${task.priority.name}","${task.assignee?.name || ''}","${task.creator.name}",${task.doneRatio},${task.estimatedHours || ''},"${startDateStr}","${dueDateStr}","${createdAtStr}"\n`;
+                    let completionStatus = 'Chưa hoàn thành';
+                    if (task.status.isClosed) {
+                        uStat.completed++;
+                        if (task.dueDate && task.updatedAt > task.dueDate) {
+                            uStat.completedLate++;
+                            const delayDays = Math.ceil((task.updatedAt.getTime() - task.dueDate.getTime()) / (1000 * 3600 * 24));
+                            completionStatus = `Trễ ${delayDays} ngày`;
+                        } else {
+                            completionStatus = 'Hoàn thành';
+                        }
+                    } else {
+                        if (task.dueDate && task.dueDate < now) {
+                            overdueTasks++;
+                            uStat.overdue++;
+                        }
+                    }
+
+                    csvContent += `${task.number},"${task.title.replace(/"/g, '""')}","${task.project.name}","${task.tracker.name}","${task.status.name}","${task.priority.name}","${task.assignee?.name || ''}","${task.creator.name}",${task.doneRatio},${task.estimatedHours || ''},"${startDateStr}","${dueDateStr}","${createdAtStr}","${completionStatus}"\n`;
                 });
+
+                if (totalTasks > 0) {
+                    csvContent += `\n"--- THỐNG KÊ TỔNG QUAN ---"\n"Trạng thái","Số lượng"\n`;
+                    for (const [name, count] of statusCounts.entries()) {
+                        csvContent += `"${name}",${count}\n`;
+                    }
+                    csvContent += `"Quá hạn (chưa đóng)",${overdueTasks}\n`;
+                    csvContent += `"TỔNG CÔNG VIỆC",${totalTasks}\n`;
+
+                    if (userStats.size > 0) {
+                        csvContent += `\n"--- THỐNG KÊ THEO NGƯỜI THỰC HIỆN ---"\n"Người thực hiện","Tổng task","Hoàn thành","Hoàn thành (trễ)","Tỉ lệ HT (%)","Số task quá hạn"\n`;
+                        for (const [name, stat] of userStats.entries()) {
+                            const rate = stat.total > 0 ? Math.round((stat.completed / stat.total) * 100) : 0;
+                            csvContent += `"${name}",${stat.total},${stat.completed},${stat.completedLate},${rate},${stat.overdue}\n`;
+                        }
+                    }
+                }
 
                 filename = `cong-viec_${this.formatDateForFilename(startDate, endDate)}`;
                 break;
             }
 
             case 'time-logs': {
-                const globalPerms = await getUserPermissions(user.id);
-                if (!ReportPolicy.canViewTimeReports(user, globalPerms)) {
-                    throw new Error('Không có quyền nâng cao để xuất báo cáo thời gian');
-                }
-
                 const where: Record<string, unknown> = {};
 
                 if (startDate || endDate) {
                     where.spentOn = dateFilter;
                 }
 
+                // Lọc dự án
                 if (projectId) {
-                    const perms = await getUserPermissions(user.id, projectId);
-                    if (!ProjectPolicy.canViewProject(user, perms)) {
-                        throw new Error('Không có quyền xuất dữ liệu cho dự án này');
-                    }
                     where.projectId = projectId;
-                } else if (!user.isAdministrator) {
+                } else if (exportScope === 'OWN') {
+                    // OWN scope: chỉ xuất log trong dự án mà mình tham gia
                     where.project = { members: { some: { userId: user.id } } };
                 }
+                // ALL scope: không giới hạn dự án
 
+                // Lọc userId: OWN chỉ xuất của mình, ALL không giới hạn
                 if (userId) {
-                    if (!user.isAdministrator && ReportPolicy.getPersonnelVisibilityScope(user, globalPerms) === 'SELF' && userId !== user.id) {
-                        throw new Error('Không có quyền xuất dữ liệu của người khác');
+                    if (exportScope === 'OWN' && userId !== user.id) {
+                        throw new Error('Bạn chỉ có quyền xuất dữ liệu của chính mình.');
                     }
                     where.userId = userId;
-                } else if (!user.isAdministrator && ReportPolicy.getPersonnelVisibilityScope(user, globalPerms) === 'SELF') {
+                } else if (exportScope === 'OWN') {
                     where.userId = user.id;
                 }
 
@@ -439,13 +491,28 @@ export class ReportServerService {
 
                 csvContent = 'Ngày,Người thực hiện,Dự án,Tên công việc,Hoạt động,Giờ,Mô tả\n';
 
+                let totalHours = 0;
+                const userTotals = new Map<string, number>();
+
                 timeLogs.forEach(log => {
                     const spentOnStr = this.formatDateVN(log.spentOn);
                     const taskTitle = log.task ? `#${log.task.number} ${log.task.title}` : '-';
                     const comments = log.comments ? log.comments.replace(/"/g, '""') : '';
 
+                    totalHours += log.hours;
+                    userTotals.set(log.user.name, (userTotals.get(log.user.name) || 0) + log.hours);
+
                     csvContent += `"${spentOnStr}","${log.user.name}","${log.project.name}","${taskTitle.replace(/"/g, '""')}","${log.activity.name}",${log.hours},"${comments}"\n`;
                 });
+
+                csvContent += `,,,,"TỔNG CỘNG TẤT CẢ:",${totalHours.toFixed(1)},""\n`;
+
+                if (userTotals.size > 0) {
+                    csvContent += `\n"--- TỔNG HỢP THEO TỪNG NHÂN SỰ ---"\n"Nhân sự","Tổng số giờ"\n`;
+                    for (const [userName, hours] of userTotals.entries()) {
+                        csvContent += `"${userName}",${hours.toFixed(1)}\n`;
+                    }
+                }
 
                 filename = `thoi-gian_${this.formatDateForFilename(startDate, endDate)}`;
                 break;
@@ -497,51 +564,6 @@ export class ReportServerService {
                 });
 
                 filename = `tong-hop-du-an_${this.formatDateForFilename(startDate, endDate)}`;
-                break;
-            }
-
-            case 'user-summary': {
-                const globalPerms = await getUserPermissions(user.id);
-                if (ReportPolicy.getPersonnelVisibilityScope(user, globalPerms) !== 'ALL') {
-                    throw new Error('Không có quyền nâng cao để xuất báo cáo người dùng');
-                }
-
-                const userWhere: Record<string, unknown> = { isActive: true };
-                if (userId) {
-                    userWhere.id = userId;
-                }
-
-                const taskDateFilter = startDate || endDate ? { createdAt: dateFilter } : {};
-                const projectFilter = projectId ? { projectId } : {};
-
-                const users = await prisma.user.findMany({
-                    where: userWhere,
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                        assignedTasks: {
-                            where: { ...taskDateFilter, ...projectFilter },
-                            select: {
-                                status: { select: { isClosed: true } },
-                                estimatedHours: true,
-                            },
-                        },
-                    },
-                });
-
-                csvContent = 'Tên,Email,Tổng task được gán,Task mở,Task đóng,Hiệu suất (%),Tổng giờ ước lượng\n';
-
-                users.forEach(u => {
-                    const closedTasks = u.assignedTasks.filter(t => t.status.isClosed).length;
-                    const openTasks = u.assignedTasks.length - closedTasks;
-                    const perf = u.assignedTasks.length > 0 ? Math.round((closedTasks / u.assignedTasks.length) * 100) : 0;
-                    const totalHours = u.assignedTasks.reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
-
-                    csvContent += `"${u.name}","${u.email}",${u.assignedTasks.length},${openTasks},${closedTasks},${perf},${totalHours.toFixed(1)}\n`;
-                });
-
-                filename = `tong-hop-nhan-su_${this.formatDateForFilename(startDate, endDate)}`;
                 break;
             }
 

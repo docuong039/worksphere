@@ -56,14 +56,14 @@ export function RoleList({ roles: initialRoles, groupedPermissions, allTrackers 
     });
     const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set());
 
-    // Module names in Vietnamese
     const moduleNames: Record<string, string> = {
         PROJECTS: 'Dự án',
         TASKS: 'Công việc',
         TIMELOGS: 'Ghi nhận thời gian',
         QUERIES: 'Truy vấn & Bộ lọc',
+        COMMENTS: 'Bình luận',
+        REPORTS: 'Báo cáo',
     };
-
 
     // Create role
     const handleCreate = async () => {

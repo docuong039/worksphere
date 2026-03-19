@@ -34,11 +34,11 @@ export function canCreateComment(user: User, permissions: string[]): boolean {
 export function canUpdateComment(user: User, comment: Comment, permissions: string[]): boolean {
     if (user.isAdministrator) return true;
 
-    // RULE: Creator can update their own comment
-    if (comment.userId === user.id) return true;
-
     // RULE: User with EDIT_ALL permission
     if (permissions.includes(PERMISSIONS.COMMENTS.EDIT_ALL)) return true;
+
+    // RULE: Creator can update their own comment IF they have EDIT_OWN
+    if (comment.userId === user.id && permissions.includes(PERMISSIONS.COMMENTS.EDIT_OWN)) return true;
 
     return false;
 }
@@ -49,11 +49,11 @@ export function canUpdateComment(user: User, comment: Comment, permissions: stri
 export function canDeleteComment(user: User, comment: Comment, permissions: string[]): boolean {
     if (user.isAdministrator) return true;
 
-    // RULE: Creator can delete their own comment
-    if (comment.userId === user.id) return true;
-
     // RULE: User with DELETE_ALL permission
     if (permissions.includes(PERMISSIONS.COMMENTS.DELETE_ALL)) return true;
+
+    // RULE: Creator can delete their own comment IF they have DELETE_OWN
+    if (comment.userId === user.id && permissions.includes(PERMISSIONS.COMMENTS.DELETE_OWN)) return true;
 
     return false;
 }

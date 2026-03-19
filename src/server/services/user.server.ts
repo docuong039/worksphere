@@ -14,9 +14,11 @@ export class UserServerService {
         const { page, pageSize } = parsePaginationParams(searchParams, 'createdAt');
         const search = searchParams.get('search') || '';
         const excludeAdmins = searchParams.get('excludeAdmins') === 'true';
+        const forExport = searchParams.get('forExport') === 'true';
+        const projectId = searchParams.get('projectId') || undefined;
 
-        const globalPerms = await getUserPermissions(user.id);
-        const scope = ReportPolicy.getPersonnelVisibilityScope(user, globalPerms);
+        // Kiểm tra quyền theo project cụ thể nếu có, ngược lại lấy union tất cả
+        const perms = await getUserPermissions(user.id, projectId);
 
         const where: any = search
             ? {
@@ -31,19 +33,37 @@ export class UserServerService {
             where.isAdministrator = false;
         }
 
-        if (!user.isAdministrator) {
-            if (scope === 'SELF') {
-                where.id = user.id;
-            } else if (scope === 'PROJECT_MEMBERS') {
-                where.projectMemberships = {
-                    some: {
-                        project: {
-                            members: {
-                                some: { userId: user.id }
+        if (forExport) {
+            // Dùng exportScope của PROJECT cụ thể (hoặc union nếu không chọn project)
+            const { ReportPolicy } = await import('@/server/policies/report.policy');
+            const exportScope = ReportPolicy.getExportScope(user, perms);
+            if (!user.isAdministrator) {
+                if (exportScope === 'OWN') {
+                    where.id = user.id;
+                }
+                // exportScope === 'ALL': không giới hạn user
+            }
+            // Nếu có projectId, chỉ liệt kê thành viên của dự án đó
+            if (projectId) {
+                where.projectMemberships = { some: { projectId } };
+            }
+        } else {
+            const { ReportPolicy: RP } = await import('@/server/policies/report.policy');
+            const scope = RP.getPersonnelVisibilityScope(user, perms);
+            if (!user.isAdministrator) {
+                if (scope === 'SELF') {
+                    where.id = user.id;
+                } else if (scope === 'PROJECT_MEMBERS') {
+                    where.projectMemberships = {
+                        some: {
+                            project: {
+                                members: {
+                                    some: { userId: user.id }
+                                }
                             }
                         }
-                    }
-                };
+                    };
+                }
             }
         }
 

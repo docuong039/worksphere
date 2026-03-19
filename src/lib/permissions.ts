@@ -162,3 +162,47 @@ export async function getAccessibleProjectIds(
     return memberships.map((m: { projectId: string }) => m.projectId);
 }
 
+/**
+ * Trả về map projectId → [permission keys] cho user.
+ * Dùng ở trang Export để tính đúng scope theo từng dự án,
+ * thay vì union toàn bộ memberships gây "lọt quyền" sang project khác.
+ */
+export async function getProjectPermissionsMap(
+    userId: string
+): Promise<Record<string, string[]>> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return {};
+
+    if (user.isAdministrator) {
+        const [allPermissions, projects] = await Promise.all([
+            prisma.permission.findMany({ select: { key: true } }),
+            prisma.project.findMany({ select: { id: true } }),
+        ]);
+        const allKeys = allPermissions.map((p: any) => p.key);
+        const map: Record<string, string[]> = {};
+        projects.forEach((p: any) => { map[p.id] = allKeys; });
+        return map;
+    }
+
+    const memberships = await prisma.projectMember.findMany({
+        where: { userId },
+        include: {
+            role: {
+                include: {
+                    permissions: { include: { permission: true } },
+                },
+            },
+        },
+    });
+
+    const map: Record<string, string[]> = {};
+    for (const m of memberships as any[]) {
+        if (!map[m.projectId]) map[m.projectId] = [];
+        for (const rp of m.role.permissions as any[]) {
+            if (!map[m.projectId].includes(rp.permission.key)) {
+                map[m.projectId].push(rp.permission.key);
+            }
+        }
+    }
+    return map;
+}

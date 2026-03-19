@@ -19,6 +19,19 @@ export const ReportPolicy = {
     },
 
     /**
+     * Xác định quyền lực khi thao tác "XUẤT BÁO CÁO".
+     */
+    getExportScope: (user: User, userPermissions: string[]): 'ALL' | 'OWN' | 'NONE' => {
+        if (user.isAdministrator || userPermissions.includes(PERMISSIONS.REPORTS.EXPORT_ALL)) {
+            return 'ALL';
+        }
+        if (userPermissions.includes(PERMISSIONS.REPORTS.EXPORT_OWN)) {
+            return 'OWN';
+        }
+        return 'NONE';
+    },
+
+    /**
      * Có thể xem báo cáo chi tiết theo nhân sự (Hiệu suất) không?
      * Quy tắc: Admin hoặc Project Managers (người có quyền projects.edit)
      */

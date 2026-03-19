@@ -51,6 +51,11 @@ export const PERMISSIONS = {
     QUERIES: {
         MANAGE_PUBLIC: 'queries.manage_public',
     },
+    // Reports
+    REPORTS: {
+        EXPORT_ALL: 'reports.export_all',
+        EXPORT_OWN: 'reports.export_own',
+    },
 } as const;
 
 

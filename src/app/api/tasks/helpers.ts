@@ -131,6 +131,14 @@ export function buildTaskFilters(params: TaskFilterParams): Prisma.TaskWhereInpu
         if (dueDateTo) where.dueDate.lte = new Date(dueDateTo);
     }
 
+    const createdAtFrom = searchParams.get('createdAtFrom');
+    const createdAtTo = searchParams.get('createdAtTo');
+    if (createdAtFrom || createdAtTo) {
+        where.createdAt = {};
+        if (createdAtFrom) where.createdAt.gte = new Date(`${createdAtFrom}T00:00:00.000Z`);
+        if (createdAtTo) where.createdAt.lte = new Date(`${createdAtTo}T23:59:59.999Z`);
+    }
+
     return where;
 }
 

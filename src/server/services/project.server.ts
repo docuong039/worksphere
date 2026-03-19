@@ -599,27 +599,20 @@ export class ProjectServerService {
     }
 
     /**
-     * Kiểm tra quyền quản lý member của dự án
+     * Kiểm tra quyền quản lý member của dự án dựa trên hệ thống phân quyền ABAC
      */
     static async canManageMembers(user: SessionUser, projectId: string) {
         if (user.isAdministrator) return true;
 
         const project = await prisma.project.findUnique({
             where: { id: projectId },
-            include: {
-                members: {
-                    where: { userId: user.id },
-                    include: { role: true }
-                }
-            }
+            select: { id: true, creatorId: true, isArchived: true }
         });
 
         if (!project) return false;
 
-        const myMemberStatus = project.members[0];
-        if (!myMemberStatus) return false;
-
-        return project.creatorId === user.id || myMemberStatus.role.name === 'Manager';
+        const userPermissions = await getUserPermissions(user.id, projectId);
+        return ProjectPolicy.canManageMembers(user, project, userPermissions);
     }
 
     /**

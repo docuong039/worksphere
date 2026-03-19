@@ -81,6 +81,9 @@ async function main() {
         'projects.manage_trackers': 'Quản lý loại công việc',
         // Queries
         'queries.manage_public': 'Quản lý bộ lọc công khai',
+        // Reports
+        'reports.export_all': 'Xuất tất cả báo cáo',
+        'reports.export_own': 'Xuất báo cáo của mình',
     };
 
     const allPermissions: { key: string; name: string; module: string }[] = [];

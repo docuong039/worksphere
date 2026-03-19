@@ -36,12 +36,13 @@ interface TaskData {
     title: string;
     project: { name: string };
     tracker: { name: string };
-    status: { name: string };
+    status: { name: string; isClosed: boolean };
     priority: { name: string };
     assignee: { name: string } | null;
     doneRatio: number;
     startDate: string | null;
     dueDate: string | null;
+    updatedAt: string;
 }
 
 interface TimeLogData {
@@ -62,59 +63,82 @@ interface ExportClientProps {
         name: string | null;
         isAdministrator: boolean;
     };
-    permissions: string[];
+    projectPermissionsMap: Record<string, string[]>;
 }
 
-export default function ExportClient({ user, permissions }: ExportClientProps) {
-    const canViewTimeReports = ReportPolicy.canViewTimeReports(user, permissions);
-    const personnelScope = ReportPolicy.getPersonnelVisibilityScope(user, permissions);
-
-    // Filter states
+export default function ExportClient({ user, projectPermissionsMap }: ExportClientProps) {
+    // ── Filter states ─────────────────────────────────────────────────────────
     const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' });
     const [selectedProjectId, setSelectedProjectId] = useState('');
     const [selectedUserId, setSelectedUserId] = useState('');
     const [quickFilter, setQuickFilter] = useState<'week' | 'month' | 'last-month' | 'quarter' | ''>('');
     const [exportType, setExportType] = useState<'tasks' | 'time'>('tasks');
 
-    // Options
+    // ── Options ───────────────────────────────────────────────────────────────
     const [projects, setProjects] = useState<ProjectOption[]>([]);
     const [users, setUsers] = useState<UserOption[]>([]);
 
-    // UI states
+    // ── UI states ─────────────────────────────────────────────────────────────
     const [exportingCSV, setExportingCSV] = useState(false);
     const [exportingPDF, setExportingPDF] = useState(false);
     const [exportSuccess, setExportSuccess] = useState<'csv' | 'pdf' | null>(null);
 
-    // Fetch filter options on mount
-    useEffect(() => {
-        const fetchOptions = async () => {
-            try {
-                const [projectsRes, usersRes] = await Promise.all([
-                    fetch('/api/projects?pageSize=100'),
-                    fetch('/api/users?pageSize=100&excludeAdmins=true')
-                ]);
-                const projectsData = await projectsRes.json();
-                const usersData = await usersRes.json();
+    // ── Derived permissions (computed synchronously — no state needed) ────────
+    // If user has selected a project, use ONLY that project's permissions.
+    // If no project selected, merge all memberships (sensible global default).
+    const currentPermissions: string[] = (() => {
+        if (user.isAdministrator) return [];   // admin: policy handles via user.isAdministrator
+        if (selectedProjectId && projectPermissionsMap[selectedProjectId]) {
+            return projectPermissionsMap[selectedProjectId];
+        }
+        // No project selected → union of all membership permissions
+        const allKeys = new Set<string>();
+        Object.values(projectPermissionsMap).forEach(perms =>
+            perms.forEach(k => allKeys.add(k))
+        );
+        return Array.from(allKeys);
+    })();
 
-                if (projectsData.success) {
-                    setProjects(projectsData.data.projects || projectsData.data || []);
-                }
-                if (usersData.success) {
-                    let fetchedUsers: UserOption[] = usersData.data.users || usersData.data || [];
-                    if (personnelScope === 'SELF') {
-                        fetchedUsers = fetchedUsers.filter(u => u.id === user.id);
-                    }
-                    setUsers(fetchedUsers);
-                    if (personnelScope === 'SELF') {
-                        setSelectedUserId(user.id);
-                    }
-                }
-            } catch (error) {
-                console.error('Failed to fetch options', error);
-            }
-        };
-        fetchOptions();
+    const canViewTimeReports = ReportPolicy.canViewTimeReports(user, currentPermissions);
+    const personnelScope = ReportPolicy.getPersonnelVisibilityScope(user, currentPermissions);
+    const exportScope = ReportPolicy.getExportScope(user, currentPermissions);
+
+    // ── Fetch projects once on mount ──────────────────────────────────────────
+    useEffect(() => {
+        fetch('/api/projects?pageSize=100')
+            .then(r => r.json())
+            .then(d => { if (d.success) setProjects(d.data.projects || d.data || []); })
+            .catch(console.error);
     }, []);
+
+    // ── Fetch user list whenever selected project changes ─────────────────────
+    useEffect(() => {
+        const params = new URLSearchParams({
+            pageSize: '500',
+            excludeAdmins: 'true',
+            forExport: 'true',
+        });
+        if (selectedProjectId) params.set('projectId', selectedProjectId);
+
+        fetch(`/api/users?${params}`)
+            .then(r => r.json())
+            .then(d => {
+                if (!d.success) return;
+                let list: UserOption[] = d.data.users || d.data || [];
+                if (exportScope === 'OWN') {
+                    list = list.filter(u => u.id === user.id);
+                }
+                setUsers(list);
+                // Auto-select self for OWN scope; clear if previous selection gone
+                if (exportScope === 'OWN') {
+                    setSelectedUserId(user.id);
+                } else if (selectedUserId && !list.some(u => u.id === selectedUserId)) {
+                    setSelectedUserId('');
+                }
+            })
+            .catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedProjectId, exportScope]);
 
     // Quick filter helpers
     const applyQuickFilter = (type: 'week' | 'month' | 'last-month' | 'quarter') => {
@@ -160,11 +184,16 @@ export default function ExportClient({ user, permissions }: ExportClientProps) {
 
     // Export CSV handler
     const handleExportCSV = async () => {
+        if (exportScope === 'NONE') {
+            alert('Bạn không có quyền xuất báo cáo. Liên hệ quản trị viên để được cấp quyền.');
+            return;
+        }
         setExportingCSV(true);
         setExportSuccess(null);
 
         try {
-            const params = new URLSearchParams({ type: exportType === 'tasks' ? 'tasks' : 'time-logs' });
+            const typeParam = exportType === 'tasks' ? 'tasks' : 'time-logs';
+            const params = new URLSearchParams({ type: typeParam });
             if (dateRange.startDate) params.set('startDate', dateRange.startDate);
             if (dateRange.endDate) params.set('endDate', dateRange.endDate);
             if (selectedProjectId) params.set('projectId', selectedProjectId);
@@ -182,7 +211,8 @@ export default function ExportClient({ user, permissions }: ExportClientProps) {
                 const match = contentDisposition.match(/filename="(.+)"/);
                 if (match) filename = match[1];
             } else {
-                filename = exportType === 'tasks' ? 'cong-viec.csv' : 'thoi-gian.csv';
+                if (exportType === 'tasks') filename = 'cong-viec.csv';
+                else filename = 'thoi-gian.csv';
             }
 
             const blob = await res.blob();
@@ -204,14 +234,37 @@ export default function ExportClient({ user, permissions }: ExportClientProps) {
 
     // Export PDF handler using pdfmake (supports Vietnamese)
     const handleExportPDF = async () => {
+        if (exportScope === 'NONE') {
+            alert('Bạn không có quyền xuất báo cáo. Liên hệ quản trị viên để được cấp quyền.');
+            return;
+        }
         setExportingPDF(true);
         setExportSuccess(null);
 
         try {
-            // Fetch data based on type
-            const params = buildParams();
+            const params = new URLSearchParams();
+            params.set('pageSize', '1000');
+            if (selectedProjectId) params.set('projectId', selectedProjectId);
+
+            if (exportType === 'tasks') {
+                if (dateRange.startDate) params.set('createdAtFrom', dateRange.startDate);
+                if (dateRange.endDate) params.set('createdAtTo', dateRange.endDate);
+                if (selectedUserId) params.set('assigneeId', selectedUserId);
+            } else {
+                if (dateRange.startDate) params.set('from', dateRange.startDate);
+                if (dateRange.endDate) params.set('to', dateRange.endDate);
+                if (selectedUserId) params.set('userId', selectedUserId);
+            }
+
             let tableHeaders: any[] = [];
             let tableBody: any[] = [];
+            let userTotals = new Map<string, number>();
+
+            let totalTasks = 0;
+            let overdueTasks = 0;
+            const statusCounts = new Map<string, number>();
+            const taskUserStats = new Map<string, { total: number, completed: number, completedLate: number, overdue: number }>();
+
             let title = '';
 
             if (exportType === 'tasks') {
@@ -226,25 +279,58 @@ export default function ExportClient({ user, permissions }: ExportClientProps) {
                     { text: '#', style: 'tableHeader' },
                     { text: 'Tiêu đề', style: 'tableHeader' },
                     { text: 'Dự án', style: 'tableHeader' },
-                    { text: 'Loại', style: 'tableHeader' },
                     { text: 'Trạng thái', style: 'tableHeader' },
                     { text: 'Ưu tiên', style: 'tableHeader' },
                     { text: 'Người TH', style: 'tableHeader' },
                     { text: '%', style: 'tableHeader' },
-                    { text: 'Hết hạn', style: 'tableHeader' }
+                    { text: 'Hết hạn', style: 'tableHeader' },
+                    { text: 'Tiến độ', style: 'tableHeader' }
                 ];
 
-                tableBody = tasks.map(task => [
-                    { text: String(task.number), alignment: 'center' },
-                    task.title.length > 50 ? task.title.substring(0, 50) + '...' : task.title,
-                    task.project.name,
-                    task.tracker.name,
-                    task.status.name,
-                    task.priority.name,
-                    task.assignee?.name || '-',
-                    { text: `${task.doneRatio}%`, alignment: 'center' },
-                    { text: task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : '-', alignment: 'center' }
-                ]);
+                tableBody = tasks.map(task => {
+                    totalTasks++;
+                    statusCounts.set(task.status.name, (statusCounts.get(task.status.name) || 0) + 1);
+
+                    const assigneeName = task.assignee?.name || 'Chưa phân công';
+                    if (!taskUserStats.has(assigneeName)) {
+                        taskUserStats.set(assigneeName, { total: 0, completed: 0, completedLate: 0, overdue: 0 });
+                    }
+                    const uStat = taskUserStats.get(assigneeName)!;
+                    uStat.total++;
+
+                    let completionStatus = 'Chưa hoàn thành';
+                    let statusColor = '#6B7280';
+
+                    if (task.status.isClosed) {
+                        uStat.completed++;
+                        if (task.dueDate && new Date(task.updatedAt) > new Date(task.dueDate)) {
+                            uStat.completedLate++;
+                            const delayDays = Math.ceil((new Date(task.updatedAt).getTime() - new Date(task.dueDate).getTime()) / (1000 * 3600 * 24));
+                            completionStatus = `Trễ ${delayDays} ngày`;
+                            statusColor = '#EF4444';
+                        } else {
+                            completionStatus = 'Hoàn thành';
+                            statusColor = '#10B981';
+                        }
+                    } else {
+                        if (task.dueDate && new Date() > new Date(task.dueDate)) {
+                            overdueTasks++;
+                            uStat.overdue++;
+                        }
+                    }
+
+                    return [
+                        { text: String(task.number), alignment: 'center' },
+                        task.title,
+                        task.project.name,
+                        task.status.name,
+                        task.priority.name,
+                        task.assignee?.name || '-',
+                        { text: `${task.doneRatio}%`, alignment: 'center' },
+                        { text: task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN') : '-', alignment: 'center' },
+                        { text: completionStatus, alignment: 'center', color: statusColor, bold: true }
+                    ];
+                });
 
             } else {
                 const res = await fetch(`/api/time-logs?${params.toString()}`);
@@ -264,21 +350,43 @@ export default function ExportClient({ user, permissions }: ExportClientProps) {
                     { text: 'Ghi chú', style: 'tableHeader' }
                 ];
 
-                tableBody = logs.map(log => [
-                    { text: new Date(log.spentOn).toLocaleDateString('vi-VN'), alignment: 'center' },
-                    log.user.name,
-                    log.project.name,
-                    log.task ? `#${log.task.number} ${log.task.title}`.substring(0, 40) : '-',
-                    log.activity.name,
-                    { text: String(log.hours), alignment: 'center', bold: true },
-                    log.comments || ''
+                let totalHours = 0;
+                tableBody = logs.map(log => {
+                    totalHours += log.hours;
+                    userTotals.set(log.user.name, (userTotals.get(log.user.name) || 0) + log.hours);
+                    return [
+                        { text: new Date(log.spentOn).toLocaleDateString('vi-VN'), alignment: 'center' },
+                        log.user.name,
+                        log.project.name,
+                        log.task ? `#${log.task.number} ${log.task.title}` : '-',
+                        log.activity.name,
+                        { text: String(log.hours), alignment: 'center' },
+                        log.comments || ''
+                    ];
+                });
+
+                tableBody.push([
+                    { text: '', border: [false, false, false, false] },
+                    { text: '', border: [false, false, false, false] },
+                    { text: '', border: [false, false, false, false] },
+                    { text: '', border: [false, false, false, false] },
+                    { text: 'TỔNG CỘNG:', alignment: 'right', bold: true },
+                    { text: String(Number(totalHours.toFixed(1))), alignment: 'center', bold: true, color: 'blue' },
+                    { text: '', border: [false, false, false, false] }
                 ]);
             }
 
             // Build subtitle
             let subtitle = 'Xuất ngày: ' + new Date().toLocaleDateString('vi-VN');
+            const formatDisplayDateInner = (isoString?: string | null) => {
+                if (!isoString) return '...';
+                const parts = isoString.split('-');
+                if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+                return isoString;
+            };
+
             if (dateRange.startDate || dateRange.endDate) {
-                subtitle += ` | Thời gian: ${dateRange.startDate || '...'} đến ${dateRange.endDate || '...'}`;
+                subtitle += ` | Thời gian: ${formatDisplayDateInner(dateRange.startDate)} đến ${formatDisplayDateInner(dateRange.endDate)}`;
             }
             if (selectedProjectId) {
                 const projectName = projects.find(p => p.id === selectedProjectId)?.name;
@@ -289,35 +397,136 @@ export default function ExportClient({ user, permissions }: ExportClientProps) {
                 subtitle += ` | Nhân sự: ${userName}`;
             }
 
-            // Create PDF document definition
-            const docDefinition = {
-                pageOrientation: 'landscape' as const,
-                pageSize: 'A4' as const,
-                pageMargins: [20, 20, 20, 30] as [number, number, number, number],
-                content: [
-                    { text: title, style: 'header' },
-                    { text: subtitle, style: 'subheader' },
-                    { text: ' ', margin: [0, 5, 0, 5] as [number, number, number, number] },
-                    {
+            const docContent: any[] = [
+                { text: title, style: 'header' },
+                { text: subtitle, style: 'subheader' },
+                { text: ' ', margin: [0, 5, 0, 5] as [number, number, number, number] },
+                {
+                    table: {
+                        headerRows: 1,
+                        widths: exportType === 'tasks'
+                            ? [20, '*', 60, 55, 45, 60, 25, 55, 70]
+                            : [60, 80, 80, '*', 70, 30, 100],
+                        body: [
+                            tableHeaders,
+                            ...tableBody
+                        ]
+                    },
+                    layout: {
+                        hLineWidth: () => 0.5,
+                        vLineWidth: () => 0.5,
+                        hLineColor: () => '#E5E7EB',
+                        vLineColor: () => '#E5E7EB',
+                        fillColor: (rowIndex: number) => rowIndex === 0 ? '#3B82F6' : (rowIndex % 2 === 0 ? '#F9FAFB' : null)
+                    }
+                }
+            ];
+
+            if (exportType === 'time' && userTotals.size > 0) {
+                const summaryBody = [
+                    [{ text: 'Nhân sự', style: 'tableHeader' }, { text: 'Tổng số giờ', style: 'tableHeader' }],
+                    ...Array.from(userTotals.entries()).map(([name, hours]) => [
+                        name,
+                        { text: String(Number(hours.toFixed(1))), alignment: 'center', bold: true }
+                    ])
+                ];
+
+                docContent.push({ text: ' ', margin: [0, 15, 0, 0] as [number, number, number, number] });
+                docContent.push({ text: 'Tổng hợp theo nhân sự', style: 'subheader', margin: [0, 0, 0, 8] as [number, number, number, number] });
+                docContent.push({
+                    table: {
+                        headerRows: 1,
+                        widths: [150, 100],
+                        body: summaryBody
+                    },
+                    layout: {
+                        hLineWidth: () => 0.5,
+                        vLineWidth: () => 0.5,
+                        hLineColor: () => '#E5E7EB',
+                        vLineColor: () => '#E5E7EB',
+                        fillColor: (rowIndex: number) => rowIndex === 0 ? '#10B981' : (rowIndex % 2 === 0 ? '#F9FAFB' : null)
+                    }
+                });
+            }
+
+            if (exportType === 'tasks') {
+                const summaryBody = [
+                    [{ text: 'Trạng thái', style: 'tableHeader' }, { text: 'Số lượng', style: 'tableHeader' }],
+                    ...Array.from(statusCounts.entries()).map(([name, count]) => [
+                        name,
+                        { text: String(count), alignment: 'center', bold: true }
+                    ]),
+                    ['Quá hạn (chưa đóng)', { text: String(overdueTasks), alignment: 'center', bold: true, color: '#EF4444' }],
+                    [{ text: 'TỔNG CÔNG VIỆC', bold: true }, { text: String(totalTasks), alignment: 'center', bold: true, color: '#3B82F6' }]
+                ];
+
+                docContent.push({ text: ' ', margin: [0, 15, 0, 0] as [number, number, number, number] });
+                docContent.push({ text: 'Thống kê tổng quan', style: 'subheader', margin: [0, 0, 0, 8] as [number, number, number, number] });
+                docContent.push({
+                    table: {
+                        headerRows: 1,
+                        widths: [200, 100],
+                        body: summaryBody
+                    },
+                    layout: {
+                        hLineWidth: () => 0.5,
+                        vLineWidth: () => 0.5,
+                        hLineColor: () => '#E5E7EB',
+                        vLineColor: () => '#E5E7EB',
+                        fillColor: (rowIndex: number) => rowIndex === 0 ? '#3B82F6' : (rowIndex % 2 === 0 ? '#F9FAFB' : null)
+                    }
+                });
+
+                if (taskUserStats.size > 0) {
+                    const userSummaryBody = [
+                        [
+                            { text: 'Người thực hiện', style: 'tableHeader' },
+                            { text: 'Tổng task', style: 'tableHeader' },
+                            { text: 'Hoàn thành', style: 'tableHeader' },
+                            { text: 'Hoàn thành (trễ)', style: 'tableHeader' },
+                            { text: 'Tỉ lệ hoàn thành', style: 'tableHeader' },
+                            { text: 'Quá hạn', style: 'tableHeader' }
+                        ],
+                        ...Array.from(taskUserStats.entries())
+                            .sort((a, b) => b[1].total - a[1].total)
+                            .map(([name, stat]) => {
+                                const rate = stat.total > 0 ? Math.round((stat.completed / stat.total) * 100) : 0;
+                                return [
+                                    name,
+                                    { text: String(stat.total), alignment: 'center' },
+                                    { text: String(stat.completed), alignment: 'center', color: '#10B981' },
+                                    { text: String(stat.completedLate), alignment: 'center', color: stat.completedLate > 0 ? '#F59E0B' : '#6B7280' },
+                                    { text: `${rate}%`, alignment: 'center', bold: true },
+                                    { text: String(stat.overdue), alignment: 'center', color: stat.overdue > 0 ? '#EF4444' : '#6B7280' }
+                                ];
+                            })
+                    ];
+
+                    docContent.push({ text: ' ', margin: [0, 15, 0, 0] as [number, number, number, number] });
+                    docContent.push({ text: 'Thống kê theo người thực hiện', style: 'subheader', margin: [0, 0, 0, 8] as [number, number, number, number] });
+                    docContent.push({
                         table: {
                             headerRows: 1,
-                            widths: exportType === 'tasks'
-                                ? [25, '*', 60, 45, 55, 45, 70, 30, 55]
-                                : [60, 80, 80, '*', 70, 30, 100],
-                            body: [
-                                tableHeaders,
-                                ...tableBody
-                            ]
+                            widths: [150, 70, 80, 100, 100, 70],
+                            body: userSummaryBody
                         },
                         layout: {
                             hLineWidth: () => 0.5,
                             vLineWidth: () => 0.5,
                             hLineColor: () => '#E5E7EB',
                             vLineColor: () => '#E5E7EB',
-                            fillColor: (rowIndex: number) => rowIndex === 0 ? '#3B82F6' : (rowIndex % 2 === 0 ? '#F9FAFB' : null)
+                            fillColor: (rowIndex: number) => rowIndex === 0 ? '#8B5CF6' : (rowIndex % 2 === 0 ? '#F9FAFB' : null)
                         }
-                    }
-                ],
+                    });
+                }
+            }
+
+            // Create PDF document definition
+            const docDefinition = {
+                pageOrientation: 'landscape' as const,
+                pageSize: 'A4' as const,
+                pageMargins: [20, 20, 20, 30] as [number, number, number, number],
+                content: docContent,
                 footer: (currentPage: number, pageCount: number) => ({
                     text: `Trang ${currentPage} / ${pageCount}`,
                     alignment: 'right' as const,
@@ -371,7 +580,36 @@ export default function ExportClient({ user, permissions }: ExportClientProps) {
         setQuickFilter('');
     };
 
+    const formatDisplayDate = (isoString?: string | null) => {
+        if (!isoString) return '...';
+        const parts = isoString.split('-');
+        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        return isoString;
+    };
+
     const isExporting = exportingCSV || exportingPDF;
+
+    if (exportScope === 'NONE') {
+        return (
+            <div className="max-w-3xl mx-auto space-y-6">
+                <div className="flex items-center gap-4">
+                    <Link href="/reports" className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                        <ArrowLeft className="w-5 h-5 text-gray-600" />
+                    </Link>
+                    <h1 className="text-2xl font-bold text-gray-900">Xuất báo cáo</h1>
+                </div>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <FileText className="w-8 h-8 text-red-500" />
+                    </div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2">Không có quyền xuất báo cáo</h2>
+                    <p className="text-gray-500 max-w-sm mx-auto">
+                        Tài khoản của bạn chưa được cấp quyền <strong>Xuất báo cáo</strong>. Liên hệ quản trị viên hệ thống để được cấp quyền phù hợp.
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-3xl mx-auto space-y-6">
@@ -499,10 +737,10 @@ export default function ExportClient({ user, permissions }: ExportClientProps) {
                             <select
                                 value={selectedUserId}
                                 onChange={(e) => setSelectedUserId(e.target.value)}
-                                disabled={personnelScope === 'SELF'}
+                                disabled={exportScope === 'OWN'}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100 disabled:text-gray-500"
                             >
-                                {personnelScope !== 'SELF' && <option value="">Tất cả người dùng</option>}
+                                {exportScope !== 'OWN' && <option value="">Tất cả người dùng</option>}
                                 {users.map(u => (
                                     <option key={u.id} value={u.id}>{u.name}</option>
                                 ))}
@@ -518,7 +756,7 @@ export default function ExportClient({ user, permissions }: ExportClientProps) {
                         {(dateRange.startDate || dateRange.endDate) && (
                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-md">
                                 <Calendar className="w-3 h-3" />
-                                {dateRange.startDate || '...'} → {dateRange.endDate || '...'}
+                                {formatDisplayDate(dateRange.startDate)} → {formatDisplayDate(dateRange.endDate)}
                             </span>
                         )}
                         {selectedProjectId && (
