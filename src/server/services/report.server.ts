@@ -482,36 +482,83 @@ export class ReportServerService {
                     where,
                     include: {
                         project: { select: { name: true } },
-                        task: { select: { title: true, number: true } },
+                        task: { select: { title: true, number: true, estimatedHours: true, dueDate: true, updatedAt: true, status: { select: { isClosed: true } }, timeLogs: { select: { hours: true } } } },
                         user: { select: { name: true, email: true } },
                         activity: { select: { name: true } },
                     },
                     orderBy: { spentOn: 'desc' },
                 });
 
-                csvContent = 'Ngày,Người thực hiện,Dự án,Tên công việc,Hoạt động,Giờ,Mô tả\n';
+                csvContent = 'Ngày,Người thực hiện,Dự án,Tên công việc,Hoạt động,Dự kiến (Task),Giờ log,Đánh giá ngân sách,Mô tả\n';
 
                 let totalHours = 0;
-                const userTotals = new Map<string, number>();
+                const userSummaries = new Map<string, { totalAct: number; taskMap: Map<number, { est: number; isClosed: boolean; isOnTime: boolean }> }>();
 
                 timeLogs.forEach(log => {
                     const spentOnStr = this.formatDateVN(log.spentOn);
                     const taskTitle = log.task ? `#${log.task.number} ${log.task.title}` : '-';
                     const comments = log.comments ? log.comments.replace(/"/g, '""') : '';
 
-                    totalHours += log.hours;
-                    userTotals.set(log.user.name, (userTotals.get(log.user.name) || 0) + log.hours);
+                    let est = 0;
+                    let evalStatus = '-';
+                    
+                    if (log.task) {
+                        est = log.task.estimatedHours || 0;
+                        const totalActual = log.task.timeLogs.reduce((sum: number, t: any) => sum + t.hours, 0);
+                        if (est > 0) {
+                            if (totalActual > est) {
+                                evalStatus = `Vượt mức ${(totalActual - est).toFixed(1)}h`;
+                            } else {
+                                evalStatus = `Còn dư ${(est - totalActual).toFixed(1)}h`;
+                            }
+                        } else {
+                            evalStatus = 'Chưa thiết lập KH';
+                        }
+                    }
 
-                    csvContent += `"${spentOnStr}","${log.user.name}","${log.project.name}","${taskTitle.replace(/"/g, '""')}","${log.activity.name}",${log.hours},"${comments}"\n`;
+                    totalHours += log.hours;
+                    
+                    let s = userSummaries.get(log.user.name);
+                    if (!s) {
+                        s = { totalAct: 0, taskMap: new Map() };
+                        userSummaries.set(log.user.name, s);
+                    }
+                    s.totalAct += log.hours;
+                    
+                    if (log.task && !s.taskMap.has(log.task.number)) {
+                        const isClosed = log.task.status?.isClosed || false;
+                        let isOnTime = false;
+                        if (isClosed) {
+                            if (!log.task.dueDate) isOnTime = true;
+                            else if (new Date(log.task.updatedAt || new Date().toISOString()) <= new Date(log.task.dueDate)) isOnTime = true;
+                        }
+                        s.taskMap.set(log.task.number, { est: est, isClosed, isOnTime });
+                    }
+
+                    // Columns: Ngày,Người thực hiện,Dự án,Tên công việc,Hoạt động,Dự kiến (Task),Giờ log,Đánh giá ngân sách,Mô tả
+                    csvContent += `"${spentOnStr}","${log.user.name}","${log.project.name}","${taskTitle.replace(/"/g, '""')}","${log.activity.name}",${est > 0 ? est.toFixed(1) : '""'},${log.hours},"${evalStatus}","${comments}"\n`;
                 });
 
-                csvContent += `,,,,"TỔNG CỘNG TẤT CẢ:",${totalHours.toFixed(1)},""\n`;
+                csvContent += `,,,,,,"TỔNG CỘNG TẤT CẢ:",${totalHours.toFixed(1)},,""\n`;
 
-                if (userTotals.size > 0) {
-                    csvContent += `\n"--- TỔNG HỢP THEO TỪNG NHÂN SỰ ---"\n"Nhân sự","Tổng số giờ"\n`;
-                    for (const [userName, hours] of userTotals.entries()) {
-                        csvContent += `"${userName}",${hours.toFixed(1)}\n`;
-                    }
+                if (userSummaries.size > 0) {
+                    csvContent += `\n"--- TỔNG HỢP HIỆU SUẤT GIỜ THEO TỪNG NHÂN SỰ ---"\n`;
+                    csvContent += `"Nhân sự","Tổng giờ dự kiến","Tổng giờ thực tế","Chênh lệch (giờ)","Hiệu suất (%)","Xếp loại"\n`;
+
+                    Array.from(userSummaries.entries()).forEach(([name, s]) => {
+                        const est = Array.from(s.taskMap.values()).reduce((sum, t) => sum + t.est, 0);
+                        const act = s.totalAct;
+                        const diff = act - est;
+                        const perf = est > 0 ? (est / act) * 100 : 0;
+
+                        let rating = 'Yếu';
+                        if (est === 0) rating = 'Chưa có kế hoạch';
+                        else if (perf >= 100) rating = 'Xuất sắc';
+                        else if (perf >= 90) rating = 'Tốt';
+                        else if (perf >= 75) rating = 'Cần cải thiện';
+
+                        csvContent += `"${name}",${est > 0 ? est.toFixed(1) : '-'},${act.toFixed(1)},"${diff > 0 ? '+' : ''}${diff.toFixed(1)}","${perf > 0 ? perf.toFixed(0) + '%' : '-'}","${rating}"\n`;
+                    });
                 }
 
                 filename = `thoi-gian_${this.formatDateForFilename(startDate, endDate)}`;

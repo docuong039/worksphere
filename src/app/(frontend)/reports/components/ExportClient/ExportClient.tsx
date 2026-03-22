@@ -53,7 +53,7 @@ interface TimeLogData {
     project: { name: string };
     user: { name: string };
     activity: { name: string };
-    task: { title: string; number: number } | null;
+    task: { title: string; number: number; estimatedHours?: number; dueDate?: string | null; updatedAt?: string; status?: { isClosed: boolean }; timeLogs?: { hours: number }[] } | null;
 }
 import { ReportPolicy } from '@/server/policies/report.policy';
 
@@ -137,7 +137,7 @@ export default function ExportClient({ user, projectPermissionsMap }: ExportClie
                 }
             })
             .catch(console.error);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedProjectId, exportScope]);
 
     // Quick filter helpers
@@ -243,7 +243,8 @@ export default function ExportClient({ user, projectPermissionsMap }: ExportClie
 
         try {
             const params = new URLSearchParams();
-            params.set('pageSize', '1000');
+            params.set('pageSize', '5000'); // Increase pageSize to handle larger exports
+            params.set('forExport', 'true'); // Bypass pagination cap
             if (selectedProjectId) params.set('projectId', selectedProjectId);
 
             if (exportType === 'tasks') {
@@ -258,7 +259,7 @@ export default function ExportClient({ user, projectPermissionsMap }: ExportClie
 
             let tableHeaders: any[] = [];
             let tableBody: any[] = [];
-            let userTotals = new Map<string, number>();
+            let userSummaries = new Map<string, { totalAct: number; taskMap: Map<number, { est: number; isClosed: boolean; isOnTime: boolean }> }>();
 
             let totalTasks = 0;
             let overdueTasks = 0;
@@ -346,21 +347,60 @@ export default function ExportClient({ user, projectPermissionsMap }: ExportClie
                     { text: 'Dự án', style: 'tableHeader' },
                     { text: 'Công việc', style: 'tableHeader' },
                     { text: 'Hoạt động', style: 'tableHeader' },
-                    { text: 'Giờ', style: 'tableHeader' },
+                    { text: 'Giờ dự kiến', style: 'tableHeader' },
+                    { text: 'Giờ thực tế', style: 'tableHeader' },
+                    { text: 'Đánh giá', style: 'tableHeader' },
                     { text: 'Ghi chú', style: 'tableHeader' }
                 ];
 
                 let totalHours = 0;
                 tableBody = logs.map(log => {
                     totalHours += log.hours;
-                    userTotals.set(log.user.name, (userTotals.get(log.user.name) || 0) + log.hours);
+
+                    let s = userSummaries.get(log.user.name);
+                    if (!s) {
+                        s = { totalAct: 0, taskMap: new Map() };
+                        userSummaries.set(log.user.name, s);
+                    }
+                    s.totalAct += log.hours;
+
+                    let est = 0;
+                    let evalStatus = { text: '-', color: 'black' };
+
+                    if (log.task) {
+                        est = log.task.estimatedHours || 0;
+                        const totalActual = log.task.timeLogs?.reduce((sum: number, t: any) => sum + t.hours, 0) || 0;
+
+                        if (!s.taskMap.has(log.task.number)) {
+                            const isClosed = log.task.status?.isClosed || false;
+                            let isOnTime = false;
+                            if (isClosed) {
+                                if (!log.task.dueDate) isOnTime = true;
+                                else if (new Date(log.task.updatedAt || new Date().toISOString()) <= new Date(log.task.dueDate)) isOnTime = true;
+                            }
+                            s.taskMap.set(log.task.number, { est, isClosed, isOnTime });
+                        }
+
+                        if (est > 0) {
+                            if (totalActual > est) {
+                                evalStatus = { text: `Vượt ${(totalActual - est).toFixed(1)}h`, color: '#EF4444' };
+                            } else {
+                                evalStatus = { text: `Dư ${(est - totalActual).toFixed(1)}h`, color: '#10B981' };
+                            }
+                        } else {
+                            evalStatus = { text: 'Chưa thiết lập kế hoạch', color: '#6B7280' };
+                        }
+                    }
+
                     return [
                         { text: new Date(log.spentOn).toLocaleDateString('vi-VN'), alignment: 'center' },
                         log.user.name,
                         log.project.name,
                         log.task ? `#${log.task.number} ${log.task.title}` : '-',
                         log.activity.name,
+                        { text: est > 0 ? String(est) : '-', alignment: 'center' },
                         { text: String(log.hours), alignment: 'center' },
+                        evalStatus,
                         log.comments || ''
                     ];
                 });
@@ -370,8 +410,10 @@ export default function ExportClient({ user, projectPermissionsMap }: ExportClie
                     { text: '', border: [false, false, false, false] },
                     { text: '', border: [false, false, false, false] },
                     { text: '', border: [false, false, false, false] },
-                    { text: 'TỔNG CỘNG:', alignment: 'right', bold: true },
+                    { text: '', border: [false, false, false, false] },
+                    { text: 'TỔNG:', alignment: 'right', bold: true },
                     { text: String(Number(totalHours.toFixed(1))), alignment: 'center', bold: true, color: 'blue' },
+                    { text: '', border: [false, false, false, false] },
                     { text: '', border: [false, false, false, false] }
                 ]);
             }
@@ -406,7 +448,7 @@ export default function ExportClient({ user, projectPermissionsMap }: ExportClie
                         headerRows: 1,
                         widths: exportType === 'tasks'
                             ? [20, '*', 60, 55, 45, 60, 25, 55, 70]
-                            : [60, 80, 80, '*', 70, 30, 100],
+                            : [55, 60, 60, '*', 50, 30, 25, 55, 60],
                         body: [
                             tableHeaders,
                             ...tableBody
@@ -422,21 +464,57 @@ export default function ExportClient({ user, projectPermissionsMap }: ExportClie
                 }
             ];
 
-            if (exportType === 'time' && userTotals.size > 0) {
-                const summaryBody = [
-                    [{ text: 'Nhân sự', style: 'tableHeader' }, { text: 'Tổng số giờ', style: 'tableHeader' }],
-                    ...Array.from(userTotals.entries()).map(([name, hours]) => [
-                        name,
-                        { text: String(Number(hours.toFixed(1))), alignment: 'center', bold: true }
-                    ])
+            if (exportType === 'time' && userSummaries.size > 0) {
+                const summaryBody: any[] = [
+                    [
+                        { text: 'Nhân sự', style: 'tableHeader' },
+                        { text: 'Tổng giờ dự kiến', style: 'tableHeader' },
+                        { text: 'Tổng giờ thực tế', style: 'tableHeader' },
+                        { text: 'Chênh lệch (giờ)', style: 'tableHeader' },
+                        { text: 'Hiệu suất (%)', style: 'tableHeader' },
+                        { text: 'Xếp loại', style: 'tableHeader' }
+                    ]
                 ];
 
+                Array.from(userSummaries.entries()).forEach(([name, s]) => {
+                    const est = Array.from(s.taskMap.values()).reduce((sum, t) => sum + t.est, 0);
+                    const act = s.totalAct;
+                    const diff = act - est;
+                    const perf = est > 0 ? (est / act) * 100 : 0;
+
+                    // Xếp loại chỉ dựa trên Hiệu suất giờ (Estimated / Actual)
+                    let rating = 'Yếu';
+                    let ratingColor = '#EF4444';
+                    if (est === 0) {
+                        rating = 'Chưa có kế hoạch';
+                        ratingColor = '#6B7280';
+                    } else if (perf >= 100) {
+                        rating = 'Xuất sắc';
+                        ratingColor = '#10B981';
+                    } else if (perf >= 90) {
+                        rating = 'Tốt';
+                        ratingColor = '#3B82F6';
+                    } else if (perf >= 75) {
+                        rating = 'Cần cải thiện';
+                        ratingColor = '#F59E0B';
+                    }
+
+                    summaryBody.push([
+                        name,
+                        { text: est > 0 ? est.toFixed(1) : '-', alignment: 'center' },
+                        { text: act.toFixed(1), alignment: 'center', bold: true },
+                        { text: diff > 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1), alignment: 'center', color: diff > 0 ? '#EF4444' : '#10B981' },
+                        { text: perf > 0 ? `${perf.toFixed(0)}%` : '-', alignment: 'center' },
+                        { text: rating, alignment: 'center', color: ratingColor, bold: true }
+                    ]);
+                });
+
                 docContent.push({ text: ' ', margin: [0, 15, 0, 0] as [number, number, number, number] });
-                docContent.push({ text: 'Tổng hợp theo nhân sự', style: 'subheader', margin: [0, 0, 0, 8] as [number, number, number, number] });
+                docContent.push({ text: 'Tổng hợp hiệu suất giờ theo nhân sự', style: 'subheader', margin: [0, 0, 0, 8] as [number, number, number, number] });
                 docContent.push({
                     table: {
                         headerRows: 1,
-                        widths: [150, 100],
+                        widths: ['*', 70, 70, 75, 75, 80],
                         body: summaryBody
                     },
                     layout: {
@@ -444,7 +522,7 @@ export default function ExportClient({ user, projectPermissionsMap }: ExportClie
                         vLineWidth: () => 0.5,
                         hLineColor: () => '#E5E7EB',
                         vLineColor: () => '#E5E7EB',
-                        fillColor: (rowIndex: number) => rowIndex === 0 ? '#10B981' : (rowIndex % 2 === 0 ? '#F9FAFB' : null)
+                        fillColor: (rowIndex: number) => rowIndex === 0 ? '#E0F2FE' : (rowIndex % 2 === 0 ? '#F9FAFB' : null)
                     }
                 });
             }

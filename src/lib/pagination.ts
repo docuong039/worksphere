@@ -29,7 +29,11 @@ export function parsePaginationParams(searchParams: URLSearchParams, defaultSort
 
     let pageSize = parseInt(searchParams.get('pageSize') || searchParams.get('limit') || PAGINATION.DEFAULT_PAGE_SIZE.toString());
     if (isNaN(pageSize) || pageSize < 1) pageSize = PAGINATION.DEFAULT_PAGE_SIZE;
-    if (pageSize > PAGINATION.MAX_PAGE_SIZE) pageSize = PAGINATION.MAX_PAGE_SIZE;
+    
+    const isExport = searchParams.get('forExport') === 'true';
+    if (!isExport && pageSize > PAGINATION.MAX_PAGE_SIZE) {
+        pageSize = PAGINATION.MAX_PAGE_SIZE;
+    }
 
     const sortBy = searchParams.get('sortBy') || defaultSortBy;
     const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc';

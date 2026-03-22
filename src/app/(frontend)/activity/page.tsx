@@ -8,6 +8,10 @@ import { activityService } from '@/api-client/activity.service';
 import { ActivityItem } from '@/types';
 import { toast } from 'sonner';
 
+// =============================================================================
+// Phần 1: State & Data Fetching
+// Quản lý trạng thái trang, bộ lọc và gọi API tải danh sách hoạt động
+// =============================================================================
 export default function ActivityPage() {
     const searchParams = useSearchParams();
     const [activities, setActivities] = useState<ActivityItem[]>([]);
@@ -22,21 +26,26 @@ export default function ActivityPage() {
 
     const userId = searchParams.get('userId');
 
+    // Reset về trang 1 và xoá danh sách cũ mỗi khi bộ lọc hoặc userId thay đổi,
+    // tránh hiển thị dữ liệu lẫn lộn giữa các lần lọc khác nhau.
     useEffect(() => {
         setPage(1);
         setActivities([]);
         setHasMore(true);
-    }, [selectedTypes, userId]); // Reset when filters change
+    }, [selectedTypes, userId]);
 
+    // Tải danh sách hoạt động mỗi khi page, userId hoặc selectedTypes thay đổi.
+    // Nếu page > 1 thì append vào danh sách hiện có (infinite scroll),
+    // nếu page = 1 thì ghi đè (reset sau khi đổi bộ lọc).
     useEffect(() => {
         const fetchActivity = async () => {
             setLoading(true);
             try {
-                // Determine active filters
                 const activeTypes = Object.entries(selectedTypes)
                     .filter(([, active]) => active)
                     .map(([type]) => type);
 
+                // Không gọi API nếu người dùng bỏ chọn tất cả bộ lọc
                 if (activeTypes.length === 0) {
                     setActivities([]);
                     setHasMore(false);
@@ -44,7 +53,6 @@ export default function ActivityPage() {
                     return;
                 }
 
-                // Call Service
                 const response = await activityService.getAll({
                     page,
                     limit: 50,
@@ -52,9 +60,8 @@ export default function ActivityPage() {
                 });
 
                 if (response.success) {
-                    // Filter locally by type (API returns mixed, frontend filters for displayToggle)
-                    // Note: Ideally API should accept 'types' param, but current API might not support it.
-                    // Based on previous code, logic filtered on client AFTER fetch.
+                    // Lọc theo loại entity ở phía client vì backend hiện chưa hỗ trợ
+                    // tham số `types` trong query. Cần refactor lại khi backend cập nhật.
                     const filtered = response.data.activities.filter((a) =>
                         activeTypes.includes(a.entityType)
                     );
@@ -64,10 +71,12 @@ export default function ActivityPage() {
                     } else {
                         setActivities(prev => [...prev, ...filtered]);
                     }
+
+                    // Nếu API trả về đủ 50 bản ghi thì giả định còn trang tiếp theo
                     setHasMore(response.data.activities.length >= 50);
                 }
             } catch (error) {
-            toast.error('Không thể tải lịch sử hoạt động. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
+                toast.error('Không thể tải lịch sử hoạt động. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau.');
                 console.error('Failed to fetch activity:', error);
             } finally {
                 setLoading(false);
@@ -75,9 +84,15 @@ export default function ActivityPage() {
         };
 
         fetchActivity();
-    }, [page, userId, selectedTypes]); // Re-fetch on page/filter change
+    }, [page, userId, selectedTypes]);
 
-    // Nhóm theo ngày - format đẹp hơn
+    // =============================================================================
+    // Phần 2: Các hàm xử lý / format dữ liệu
+    // Chuyển đổi dữ liệu thô từ API thành chuỗi/JSX hiển thị cho người dùng
+    // =============================================================================
+
+    // Chuyển timestamp thành nhãn ngày thân thiện: "Hôm nay", "Hôm qua", hoặc tên thứ.
+    // Trả về object gồm label (Hôm nay / Thứ Hai...) và subLabel (dd/mm/yyyy).
     const formatDateHeader = (dateStr: string) => {
         const date = new Date(dateStr);
         const today = new Date();
@@ -99,6 +114,8 @@ export default function ActivityPage() {
         }
     };
 
+    // Gom các activity có cùng ngày vào một nhóm để render theo từng ngày.
+    // Key là chuỗi ngày dạng "Mon Mar 22 2025", value là mảng các activity trong ngày đó.
     const grouped = activities.reduce((acc, act) => {
         const dateKey = new Date(act.createdAt).toDateString();
         if (!acc[dateKey]) acc[dateKey] = [];
@@ -106,6 +123,7 @@ export default function ActivityPage() {
         return acc;
     }, {} as Record<string, ActivityItem[]>);
 
+    // Trả về icon tương ứng với loại entity (task / project / user)
     const getIcon = (type: string) => {
         switch (type) {
             case 'task': return <CheckSquare className="w-4 h-4 text-blue-600" />;
@@ -115,6 +133,7 @@ export default function ActivityPage() {
         }
     };
 
+    // Trả về badge phân loại có màu tương ứng (xanh dương / tím / xanh lá)
     const getTypeBadge = (type: string) => {
         switch (type) {
             case 'task': return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Công việc</span>;
@@ -124,9 +143,10 @@ export default function ActivityPage() {
         }
     };
 
-    // Hàm chuyển đổi tên field kỹ thuật sang tiếng Việt thân thiện
+    // Ánh xạ tên field kỹ thuật trong DB sang tên tiếng Việt để hiển thị trong phần "chi tiết thay đổi".
+    // Trả về null cho các field dạng ID (statusId, assigneeId...) vì giá trị UUID không có ý nghĩa với người dùng —
+    // thông tin đã được phản ánh qua các field tên tương ứng (status, assignee...).
     const getFieldLabel = (fieldName: string): string | null => {
-        // Các field ID không cần hiển thị (đã có giá trị trong các field khác)
         const hiddenFields = ['statusId', 'priorityId', 'assigneeId', 'trackerId', 'parentId', 'projectId'];
         if (hiddenFields.includes(fieldName)) return null;
 
@@ -151,6 +171,8 @@ export default function ActivityPage() {
         return fieldMap[fieldName] || fieldName;
     };
 
+    // Dịch action string từ API (created, updated...) sang câu tiếng Việt phù hợp với từng loại entity.
+    // Ví dụ: action="created" + entityType="task" → "đã tạo công việc"
     const getActionText = (action: string, entityType: string) => {
         const actionLower = action.toLowerCase();
         switch (actionLower) {
@@ -164,11 +186,18 @@ export default function ActivityPage() {
         }
     };
 
+    // Tổng hợp câu mô tả hành động và link dẫn đến đối tượng bị tác động.
+    // Có 4 trường hợp xử lý:
+    //   1. Task còn tồn tại → link đến trang task kèm tên project
+    //   2. Project còn tồn tại → link đến trang project
+    //   3. Project đã bị xoá (entityDetails = null) → lấy tên từ changes.old/new, hiển thị dạng text thường
+    //   4. Fallback các entityType khác → hiển thị tên loại entity
     const formatAction = (act: ActivityItem) => {
         let actionText = '';
         let targetLink = null;
 
         if (act.entityType === 'task' && act.entityDetails) {
+            // Trường hợp 1: Task còn tồn tại
             const task = act.entityDetails;
             targetLink = (
                 <Link href={`/tasks/${task.id}`} className="font-medium text-blue-600 hover:text-blue-800 hover:underline">
@@ -179,6 +208,7 @@ export default function ActivityPage() {
             );
             actionText = getActionText(act.action, 'task');
         } else if (act.entityType === 'project' && act.entityDetails) {
+            // Trường hợp 2: Project còn tồn tại
             const project = act.entityDetails;
             targetLink = (
                 <Link href={`/projects/${project.id}`} className="font-medium text-purple-600 hover:text-purple-800 hover:underline">
@@ -187,16 +217,22 @@ export default function ActivityPage() {
             );
             actionText = getActionText(act.action, 'project') + ' dự án';
         } else if (act.entityType === 'project' && !act.entityDetails) {
+            // Trường hợp 3: Project đã bị xoá — lấy tên từ snapshot trong changes
             const projectName = String(act.changes?.old?.name || act.changes?.new?.name || 'Dự án');
             targetLink = <span className="font-medium text-gray-500">{projectName}</span>;
             actionText = getActionText(act.action, 'project') + ' dự án';
         } else {
+            // Trường hợp 4: Các loại entity khác chưa được xử lý riêng
             actionText = getActionText(act.action, act.entityType) + ` ${act.entityType}`;
         }
 
         return { actionText, targetLink };
     };
 
+    // =============================================================================
+    // Phần 3: Render giao diện
+    // Layout 2 cột: sidebar bộ lọc (trái) + danh sách hoạt động nhóm theo ngày (phải)
+    // =============================================================================
     return (
         <div className="max-w-6xl mx-auto">
             {/* Header */}
@@ -213,7 +249,7 @@ export default function ActivityPage() {
             </div>
 
             <div className="flex gap-6">
-                {/* Sidebar Filters - Di chuyển sang trái */}
+                {/* Sidebar bộ lọc — sticky để luôn hiển thị khi scroll */}
                 <div className="w-64 flex-shrink-0">
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm sticky top-4">
                         <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -261,13 +297,13 @@ export default function ActivityPage() {
                     </div>
                 </div>
 
-                {/* Main Content */}
+                {/* Danh sách hoạt động nhóm theo ngày */}
                 <div className="flex-1 min-w-0">
                     {Object.entries(grouped).map(([dateKey, items]) => {
                         const header = formatDateHeader(dateKey);
                         return (
                             <div key={dateKey} className="mb-6">
-                                {/* Date Header */}
+                                {/* Thanh tiêu đề ngày — sticky để hiển thị khi scroll qua danh sách dài */}
                                 <div className="flex items-center gap-3 mb-3 sticky top-0 bg-gray-50/95 backdrop-blur-sm py-3 z-10">
                                     <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-gray-200 shadow-sm">
                                         <Calendar className="w-4 h-4 text-blue-600" />
@@ -281,7 +317,7 @@ export default function ActivityPage() {
                                     </span>
                                 </div>
 
-                                {/* Activity List */}
+                                {/* Bảng danh sách hoạt động trong ngày */}
                                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                                     <table className="w-full">
                                         <tbody className="divide-y divide-gray-100">
@@ -289,7 +325,7 @@ export default function ActivityPage() {
                                                 const { actionText, targetLink } = formatAction(act);
                                                 return (
                                                     <tr key={act.id} className="hover:bg-gray-50 transition-colors">
-                                                        {/* Time */}
+                                                        {/* Giờ xảy ra hoạt động */}
                                                         <td className="px-4 py-3 w-20">
                                                             <div className="flex items-center gap-1.5 text-xs text-gray-500">
                                                                 <Clock className="w-3 h-3" />
@@ -299,14 +335,14 @@ export default function ActivityPage() {
                                                             </div>
                                                         </td>
 
-                                                        {/* Type Icon */}
+                                                        {/* Icon loại entity */}
                                                         <td className="px-2 py-3 w-10">
                                                             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100">
                                                                 {getIcon(act.entityType)}
                                                             </div>
                                                         </td>
 
-                                                        {/* Content */}
+                                                        {/* Nội dung chính: "Người dùng + hành động + link đối tượng" */}
                                                         <td className="px-4 py-3">
                                                             <div className="text-sm">
                                                                 <span className="font-medium text-gray-900">{act.user.name}</span>
@@ -314,14 +350,17 @@ export default function ActivityPage() {
                                                                 {targetLink}
                                                             </div>
 
-                                                            {/* Changes detail */}
+                                                            {/* Chi tiết các field bị thay đổi, chỉ hiển thị khi action là "updated".
+                                                                Duyệt qua từng key trong changes.new, bỏ qua nếu:
+                                                                - Field là dạng ID (ẩn theo getFieldLabel)
+                                                                - Giá trị cũ và mới giống nhau */}
                                                             {act.changes && act.action.toLowerCase() === 'updated' && act.changes.old && act.changes.new && (() => {
                                                                 const { old: oldChanges, new: newChanges } = act.changes;
                                                                 return (
                                                                     <div className="mt-1.5 flex flex-wrap gap-2">
                                                                         {Object.keys(newChanges).map((key: string) => {
                                                                             const fieldLabel = getFieldLabel(key);
-                                                                            if (!fieldLabel) return null; // Ẩn các field ID không cần thiết
+                                                                            if (!fieldLabel) return null;
 
                                                                             const oldValue = oldChanges?.[key];
                                                                             const newValue = newChanges?.[key];
@@ -341,7 +380,7 @@ export default function ActivityPage() {
                                                             })()}
                                                         </td>
 
-                                                        {/* Type Badge */}
+                                                        {/* Badge phân loại entity */}
                                                         <td className="px-4 py-3 w-28 text-right">
                                                             {getTypeBadge(act.entityType)}
                                                         </td>

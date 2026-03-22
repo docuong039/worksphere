@@ -50,23 +50,44 @@ export const GET = withAuth(async (req, user) => {
         include: {
             user: { select: { name: true } },
             activity: { select: { name: true } },
-            task: { select: { number: true, title: true } },
+            task: { select: { number: true, title: true, estimatedHours: true, timeLogs: { select: { hours: true } } } },
             project: { select: { name: true } },
         },
         orderBy: [{ spentOn: 'desc' }, { createdAt: 'desc' }],
     });
 
     // Build CSV
-    const headers = ['Ngày', 'Người thực hiện', 'Dự án', 'Công việc', 'Hoạt động', 'Bình luận', 'Giờ'];
-    const rows = timeLogs.map((log) => [
-        new Date(log.spentOn).toISOString().split('T')[0],
-        log.user.name,
-        log.project.name,
-        log.task ? `#${log.task.number} ${log.task.title}` : '',
-        log.activity.name,
-        log.comments?.replace(/"/g, '""') || '',
-        log.hours.toFixed(1),
-    ]);
+    const headers = ['Ngày', 'Người thực hiện', 'Dự án', 'Công việc', 'Hoạt động', 'Dự kiến (Task)', 'Giờ log', 'Đánh giá ngân sách', 'Bình luận'];
+    const rows = timeLogs.map((log) => {
+        let est = 0;
+        let evalStatus = '-';
+        
+        if (log.task) {
+            est = log.task.estimatedHours || 0;
+            const totalActual = log.task.timeLogs.reduce((sum: number, t: any) => sum + t.hours, 0);
+            if (est > 0) {
+                if (totalActual > est) {
+                    evalStatus = `Vượt mức ${(totalActual - est).toFixed(1)}h`;
+                } else {
+                    evalStatus = `Còn dư ${(est - totalActual).toFixed(1)}h`;
+                }
+            } else {
+                evalStatus = 'Chưa thiết lập KH';
+            }
+        }
+
+        return [
+            new Date(log.spentOn).toISOString().split('T')[0],
+            log.user.name,
+            log.project.name,
+            log.task ? `#${log.task.number} ${log.task.title}` : '',
+            log.activity.name,
+            est > 0 ? est.toFixed(1) : '-',
+            log.hours.toFixed(1),
+            evalStatus,
+            log.comments?.replace(/"/g, '""') || '',
+        ];
+    });
 
     const csvContent = [
         headers.join(','),

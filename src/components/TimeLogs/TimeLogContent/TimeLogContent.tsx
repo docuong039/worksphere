@@ -243,7 +243,7 @@ export function TimeLogContent({
                         {canLogTime && (
                             <button
                                 onClick={() => setShowLogTimeModal(true)}
-                                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all"
                             >
                                 <Plus className="w-4 h-4" />
                                 Ghi thời gian

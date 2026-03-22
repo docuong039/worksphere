@@ -13,7 +13,7 @@ export class TimeLogServerService {
         const activityId = searchParams.get('activityId');
         const fromDate = searchParams.get('from');
         const toDate = searchParams.get('to');
-        
+
         const { page, pageSize } = parsePaginationParams(searchParams, 'spentOn');
 
         const userPermissions = await getUserPermissions(user.id, projectId || undefined);
@@ -46,7 +46,7 @@ export class TimeLogServerService {
                 include: {
                     user: { select: { id: true, name: true, avatar: true } },
                     activity: { select: { id: true, name: true } },
-                    task: { select: { id: true, number: true, title: true } },
+                    task: { select: { id: true, number: true, title: true, estimatedHours: true, dueDate: true, updatedAt: true, status: { select: { isClosed: true } }, timeLogs: { select: { hours: true } } } },
                     project: { select: { id: true, name: true, identifier: true } },
                 },
                 orderBy: [{ spentOn: 'desc' }, { createdAt: 'desc' }],
