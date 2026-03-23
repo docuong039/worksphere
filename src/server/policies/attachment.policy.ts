@@ -13,7 +13,7 @@ interface User {
 
 interface Attachment {
     id: string;
-    userId: string; // Uploader
+    userId: string; // Người tải lên
 }
 
 /**

@@ -13,7 +13,7 @@ interface User {
 
 interface TimeLog {
     id: string;
-    userId: string; // Creator of the log
+    userId: string; // Người tạo nhật ký
     projectId: string;
 }
 

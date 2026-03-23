@@ -65,7 +65,7 @@ export function TaskCard({ task, statuses, trackers, priorities, canAssignOthers
             if (isClosing) {
                 // Ưu tiên trạng thái Đóng có mức hoàn thành mặc định là 100%
                 targetStatus = statuses.find(s => s.isClosed && s.defaultDoneRatio === 100);
-                
+
                 // Dự phòng: Lấy trạng thái Đóng đầu tiên
                 if (!targetStatus) {
                     targetStatus = statuses.find(s => s.isClosed);
@@ -73,7 +73,7 @@ export function TaskCard({ task, statuses, trackers, priorities, canAssignOthers
             } else {
                 // Ưu tiên trạng thái Mở mặc định (thường là New/Mới)
                 targetStatus = statuses.find(s => !s.isClosed && s.isDefault);
-                
+
                 // Dự phòng: Lấy trạng thái Mở đầu tiên
                 if (!targetStatus) {
                     targetStatus = statuses.find(s => !s.isClosed);
