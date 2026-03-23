@@ -34,7 +34,7 @@ export async function GET(request: Request) {
             }
         });
 
-        // 2. Lấy thông báo đã tạo hôm nay để tránh spam ngập lụt 1 ngày nhiều tin
+        // 2. Lấy thông báo đã tạo hôm nay để tránh spam 1 ngày nhiều tin
         const recentNotifications = await prisma.notification.findMany({
             where: {
                 type: { in: ['TASK_DUE_SOON', 'TASK_OVERDUE'] },
@@ -43,6 +43,7 @@ export async function GET(request: Request) {
             select: { metadata: true, type: true }
         });
 
+        // lọc ra các task được gửi thông báo hôm nay để không spam
         const notifiedTaskIds = new Set<string>();
         for (const notif of recentNotifications) {
             if (notif.metadata) {

@@ -396,6 +396,8 @@ export class ReportServerService {
                 const statusCounts = new Map<string, number>();
                 const userStats = new Map<string, { total: number, completed: number, completedLate: number, overdue: number }>();
 
+                // 1. Chạy vòng lặp qua từng object Task lấy từ Database để ghép thành chữ (Text)
+                // Phải bao chuỗi văn bản bằng "" (VD: "Làm màn hình") để tránh dấu phẩy lọt ra ngoài làm Excel nhận diện nhầm cột
                 tasks.forEach(task => {
                     totalTasks++;
                     statusCounts.set(task.status.name, (statusCounts.get(task.status.name) || 0) + 1);
@@ -452,6 +454,7 @@ export class ReportServerService {
                 break;
             }
 
+            // xuất thời gian
             case 'time-logs': {
                 const where: Record<string, unknown> = {};
 
@@ -489,11 +492,13 @@ export class ReportServerService {
                     orderBy: { spentOn: 'desc' },
                 });
 
+                // 1. Tạo Dòng Tiêu đề (Header) cho File CSV, dùng \n (Enter) để chuẩn bị xuống dòng
                 csvContent = 'Ngày,Người thực hiện,Dự án,Tên công việc,Hoạt động,Dự kiến (Task),Giờ log,Đánh giá ngân sách,Mô tả\n';
 
                 let totalHours = 0;
                 const userSummaries = new Map<string, { totalAct: number; taskMap: Map<number, { est: number; isClosed: boolean; isOnTime: boolean }> }>();
 
+                // 2. Chạy vòng lặp qua list Time Logs, trích xuất dữ liệu và làm Toán ngay trên Server
                 timeLogs.forEach(log => {
                     const spentOnStr = this.formatDateVN(log.spentOn);
                     const taskTitle = log.task ? `#${log.task.number} ${log.task.title}` : '-';
@@ -501,7 +506,7 @@ export class ReportServerService {
 
                     let est = 0;
                     let evalStatus = '-';
-                    
+
                     if (log.task) {
                         est = log.task.estimatedHours || 0;
                         const totalActual = log.task.timeLogs.reduce((sum: number, t: any) => sum + t.hours, 0);
@@ -517,14 +522,14 @@ export class ReportServerService {
                     }
 
                     totalHours += log.hours;
-                    
+
                     let s = userSummaries.get(log.user.name);
                     if (!s) {
                         s = { totalAct: 0, taskMap: new Map() };
                         userSummaries.set(log.user.name, s);
                     }
                     s.totalAct += log.hours;
-                    
+
                     if (log.task && !s.taskMap.has(log.task.number)) {
                         const isClosed = log.task.status?.isClosed || false;
                         let isOnTime = false;
@@ -535,10 +540,12 @@ export class ReportServerService {
                         s.taskMap.set(log.task.number, { est: est, isClosed, isOnTime });
                     }
 
-                    // Columns: Ngày,Người thực hiện,Dự án,Tên công việc,Hoạt động,Dự kiến (Task),Giờ log,Đánh giá ngân sách,Mô tả
+                    // 3. Nối các Cột dữ liệu lại bằng DẤU PHẨY. 
+                    // Ở cuối dòng nhất thiết phải có \n để ép dòng Record tiếp theo bị đẩy xuống dòng mới trong Excel
                     csvContent += `"${spentOnStr}","${log.user.name}","${log.project.name}","${taskTitle.replace(/"/g, '""')}","${log.activity.name}",${est > 0 ? est.toFixed(1) : '""'},${log.hours},"${evalStatus}","${comments}"\n`;
                 });
 
+                // 4. (Tùy chọn) Chống số lượng cột xuống bằng 6 dấu phẩy để dòng Tổng chui vào đúng góc bên phải của file Excel
                 csvContent += `,,,,,,"TỔNG CỘNG TẤT CẢ:",${totalHours.toFixed(1)},,""\n`;
 
                 if (userSummaries.size > 0) {

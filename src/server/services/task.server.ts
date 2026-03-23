@@ -14,33 +14,38 @@ import { SessionUser } from '@/types';
 import { buildPaginationResult, parsePaginationParams } from '@/lib/pagination';
 
 export class TaskServerService {
+    /**
+     * Lấy danh sách công việc (dùng qua Fetch/API trên phía Client)
+     */
     static async getTasks(user: SessionUser, searchParams: URLSearchParams) {
         const userId = user.id;
 
-        // 1. Parse Query Parameters
+        // 1. Phân tích các query parameter (ví dụ: page=1, pageSize=50) để làm phân trang
         const { page, pageSize, sortBy, sortOrder } = parsePaginationParams(searchParams);
 
-        // 2. Determine Scope (Project Visibility)
+        // 2. Xác định phạm vi dự án mà người dùng này được phép xem
         const allowedProjectIds = await getAccessibleProjectIds(userId, [
             PERMISSIONS.TASKS.VIEW_PROJECT,
             PERMISSIONS.TASKS.VIEW_ALL,
             PERMISSIONS.TASKS.VIEW_ASSIGNED
         ]);
 
-        // If user explicitly requested a project, verify access
+        // Kiểm tra xem người dùng có truyền cố định lên projectId nào để xem không
         const requestedProjectId = searchParams.get('projectId');
         if (requestedProjectId && !allowedProjectIds.includes(requestedProjectId)) {
+            // Nếu không có quyền và không phải admin thì báo lỗi quyền truy cập
             if (!user.isAdministrator) {
                 throw new Error('Bạn không có quyền xem công việc trong dự án này');
             }
         }
 
+        // Chốt lại danh sách các ID dự án cuối cùng để lọc
         const effectiveProjectIds = requestedProjectId
             ? [requestedProjectId]
             : allowedProjectIds;
 
+        // Nếu người dùng chưa vào dự án nào và lại không phải admin, trả về danh sách rỗng
         if (effectiveProjectIds.length === 0 && !user.isAdministrator) {
-            // In this early return case, total tasks are 0.
             const total = 0;
             return {
                 tasks: [],
@@ -49,7 +54,7 @@ export class TaskServerService {
             };
         }
 
-        // 2.5 Map permissions per project for strict task visibility control
+        // 2.5 Lấy danh sách quyền hạn từng dự án của người dùng (dùng để lọc danh sách chi tiết)
         const projectPermissionsMap: Record<string, string[]> = {};
         if (!user.isAdministrator && effectiveProjectIds.length > 0) {
             const memberships = await prisma.projectMember.findMany({
@@ -64,7 +69,8 @@ export class TaskServerService {
             }
         }
 
-        // 3. Build Filter Clause using helper
+        // 3. Xây dựng bộ điều kiện query (WHERE) thông qua helper
+        // Gói tất cả các filter (như search keyword, statusId, priorityId) vào đây
         const where = buildTaskFilters({
             projectIds: effectiveProjectIds,
             userId,
@@ -73,22 +79,23 @@ export class TaskServerService {
             projectPermissionsMap,
         });
 
-        // 4. Execute Query & Aggregations
+        // 4. THỰC THI QUERY: Lấy danh sách, tổng dòng bằng prisma thông qua Promise.all chạy song song
         const [tasks, total, taskAgg] = await Promise.all([
             prisma.task.findMany({
-                where,
-                orderBy: { [sortBy]: sortOrder },
-                skip: (page - 1) * pageSize,
-                take: pageSize,
+                where,                            // Truyền bộ filter đã chuẩn bị
+                orderBy: { [sortBy]: sortOrder }, // Sắp xếp
+                skip: (page - 1) * pageSize,      // Bỏ qua trang trước đó để làm trang hiện tại
+                take: pageSize,                   // Cắt lấy số lượng đúng bằng 1 trang
                 include: TASK_LIST_INCLUDE,
             }),
-            prisma.task.count({ where }),
-            prisma.task.aggregate({
+            prisma.task.count({ where }),         // Đếm tống lượng công việc thoả mãn đkiện lọc (Hỗ trợ phân trang UI)
+            prisma.task.aggregate({               // Tính tổng các aggregate đặc biệt (như estimatedHours)
                 _sum: { estimatedHours: true },
                 where
             })
         ]);
 
+        // Gói và trả về API Result
         return {
             tasks,
             pagination: buildPaginationResult(total, page, pageSize),
@@ -586,16 +593,18 @@ export class TaskServerService {
     }
 
     /**
-     * Lấy dữ liệu khởi tạo cho trang danh sách Tasks trên toàn hệ thống
+     * Lấy dữ liệu khởi tạo cho trang danh sách Tasks trên toàn hệ thống (Dùng qua Server-Side Rendering)
+     * Trả về bao gồm: Danh sách công việc và mọi options filter (Status, Project, Tracker, v.v...)
      */
     static async getGlobalTasksData(user: SessionUser, searchParams: URLSearchParams = new URLSearchParams()) {
-        // 1. Get dictionary of all trackers
+        // 1. Lấy tất cả loại công việc (Tracker) vào biến dictionary
         const trackers = await prisma.tracker.findMany({ orderBy: { position: 'asc' } });
 
-        // 2. Compute allowed trackers per project based on permissions
+        // 2. Tính toán xem User được dùng những Tracker nào tương ứng với từng dự án phụ thuộc vào quyền
         const allowedTrackerIdsByProject: Record<string, string[]> = {};
 
         if (user.isAdministrator) {
+            // Admin thì lấy toàn bộ
             const allProjects = await prisma.project.findMany({
                 where: { isArchived: false },
                 include: { trackers: true },
@@ -608,6 +617,7 @@ export class TaskServerService {
                 }
             });
         } else {
+            // Không phải admin thì dựa vào Role của nhóm quyền từng Project
             const memberships = await prisma.projectMember.findMany({
                 where: {
                     userId: user.id,
@@ -632,7 +642,7 @@ export class TaskServerService {
             });
         }
 
-        // Get other filter data
+        // 3. Lấy song song toàn bộ dữ liệu Filter cơ bản cho bảng và Panel lọc (Trạng thái, độ ưu tiên, danh sách dự án...)
         const [statuses, priorities, projects, queries, users] = await Promise.all([
             prisma.status.findMany({ orderBy: { position: 'asc' } }),
             prisma.priority.findMany({ orderBy: { position: 'asc' } }),
@@ -670,7 +680,7 @@ export class TaskServerService {
             }),
         ]);
 
-        // Prepare effective projects for task filtering
+        // 4. Thu thập các quyền cụ thể trên dự án của user để hỗ trợ query
         const effectiveProjectIds = projects.map((p: any) => p.id);
         const projectPermissionsMap: Record<string, string[]> = {};
 
@@ -687,14 +697,17 @@ export class TaskServerService {
             }
         }
 
+        // 5. Cài đặt các Filter mặc định nếu người dùng chưa chọn
         if (!searchParams.has('isClosed')) {
-            searchParams.set('isClosed', 'false');
+            searchParams.set('isClosed', 'false'); // Mặc định là không hiển thị task đã đóng
         }
-        // Global tasks page default to 'my=true' for non-admin to show assigned/created tasks, exactly like old where clause did
+        
+        // Mặc định chỉ hiển thị công việc "của tôi" (my=true) nếu không phải admin
         if (!user.isAdministrator && !searchParams.has('my')) {
             searchParams.set('my', 'true');
         }
 
+        // Đánh giá 1 số quyền UI
         let canAssignOthers = user.isAdministrator || false;
         let canCreateTask = user.isAdministrator || false;
         let canRemindTask = user.isAdministrator || false;
@@ -705,9 +718,10 @@ export class TaskServerService {
             canRemindTask = Object.values(projectPermissionsMap).some((perms: any) => TaskPolicy.canRemindTask(user as any, null as any, perms));
         }
 
+        // Lấy thông số phân trang
         const { page, pageSize, sortBy, sortOrder } = parsePaginationParams(searchParams);
 
-        // Initial tasks filter using robust helper
+        // 6. Xây dựng Object WHERE cấu trúc dữ liệu cho Prisma thay vì viết raw SQL filter
         const where = buildTaskFilters({
             projectIds: effectiveProjectIds,
             userId: user.id || '',
@@ -716,16 +730,17 @@ export class TaskServerService {
             projectPermissionsMap,
         });
 
+        // 7. GỌI DATABASE ĐỂ QUERY TỔNG HỢP SONG SONG
         const [tasks, total, taskAgg] = await Promise.all([
             prisma.task.findMany({
-                where,
+                where, // Ném Object Filter vào đây
                 orderBy: { [sortBy]: sortOrder },
                 skip: (page - 1) * pageSize,
-                take: pageSize,
+                take: pageSize, // Chặn lại theo limit Size
                 include: TASK_LIST_INCLUDE,
             }),
-            prisma.task.count({ where }),
-            prisma.task.aggregate({
+            prisma.task.count({ where }), // Đếm số lượng bảng theo logic để hiển thị pagination
+            prisma.task.aggregate({ // Cộng tổng thời gian định mức
                 _sum: { estimatedHours: true },
                 where
             })
@@ -737,6 +752,7 @@ export class TaskServerService {
 
         const pagination = buildPaginationResult(total, page, pageSize);
 
+        // 8. Trả về cho Route/Component đầy đủ cả Tasks Data & Filter Options để View
         return {
             tasks,
             pagination,
